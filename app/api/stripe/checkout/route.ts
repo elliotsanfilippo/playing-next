@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const { songTitle, artist, requestId, djSlug } = body;
+    const { songTitle, artist, requestId, djSlug, requestPrice } = body;
 
     const safeDjSlug = djSlug || "dj-elliot";
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
               name: `Song request: ${songTitle}`,
               description: artist,
             },
-            unit_amount: 500,
+            unit_amount: requestPrice || 500,
           },
           quantity: 1,
         },

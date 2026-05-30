@@ -62,9 +62,9 @@ export default function LoginPage() {
   Don't have an account?{" "}
   <a
     href="/signup"
-    className="text-white underline"
+    className="font-semibold text-white underline underline-offset-4"
   >
-    Create one
+    Sign Up
   </a>
 </p>
         </div>

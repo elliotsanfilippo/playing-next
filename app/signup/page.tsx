@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { supabase } from "../../src/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
 
   const signUp = async () => {
     const { data, error } = await supabase.auth.signUp({
@@ -59,29 +61,40 @@ if (profileError) {
         </p>
 
         <div className="mt-8 space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
-          />
+  <input
+    type="email"
+    placeholder="Email"
+    value={email}
+    onChange={(event) => setEmail(event.target.value)}
+    className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
+  />
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
-          />
+  <input
+    type="password"
+    placeholder="Password"
+    value={password}
+    onChange={(event) => setPassword(event.target.value)}
+    className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
+  />
 
-          <button
-            onClick={signUp}
-            className="w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black"
-          >
-            Create Account
-          </button>
-        </div>
+  <button
+    onClick={signUp}
+    className="w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black"
+  >
+    Create Account
+  </button>
+
+  <p className="pt-4 text-center text-sm text-zinc-400">
+    Already have an account?{" "}
+    <button
+      type="button"
+      onClick={() => router.push("/login")}
+      className="font-semibold text-white underline underline-offset-4"
+    >
+      Log In
+    </button>
+  </p>
+</div>
       </div>
     </main>
   );

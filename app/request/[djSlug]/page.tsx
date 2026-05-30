@@ -8,6 +8,10 @@ type DJProfile = {
   id: string;
   dj_name: string;
   request_status: string;
+  genres: string[] | string | null;
+  bio: string | null;
+  request_price: number | null;
+  profile_image_url: string | null;
 };
 
 type SpotifyTrack = {
@@ -29,7 +33,7 @@ export default function RequestPage() {
   const fetchDJProfile = async () => {
     const { data, error } = await supabase
   .from("dj_profiles")
-  .select("id, dj_name, request_status")
+  .select("id, dj_name, request_status, genres, bio, request_price, profile_image_url")
   .eq("slug", djSlug)
   .single();
 
@@ -132,11 +136,12 @@ const checkoutResponse = await fetch("/api/stripe/checkout", {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    songTitle: selectedSong.title,
-    artist: selectedSong.artist,
-    requestId: data.id,
-    djSlug,
-  }),
+  songTitle: selectedSong.title,
+  artist: selectedSong.artist,
+  requestId: data.id,
+  djSlug,
+  requestPrice: djProfile.request_price || 500,
+}),
 });
 
     const checkoutData = await checkoutResponse.json();
@@ -162,7 +167,15 @@ if (djNotFound) {
     <main className="min-h-screen bg-black text-white">
       <section className="mx-auto max-w-3xl px-6 py-12">
         <div className="flex items-center gap-4">
-          <div className="h-20 w-20 rounded-full bg-zinc-800" />
+          {djProfile?.profile_image_url ? (
+  <img
+    src={djProfile.profile_image_url}
+    alt={djProfile.dj_name}
+    className="h-20 w-20 rounded-full object-cover"
+  />
+) : (
+  <div className="h-20 w-20 rounded-full bg-zinc-800" />
+)}
 
           <div>
             <p className="text-sm text-zinc-400">Playing Next</p>
@@ -172,8 +185,17 @@ if (djNotFound) {
             </h1>
 
             <p className="mt-2 text-zinc-400">
-              House • UK Garage • Tech House
-            </p>
+  {Array.isArray(djProfile?.genres)
+    ? djProfile.genres.join(" • ")
+    : djProfile?.genres || "Genres coming soon"}
+</p>
+
+{djProfile?.bio && (
+  <p className="mt-2 max-w-xl text-zinc-400">
+    {djProfile.bio}
+  </p>
+)}
+            
             <div className="mt-4">
   <a
     href={`/request/${djSlug}/my-requests`}
@@ -218,7 +240,7 @@ if (djNotFound) {
             </div>
 
             <div className="rounded-full bg-white px-4 py-2 font-semibold text-black">
-              £5 Request
+              £{((djProfile?.request_price || 500) / 100).toFixed(2)} Request
             </div>
           </div>
 

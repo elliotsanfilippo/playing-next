@@ -18,6 +18,7 @@ type DJProfile = {
   dj_name: string;
   slug: string;
   request_status: string;
+  profile_image_url: string | null;
 };
 
 
@@ -346,30 +347,59 @@ useEffect(() => {
     <main className="min-h-screen bg-zinc-950 p-6 text-white">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-zinc-400">Playing Next</p>
-            <h1 className="mt-2 text-4xl font-bold">DJ Dashboard</h1>
-          </div>
+          <div className="flex items-center gap-4">
+  {djProfile?.profile_image_url ? (
+    <img
+      src={djProfile.profile_image_url}
+      alt={djProfile.dj_name}
+      className="h-16 w-16 rounded-full object-cover"
+    />
+  ) : (
+    <div className="h-16 w-16 rounded-full bg-zinc-800" />
+  )}
 
-          <div className="flex gap-3">
-            <button
-              onClick={toggleRequests}
-              className={`rounded-full px-5 py-3 text-sm font-semibold ${
-                isTakingRequests
-                  ? "bg-green-500/20 text-green-400"
-                  : "bg-red-500/20 text-red-400"
-              }`}
-            >
-              {isTakingRequests ? "Taking Requests" : "Requests Paused"}
-            </button>
+  <div>
+    <p className="text-sm text-zinc-400">Playing Next</p>
 
-            <button
-              onClick={logout}
-              className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white"
-            >
-              Log Out
-            </button>
-          </div>
+    <h1 className="mt-2 text-4xl font-bold">
+      {djProfile?.dj_name || "DJ Dashboard"}
+    </h1>
+  </div>
+</div>
+
+          <div className="flex items-center gap-3">
+  <button
+    onClick={toggleRequests}
+    className={`h-12 rounded-full px-6 text-sm font-semibold transition ${
+      isTakingRequests
+        ? "bg-green-500/20 text-green-400"
+        : "bg-red-500/20 text-red-400"
+    }`}
+  >
+    {isTakingRequests ? "Taking Requests" : "Requests Paused"}
+  </button>
+
+  <button
+    onClick={() => router.push("/dj/analytics")}
+    className="h-12 rounded-full border border-white/10 bg-zinc-900 px-6 text-sm font-semibold text-white transition hover:bg-zinc-800"
+  >
+    Analytics
+  </button>
+
+  <button
+    onClick={() => router.push("/dj/settings")}
+    className="h-12 rounded-full border border-white/10 bg-zinc-900 px-6 text-sm font-semibold text-white transition hover:bg-zinc-800"
+  >
+    Settings
+  </button>
+
+  <button
+    onClick={logout}
+    className="h-12 rounded-full border border-red-500/20 bg-red-500/10 px-6 text-sm font-semibold text-red-400 transition hover:bg-red-500/20"
+  >
+    Log Out
+  </button>
+</div>
         </div>
 
         <div className="mb-6 rounded-3xl border border-white/10 bg-zinc-900 p-6">
