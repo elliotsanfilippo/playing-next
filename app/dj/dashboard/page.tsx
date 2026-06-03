@@ -9,6 +9,8 @@ type SongRequest = {
   id: string;
   song_title: string;
   artist: string;
+  message: string | null;
+  request_type: string | null;
   request_status: string;
   stripe_payment_intent_id: string | null;
 };
@@ -257,7 +259,51 @@ const declineRequest = async (request: SongRequest) => {
 
   await updateRequestStatus(request.id, "declined");
 };
+const moveAcceptedRequest = async (
+  requestId: string,
+  direction: "up" | "down" | "top"
+) => {
+  const sortedAccepted = [...acceptedRequests].sort(
+  (a: any, b: any) =>
+    (a.queue_position || 999) - (b.queue_position || 999)
+);
 
+  const currentIndex = sortedAccepted.findIndex(
+    (request) => request.id === requestId
+  );
+
+  if (currentIndex === -1) return;
+
+  const newOrder = [...sortedAccepted];
+  const [selectedRequest] = newOrder.splice(currentIndex, 1);
+
+  if (direction === "top") {
+    newOrder.unshift(selectedRequest);
+  }
+
+  if (direction === "up") {
+    const targetIndex = Math.max(currentIndex - 1, 0);
+    newOrder.splice(targetIndex, 0, selectedRequest);
+  }
+
+  if (direction === "down") {
+    const targetIndex = Math.min(currentIndex + 1, newOrder.length);
+    newOrder.splice(targetIndex, 0, selectedRequest);
+  }
+
+  await Promise.all(
+    newOrder.map((request, index) =>
+      supabase
+        .from("song_requests")
+        .update({
+          queue_position: index + 1,
+        })
+        .eq("id", request.id)
+    )
+  );
+
+  await fetchRequests();
+};
   const logout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -329,8 +375,11 @@ useEffect(() => {
     (request) => request.request_status === "pending"
   );
 
-  const acceptedRequests = requests.filter(
-    (request) => request.request_status === "accepted"
+  const acceptedRequests = requests
+  .filter((request) => request.request_status === "accepted")
+  .sort(
+    (a: any, b: any) =>
+      (a.queue_position || 999) - (b.queue_position || 999)
   );
 
   const playingNextRequests = requests.filter(
@@ -454,7 +503,17 @@ useEffect(() => {
             </h2>
 
             <p className="mt-1 text-zinc-600">{currentPlayingNext.artist}</p>
+{currentPlayingNext.request_type === "song_message" && (
+  <div className="mt-4 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3">
+    <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">
+      Shoutout Message
+    </p>
 
+    <p className="mt-1 text-sm">
+      {currentPlayingNext.message}
+    </p>
+  </div>
+)}
             <button
               onClick={() =>
                 updateRequestStatus(currentPlayingNext.id, "played")
@@ -499,7 +558,17 @@ useEffect(() => {
                         <p className="text-sm text-zinc-400">
                           {request.artist}
                         </p>
+{request.request_type === "song_message" && (
+  <div className="mt-3 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3">
+    <p className="text-xs font-semibold uppercase tracking-wide text-purple-300">
+      Shoutout Message
+    </p>
 
+    <p className="mt-1 text-sm text-white">
+      {request.message || "No message provided"}
+    </p>
+  </div>
+)}
                         <p className="mt-2 text-xs text-zinc-500">
                           {request.stripe_payment_intent_id
                             ? "Payment authorised"
@@ -561,6 +630,45 @@ useEffect(() => {
                         <p className="text-sm text-zinc-400">
                           {request.artist}
                         </p>
+                        {request.request_type === "song_message" && (
+  <div className="mt-3 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3">
+    <p className="text-xs font-semibold uppercase tracking-wide text-purple-300">
+      Shoutout Message
+    </p>
+
+    <p className="mt-1 text-sm text-white">
+      {request.message || "No message provided"}
+    </p>
+  </div>
+)}
+<div className="mt-4 flex gap-2">
+  <button
+    onClick={() =>
+      moveAcceptedRequest(request.id, "top")
+    }
+    className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold"
+  >
+    ⬆ Top
+  </button>
+
+  <button
+    onClick={() =>
+      moveAcceptedRequest(request.id, "up")
+    }
+    className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold"
+  >
+    ↑ Up
+  </button>
+
+  <button
+    onClick={() =>
+      moveAcceptedRequest(request.id, "down")
+    }
+    className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold"
+  >
+    ↓ Down
+  </button>
+</div>
                       </div>
 
                       {currentPlayingNext ? (

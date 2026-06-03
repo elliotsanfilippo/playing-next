@@ -11,22 +11,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
 
   const login = async () => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  console.log("LOGIN VALUES:", email, password);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+  if (!email || !password) {
+    alert("Please enter your email and password.");
+    return;
+  }
 
-    router.push("/dj/dashboard");
-  };
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  router.push("/dj/dashboard");
+};
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-black p-6 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-8">
+      <div className="relative z-50 w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-8">
         <p className="text-sm text-zinc-400">Playing Next</p>
 
         <h1 className="mt-2 text-4xl font-bold">DJ Login</h1>
@@ -53,20 +60,22 @@ export default function LoginPage() {
           />
 
           <button
-            onClick={login}
-            className="w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black"
-          >
-            Log In
-          </button>
+  type="button"
+  onClick={login}
+  className="relative z-50 w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black"
+>
+  Log In
+</button>
+
           <p className="mt-6 text-center text-sm text-zinc-400">
-  Don't have an account?{" "}
-  <a
-    href="/signup"
-    className="font-semibold text-white underline underline-offset-4"
-  >
-    Sign Up
-  </a>
-</p>
+            Don&apos;t have an account?{" "}
+            <a
+              href="/signup"
+              className="font-semibold text-white underline underline-offset-4"
+            >
+              Sign Up
+            </a>
+          </p>
         </div>
       </div>
     </main>

@@ -13,6 +13,7 @@ type DJProfile = {
   bio: string | null;
   genres: string[] | string | null;
   request_price: number | null;
+  shoutout_price: number | null;
 };
 
 export default function DJSettingsPage() {
@@ -20,11 +21,12 @@ export default function DJSettingsPage() {
 
   const [profile, setProfile] = useState<DJProfile | null>(null);
   const [profileImageUrl, setProfileImageUrl] = useState("");
-const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [djName, setDjName] = useState("");
   const [genres, setGenres] = useState("");
   const [bio, setBio] = useState("");
   const [requestPrice, setRequestPrice] = useState("5");
+  const [shoutoutPrice, setShoutoutPrice] = useState("8");
   const [saving, setSaving] = useState(false);
 
   const fetchProfile = async () => {
@@ -60,6 +62,9 @@ setBio(data.bio || "");
 setRequestPrice(
   ((data.request_price || 500) / 100).toString()
 );
+setShoutoutPrice(
+  ((data.shoutout_price || 800) / 100).toString()
+);
 setProfileImageUrl(
   data.profile_image_url || ""
 );
@@ -70,7 +75,13 @@ setProfileImageUrl(
     setSaving(true);
 
     const priceInPence = Math.round(Number(requestPrice) * 100);
+    const shoutoutPriceInPence = Math.round(Number(shoutoutPrice) * 100);
 
+if (shoutoutPriceInPence <= priceInPence) {
+  alert("Song + Message price must be higher than the standard request price.");
+  setSaving(false);
+  return;
+}
     const { error } = await supabase
       .from("dj_profiles")
       .update({
@@ -80,7 +91,7 @@ setProfileImageUrl(
   .map((genre) => genre.trim())
   .filter(Boolean),
         bio,
-        request_price: priceInPence,
+        request_price: priceInPence, shoutout_price: shoutoutPriceInPence,
       })
       .eq("id", profile.id);
 
@@ -238,7 +249,22 @@ const uploadProfileImage = async (
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
               />
             </div>
+<div>
+  <label className="text-sm text-zinc-400">
+    Song + Message Price (£)
+  </label>
 
+  <input
+    type="number"
+    min="1"
+    step="0.5"
+    value={shoutoutPrice}
+    onChange={(event) =>
+      setShoutoutPrice(event.target.value)
+    }
+    className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
+  />
+</div>
             <button
               onClick={saveProfile}
               disabled={saving}

@@ -58,6 +58,6 @@ const djSlug = djProfile?.slug || "dj-elliot";
   }
 
   return NextResponse.redirect(
-  `http://localhost:3000/request/${djSlug}/confirmation`
+  `http://192.168.0.211:3000/request/${djSlug}/confirmation?requestId=${requestId}`
 );
 }

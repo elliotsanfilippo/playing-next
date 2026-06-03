@@ -11,6 +11,7 @@ type DJProfile = {
   genres: string[] | string | null;
   bio: string | null;
   request_price: number | null;
+  shoutout_price: number | null;
   profile_image_url: string | null;
 };
 
@@ -18,6 +19,7 @@ type SpotifyTrack = {
   id: string;
   title: string;
   artist: string;
+  artwork: string | null;
 };
 
 export default function RequestPage() {
@@ -26,14 +28,18 @@ export default function RequestPage() {
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [selectedSong, setSelectedSong] = useState<SpotifyTrack | null>(null);
   const [djNotFound, setDjNotFound] = useState(false);
+  const [requestType, setRequestType] = useState<
+  "song_request" | "song_message"
+>("song_request");
 
+const [message, setMessage] = useState("");
   const params = useParams();
   const djSlug = params.djSlug as string;
 
   const fetchDJProfile = async () => {
     const { data, error } = await supabase
   .from("dj_profiles")
-  .select("id, dj_name, request_status, genres, bio, request_price, profile_image_url")
+  .select("id, dj_name, request_status, genres, bio, request_price, shoutout_price, profile_image_url")
   .eq("slug", djSlug)
   .single();
 
@@ -97,17 +103,22 @@ setDjProfile(data);
     const nextQueuePosition = (existingRequests?.length || 0) + 1;
 
     const { data, error } = await supabase
-      .from("song_requests")
-      .insert({
-        dj_profile_id: djProfile.id,
-        song_title: selectedSong.title,
-        artist: selectedSong.artist,
-        message: "",
-        request_status: "pending",
-        queue_position: nextQueuePosition,
-      })
-      .select()
-      .single();
+  .from("song_requests")
+  .insert({
+    dj_profile_id: djProfile.id,
+    song_title: selectedSong.title,
+    artist: selectedSong.artist,
+    request_status: "pending",
+    queue_position: nextQueuePosition,
+
+    request_type: requestType,
+    message:
+      requestType === "song_message"
+        ? message
+        : null,
+  })
+  .select()
+  .single();
 
     if (error || !data) {
   console.log("DJ profile not found:", error);
@@ -140,7 +151,11 @@ const checkoutResponse = await fetch("/api/stripe/checkout", {
   artist: selectedSong.artist,
   requestId: data.id,
   djSlug,
-  requestPrice: djProfile.request_price || 500,
+  requestType,
+  requestPrice:
+    requestType === "song_message"
+      ? djProfile.shoutout_price || 800
+      : djProfile.request_price || 500,
 }),
 });
 
@@ -239,9 +254,15 @@ if (djNotFound) {
               </p>
             </div>
 
-            <div className="rounded-full bg-white px-4 py-2 font-semibold text-black">
-              £{((djProfile?.request_price || 500) / 100).toFixed(2)} Request
-            </div>
+            <div className="flex flex-col gap-2 text-right sm:flex-row sm:text-left">
+  <div className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white">
+  Song £5.00
+</div>
+
+<div className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white">
+  Song + Message £8.00
+</div>
+</div>
           </div>
 
           <div className="mt-8">
@@ -269,11 +290,22 @@ if (djNotFound) {
                     : "border-white/10 bg-zinc-950 hover:border-white/30"
                 }`}
               >
-                <div>
-                  <h3 className="font-semibold">{track.title}</h3>
+                <div className="flex items-center gap-3">
+  {track.artwork ? (
+    <img
+      src={track.artwork}
+      alt={track.title}
+      className="h-12 w-12 rounded-lg object-cover"
+    />
+  ) : (
+    <div className="h-12 w-12 rounded-lg bg-zinc-800" />
+  )}
 
-                  <p className="text-sm text-zinc-400">{track.artist}</p>
-                </div>
+  <div>
+    <h3 className="font-semibold">{track.title}</h3>
+    <p className="text-sm text-zinc-400">{track.artist}</p>
+  </div>
+</div>
 
                 <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">
                   {selectedSong?.id === track.id ? "Selected" : "Select"}
@@ -286,14 +318,68 @@ if (djNotFound) {
             <div className="mt-8 rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
               <p className="text-sm text-green-400">Selected Song</p>
 
-              <h3 className="mt-2 text-xl font-semibold">
-                {selectedSong.title}
-              </h3>
+              <div className="mt-3 flex items-center gap-4">
+  {selectedSong.artwork ? (
+    <img
+      src={selectedSong.artwork}
+      alt={selectedSong.title}
+      className="h-16 w-16 rounded-xl object-cover"
+    />
+  ) : (
+    <div className="h-16 w-16 rounded-xl bg-zinc-800" />
+  )}
 
-              <p className="text-zinc-300">{selectedSong.artist}</p>
+  <div>
+    <h3 className="text-xl font-semibold">
+      {selectedSong.title}
+    </h3>
+
+    <p className="text-zinc-300">
+      {selectedSong.artist}
+    </p>
+  </div>
+</div>
             </div>
           )}
+{selectedSong && (
+  <div className="mt-8 space-y-3">
+    <button
+      type="button"
+      onClick={() => setRequestType("song_request")}
+      className={`w-full rounded-2xl border p-4 text-left ${
+        requestType === "song_request"
+          ? "border-white bg-white text-black"
+          : "border-white/10 bg-zinc-950 text-white"
+      }`}
+    >
+      Song Request (£
+      {((djProfile?.request_price || 500) / 100).toFixed(2)})
+    </button>
 
+    <button
+      type="button"
+      onClick={() => setRequestType("song_message")}
+      className={`w-full rounded-2xl border p-4 text-left ${
+        requestType === "song_message"
+          ? "border-white bg-white text-black"
+          : "border-white/10 bg-zinc-950 text-white"
+      }`}
+    >
+      Song + Message (£
+      {((djProfile?.shoutout_price || 800) / 100).toFixed(2)})
+    </button>
+
+    {requestType === "song_message" && (
+      <textarea
+        value={message}
+        onChange={(event) => setMessage(event.target.value)}
+        placeholder="Add a birthday, hen do, stag do or shoutout message..."
+        rows={3}
+        className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
+      />
+    )}
+  </div>
+)}
           <button
             disabled={!selectedSong || !isTakingRequests}
             onClick={submitRequest}
@@ -304,10 +390,12 @@ if (djNotFound) {
             }`}
           >
             {!isTakingRequests
-              ? "Requests Paused"
-              : selectedSong
-                ? `Continue with ${selectedSong.title}`
-                : "Select a Song First"}
+  ? "Requests Paused"
+  : selectedSong
+  ? requestType === "song_message"
+    ? `Continue with ${selectedSong.title} + Message`
+    : `Continue with ${selectedSong.title}`
+  : "Select a Song First"}
           </button>
         </div>
       </section>

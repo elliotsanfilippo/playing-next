@@ -6,8 +6,15 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
-    const { songTitle, artist, requestId, djSlug, requestPrice } = body;
+    console.log("CHECKOUT BODY:", body);
+    const {
+  songTitle,
+  artist,
+  requestId,
+  djSlug,
+  requestType,
+  requestPrice,
+} = body;
 
     const safeDjSlug = djSlug || "dj-elliot";
 
@@ -22,7 +29,10 @@ export async function POST(request: Request) {
           price_data: {
             currency: "gbp",
             product_data: {
-              name: `Song request: ${songTitle}`,
+              name:
+  requestType === "song_message"
+    ? `Song + Message: ${songTitle}`
+    : `Song request: ${songTitle}`,
               description: artist,
             },
             unit_amount: requestPrice || 500,
@@ -36,7 +46,7 @@ export async function POST(request: Request) {
         artist,
         djSlug: safeDjSlug,
       },
-      success_url: `http://localhost:3000/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&requestId=${requestId}`,
+      success_url: `http://192.168.0.211:3000/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&requestId=${requestId}`,
       cancel_url: `http://localhost:3000/request/${safeDjSlug}?cancelled=true`,
     });
 

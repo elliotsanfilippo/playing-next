@@ -1,12 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabase } from "../../../../src/lib/supabase";
 
 export default function ConfirmationPage() {
   const params = useParams();
   const djSlug = params.djSlug as string;
+  const searchParams = useSearchParams();
+const requestId = searchParams.get("requestId");
 
+const [request, setRequest] = useState<any>(null);
+
+useEffect(() => {
+  const fetchRequest = async () => {
+    if (!requestId) return;
+
+    const { data } = await supabase
+      .from("song_requests")
+      .select("song_title, artist, request_type, message")
+      .eq("id", requestId)
+      .single();
+
+    setRequest(data);
+  };
+
+  fetchRequest();
+}, [requestId]);
   return (
     <main className="min-h-screen bg-black p-6 text-white">
       <section className="mx-auto flex min-h-screen max-w-2xl items-center justify-center">
@@ -22,7 +43,35 @@ export default function ConfirmationPage() {
           <p className="mt-4 text-zinc-400">
             Your request has been submitted successfully.
           </p>
+{request && (
+  <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950 p-5 text-left">
+    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      {request.request_type === "song_message"
+        ? "Song + Message Submitted"
+        : "Song Request Submitted"}
+    </p>
 
+    <h2 className="mt-2 text-xl font-bold">
+      {request.song_title}
+    </h2>
+
+    <p className="mt-1 text-zinc-400">
+      {request.artist}
+    </p>
+
+    {request.request_type === "song_message" && request.message && (
+      <div className="mt-4 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-purple-300">
+          Your Message
+        </p>
+
+        <p className="mt-1 text-sm text-white">
+          {request.message}
+        </p>
+      </div>
+    )}
+  </div>
+)}
           <div className="mt-8 rounded-2xl border border-green-500/20 bg-green-500/10 p-6">
             <p className="text-lg font-semibold text-green-400">
               Waiting for DJ approval

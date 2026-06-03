@@ -9,6 +9,8 @@ type SongRequest = {
   id: string;
   song_title: string;
   artist: string;
+  message: string | null;
+  request_type: string | null;
   request_status: string;
   queue_position: number | null;
 };
@@ -101,7 +103,32 @@ export default function MyRequestsPage() {
         return status;
     }
   };
+const sortedRequests = [...requests].sort((a, b) => {
+  const order: Record<string, number> = {
+    playing_next: 1,
+    accepted: 2,
+    pending: 3,
+    played: 4,
+    declined: 5,
+  };
 
+  const statusOrder =
+    (order[a.request_status] || 999) -
+    (order[b.request_status] || 999);
+
+  if (statusOrder !== 0) {
+    return statusOrder;
+  }
+
+  if (a.request_status === "accepted") {
+    return (
+      (a.queue_position || 999) -
+      (b.queue_position || 999)
+    );
+  }
+
+  return 0;
+});
   return (
     <main className="min-h-screen bg-black p-6 text-white">
       <section className="mx-auto max-w-3xl">
@@ -134,7 +161,7 @@ export default function MyRequestsPage() {
               No requests from this device yet.
             </div>
           ) : (
-            requests.map((request) => (
+            sortedRequests.map((request) => (
               <div
                 key={request.id}
                 className="rounded-2xl border border-white/10 bg-zinc-900 p-6"
@@ -148,7 +175,17 @@ export default function MyRequestsPage() {
                     <p className="mt-1 text-zinc-400">
                       {request.artist}
                     </p>
+{request.request_type === "song_message" && (
+  <div className="mt-3 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3">
+    <p className="text-xs font-semibold uppercase tracking-wide text-purple-300">
+      Your Message
+    </p>
 
+    <p className="mt-1 text-sm text-white">
+      {request.message}
+    </p>
+  </div>
+)}
                     {request.request_status === "accepted" && (
                       <p className="mt-3 text-sm text-zinc-400">
                         Queue Position #{request.queue_position}
