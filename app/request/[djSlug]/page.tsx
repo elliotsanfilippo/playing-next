@@ -299,7 +299,9 @@ document.addEventListener(
             <h1 className="mt-1 text-4xl font-bold">
               {djProfile?.dj_name}
             </h1>
-
+<p className="mt-1 text-sm font-medium text-green-400">
+  🟢 Live now
+</p>
             <p className="mt-2 text-zinc-400">
               {Array.isArray(djProfile?.genres)
                 ? djProfile.genres.join(" • ")
@@ -324,26 +326,20 @@ document.addEventListener(
         </div>
 
         <div
-          className={`mt-8 rounded-3xl border p-4 ${
-            isTakingRequests
-              ? "border-green-500/20 bg-green-500/10"
-              : "border-red-500/20 bg-red-500/10"
-          }`}
-        >
-          <p
-            className={`font-semibold ${
-              isTakingRequests ? "text-green-400" : "text-red-400"
-            }`}
-          >
-            {isTakingRequests ? "Taking Requests" : "Requests Paused"}
-          </p>
-
-          <p className="mt-1 text-sm text-zinc-300">
-            {isTakingRequests
-              ? "Requests are currently open."
-              : `${djProfile?.dj_name || "This DJ"} has stopped taking requests for now.`}
-          </p>
-        </div>
+  className={`mt-8 rounded-2xl border px-4 py-3 ${
+    isTakingRequests
+      ? "border-green-500/20 bg-green-500/10"
+      : "border-red-500/20 bg-red-500/10"
+  }`}
+>
+  <p
+    className={`font-semibold ${
+      isTakingRequests ? "text-green-400" : "text-red-400"
+    }`}
+  >
+    {isTakingRequests ? "🟢 Taking Requests" : "🔴 Requests Paused"}
+  </p>
+</div>
 
         <div className="mt-8 rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:mt-10 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -355,15 +351,15 @@ document.addEventListener(
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <div className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white">
-                Song £{(requestPrice / 100).toFixed(2)}
-              </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+  <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">
+    🎵 Song Request £{(requestPrice / 100).toFixed(2)}
+  </div>
 
-              <div className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white">
-                Song + Message £{(shoutoutPrice / 100).toFixed(2)}
-              </div>
-            </div>
+  <div className="rounded-full bg-purple-500/20 px-4 py-2 text-sm font-semibold text-purple-300">
+    🎤 Song + Message £{(shoutoutPrice / 100).toFixed(2)}
+  </div>
+</div>
           </div>
 
           <div className="mt-8">
@@ -422,7 +418,9 @@ document.addEventListener(
 
           {selectedSong && (
             <div className="mt-8 rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
-              <p className="text-sm text-green-400">Selected Song</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-green-400">
+  Ready to Request
+</p>
 
               <div className="mt-3 flex items-center gap-4">
                 {selectedSong.artwork ? (
@@ -454,9 +452,9 @@ document.addEventListener(
                 type="button"
                 onClick={() => setRequestType("song_request")}
                 className={`w-full rounded-2xl border p-4 text-left ${
-                  requestType === "song_request"
-                    ? "border-white bg-white text-black"
-                    : "border-white/10 bg-zinc-950 text-white"
+                  requestType === "song_message"
+  ? "border-purple-500 bg-purple-500 text-white"
+  : "border-white/10 bg-zinc-950 text-white"
                 }`}
               >
                 Song Request (£{(requestPrice / 100).toFixed(2)})
@@ -496,12 +494,12 @@ document.addEventListener(
             }`}
           >
             {!isTakingRequests
-              ? "Requests Paused"
-              : selectedSong
-                ? requestType === "song_message"
-                  ? `Continue with ${selectedSong.title} + Message`
-                  : `Continue with ${selectedSong.title}`
-                : "Select a Song First"}
+  ? "Requests Paused"
+  : selectedSong
+  ? requestType === "song_message"
+    ? `Continue to Payment • £${(shoutoutPrice / 100).toFixed(2)}`
+    : `Continue to Payment • £${(requestPrice / 100).toFixed(2)}`
+  : "Select a Song First"}
           </button>
         </div>
       </section>
