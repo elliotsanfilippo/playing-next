@@ -13,30 +13,28 @@ export default function LoginPage() {
 
   const login = async (event?: React.FormEvent) => {
   event?.preventDefault();
-    if (!email || !password) {
-      alert("Please enter your email and password.");
-      return;
-    }
 
-    setLoading(true);
+  if (!email || !password) {
+    alert("Please enter your email and password.");
+    return;
+  }
 
-    const { error } = await supabase.auth.signInWithPassword({
-  email,
-  password,
-});
+  setLoading(true);
 
-setLoading(false);
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-if (error) {
-  return;
-}
+  setLoading(false);
 
-setTimeout(() => {
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
-  window.location.href = "/dj/dashboard";
-
-}, 300);
-  };
+window.location.assign(`${window.location.origin}/dj/dashboard`);
+};
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-black p-5 text-white sm:p-6">
@@ -51,7 +49,8 @@ setTimeout(() => {
 
         <form onSubmit={login} className="mt-8 space-y-4">
           <input
-            type="email"
+  type="email"
+  autoComplete="email"
             placeholder="Email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
@@ -59,7 +58,8 @@ setTimeout(() => {
           />
 
           <input
-            type="password"
+  type="password"
+  autoComplete="current-password"
             placeholder="Password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}

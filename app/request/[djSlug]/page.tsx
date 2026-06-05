@@ -83,25 +83,41 @@ export default function RequestPage() {
   };
 
   useEffect(() => {
-    fetchDJProfile(true);
+  let isMounted = true;
 
-    const channel = supabase
-      .channel(`request_page_${djSlug}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "dj_profiles",
-        },
-        () => fetchDJProfile(false)
+  const loadDJ = async () => {
+    setIsLoadingDJ(true);
+    setDjProfile(null);
+    setDjNotFound(false);
+
+    const { data, error } = await supabase
+      .from("dj_profiles")
+      .select(
+        "id, dj_name, request_status, genres, bio, request_price, shoutout_price, profile_image_url"
       )
-      .subscribe();
+      .eq("slug", djSlug)
+      .maybeSingle();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [djSlug]);
+    if (!isMounted) return;
+
+    if (error || !data) {
+      console.log("DJ profile not found:", error);
+      setDjNotFound(true);
+      setIsLoadingDJ(false);
+      return;
+    }
+
+    setDjProfile(data);
+    setDjNotFound(false);
+    setIsLoadingDJ(false);
+  };
+
+  loadDJ();
+
+  return () => {
+    isMounted = false;
+  };
+}, [djSlug]);
 
   const isTakingRequests = djProfile?.request_status === "taking_requests";
 

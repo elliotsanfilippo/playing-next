@@ -32,7 +32,6 @@ export default function DJDashboardPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
-  const [loadingDashboard, setLoadingDashboard] = useState(true);
 
   const fetchDJProfile = async () => {
   const {
@@ -134,7 +133,6 @@ export default function DJDashboardPage() {
 
   await fetchDJProfile();
 await fetchRequests();
-setLoadingDashboard(false);
 };
 
 const reorderQueue = async () => {
@@ -327,24 +325,18 @@ const moveAcceptedRequest = async (
 
   useEffect(() => {
   const checkAuth = async () => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-  if (!session) {
-    router.push("/login");
-    return;
-  }
+    if (!session) {
+      router.push("/login");
+      return;
+    }
 
-  try {
     await fetchDJProfile();
     await fetchRequests();
-  } catch (error) {
-    console.log("Dashboard load error:", error);
-  } finally {
-    setLoadingDashboard(false);
-  }
-};
+  };
 
   checkAuth();
 
@@ -403,20 +395,9 @@ useEffect(() => {
   );
 
   const currentPlayingNext = playingNextRequests[0];
-  if (loadingDashboard) {
+  
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-white">
-      <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center">
-        <p className="text-sm text-zinc-400">Playing Next</p>
-        <h1 className="mt-3 text-3xl font-bold">
-          Loading dashboard...
-        </h1>
-      </div>
-    </main>
-  );
-}
-  return (
-    <main className="min-h-screen bg-zinc-950 p-6 text-white">
+    <main className="min-h-screen bg-zinc-950 p-5 text-white sm:p-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
