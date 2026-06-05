@@ -30,7 +30,7 @@ const djSlug = djProfile?.slug || "dj-elliot";
 
   if (!sessionId || !requestId) {
   return NextResponse.redirect(
-  `http://192.168.0.211:3000/request/${djSlug}`
+  `https://playing-next.vercel.app`
 );
 }
 
@@ -58,6 +58,6 @@ const djSlug = djProfile?.slug || "dj-elliot";
   }
 
   return NextResponse.redirect(
-  `http://192.168.0.211:3000/request/${djSlug}/confirmation?requestId=${requestId}`
+  `https://playing-next.vercel.app`
 );
 }
