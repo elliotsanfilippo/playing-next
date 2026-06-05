@@ -112,11 +112,59 @@ export default function RequestPage() {
     setIsLoadingDJ(false);
   };
 
-  loadDJ();
+  const refreshDJ = async () => {
+    const { data } = await supabase
+      .from("dj_profiles")
+      .select(
+        "id, dj_name, request_status, genres, bio, request_price, shoutout_price, profile_image_url"
+      )
+      .eq("slug", djSlug)
+      .maybeSingle();
 
-  return () => {
-    isMounted = false;
+    if (!isMounted || !data) return;
+
+    setDjProfile(data);
   };
+
+  loadDJ();
+const interval = setInterval(() => {
+  refreshDJ();
+}, 5000);
+  const channel = supabase
+    .channel(`request_page_${djSlug}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "dj_profiles",
+        filter: `slug=eq.${djSlug}`,
+      },
+      () => refreshDJ()
+    )
+    .subscribe();
+const handleVisibilityChange = () => {
+  if (document.visibilityState === "visible") {
+    refreshDJ();
+  }
+};
+
+document.addEventListener(
+  "visibilitychange",
+  handleVisibilityChange
+);
+  return () => {
+  isMounted = false;
+
+  clearInterval(interval);
+
+  document.removeEventListener(
+    "visibilitychange",
+    handleVisibilityChange
+  );
+
+  supabase.removeChannel(channel);
+};
 }, [djSlug]);
 
   const isTakingRequests = djProfile?.request_status === "taking_requests";
@@ -143,17 +191,17 @@ export default function RequestPage() {
     const { data, error } = await supabase
       .from("song_requests")
       .insert({
-        dj_profile_id: djProfile.id,
-        song_title: selectedSong.title,
-        artist: selectedSong.artist,
-        request_status: "pending",
-        queue_position: nextQueuePosition,
-        request_type: requestType,
-        message:
-          requestType === "song_message"
-            ? message.trim()
-            : null,
-      })
+  dj_profile_id: djProfile.id,
+  song_title: selectedSong.title,
+  artist: selectedSong.artist,
+  request_status: "checkout_pending",
+  queue_position: nextQueuePosition,
+  request_type: requestType,
+  message:
+    requestType === "song_message"
+      ? message.trim()
+      : null,
+})
       .select()
       .single();
 

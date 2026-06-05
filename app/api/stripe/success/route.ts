@@ -50,11 +50,11 @@ const djSlug = djProfile?.slug || "dj-elliot";
 
   if (paymentIntentId) {
     await supabase
-      .from("song_requests")
-      .update({
-        stripe_payment_intent_id: paymentIntentId,
-      })
-      .eq("id", requestId);
+  .from("song_requests")
+  .update({
+    request_status: "pending",
+  })
+  .eq("id", requestId);
   }
 
   return NextResponse.redirect(
