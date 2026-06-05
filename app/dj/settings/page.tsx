@@ -307,7 +307,45 @@ export default function DJSettingsPage() {
                 />
               </div>
             </div>
+<div className="rounded-3xl border border-white/10 bg-zinc-950 p-5 sm:p-6">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <p className="text-sm text-zinc-400">Current Plan</p>
 
+      <h3 className="mt-1 text-2xl font-semibold">
+        Free
+      </h3>
+
+      <p className="mt-3 text-sm text-zinc-400">
+        15% platform fee per accepted request.
+      </p>
+    </div>
+
+    <div className="rounded-full bg-green-500/20 px-4 py-2 text-sm font-semibold text-green-400">
+      Active
+    </div>
+  </div>
+
+  <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-900 p-4">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h4 className="font-semibold">Pro</h4>
+
+        <p className="mt-1 text-sm text-zinc-400">
+          £19/month · 0% platform fee
+        </p>
+      </div>
+
+      <button
+        type="button"
+        disabled
+        className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-zinc-500"
+      >
+        Coming Soon
+      </button>
+    </div>
+  </div>
+</div>
             <button
               type="button"
               onClick={saveProfile}
