@@ -22,6 +22,7 @@ type DJProfile = {
   slug: string;
   request_status: string;
   profile_image_url: string | null;
+  request_price?: number | null;
 };
 
 
@@ -454,7 +455,35 @@ useEffect(() => {
   </button>
 </div>
         </div>
+{djProfile && (
+  <div className="mb-6 rounded-3xl border border-white/10 bg-zinc-900 p-6">
+    <h2 className="text-xl font-semibold">
+      Getting Started
+    </h2>
 
+    <div className="mt-4 space-y-2 text-sm">
+      <p>
+        {djProfile.dj_name !== "New DJ" ? "✅" : "⬜"} Set DJ Name
+      </p>
+
+      <p>
+        {(djProfile.request_price || 0) > 0 ? "✅" : "⬜"} Set Request Prices
+      </p>
+
+      <p>
+        {djProfile.profile_image_url ? "✅" : "⬜"} Upload Profile Image
+      </p>
+
+      <p>
+        {qrCodeUrl ? "✅" : "⬜"} Share Your QR Code
+      </p>
+
+      <p>
+        ⬜ Connect Stripe (Coming Soon)
+      </p>
+    </div>
+  </div>
+)}
         <div className="mb-6 rounded-3xl border border-white/10 bg-zinc-900 p-6">
           <div className="flex flex-col items-center gap-4 text-center">
             <div>
