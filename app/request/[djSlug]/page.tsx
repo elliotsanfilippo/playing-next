@@ -299,8 +299,16 @@ document.addEventListener(
             <h1 className="mt-1 text-4xl font-bold">
               {djProfile?.dj_name}
             </h1>
-<p className="mt-1 text-sm font-medium text-green-400">
-  🟢 Live now
+<p
+  className={`mt-1 text-sm font-medium ${
+    isTakingRequests
+      ? "text-green-400"
+      : "text-red-400"
+  }`}
+>
+  {isTakingRequests
+    ? "🟢 Live now"
+    : "🔴 Requests paused"}
 </p>
             <p className="mt-2 text-zinc-400">
               {Array.isArray(djProfile?.genres)
