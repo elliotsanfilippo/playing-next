@@ -30,8 +30,8 @@ const djSlug = djProfile?.slug || "dj-elliot";
 
   if (!sessionId || !requestId) {
   return NextResponse.redirect(
-    `http://localhost:3000/request/${djSlug}`
-  );
+  `http://192.168.0.211:3000/request/${djSlug}`
+);
 }
 
   const session = await stripe.checkout.sessions.retrieve(

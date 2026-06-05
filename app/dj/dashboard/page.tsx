@@ -13,6 +13,7 @@ type SongRequest = {
   request_type: string | null;
   request_status: string;
   stripe_payment_intent_id: string | null;
+  queue_position: number | null;
 };
 
 type DJProfile = {
@@ -31,6 +32,7 @@ export default function DJDashboardPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
 
   const fetchDJProfile = async () => {
   const {
@@ -131,13 +133,17 @@ export default function DJDashboardPage() {
   });
 
   await fetchDJProfile();
-  await fetchRequests();
+await fetchRequests();
+setLoadingDashboard(false);
 };
 
 const reorderQueue = async () => {
+  if (!djProfile) return;
+
   const { data, error } = await supabase
     .from("song_requests")
     .select("id")
+    .eq("dj_profile_id", djProfile.id)
     .eq("request_status", "accepted")
     .order("accepted_at", { ascending: true });
 
@@ -312,27 +318,33 @@ const moveAcceptedRequest = async (
   const isTakingRequests = djProfile?.request_status === "taking_requests";
  
   const requestLink = djProfile
-  ? `http://localhost:3000/request/${djProfile.slug}`
+  ? `${window.location.origin}/request/${djProfile.slug}`
   : "";
 
   const displayRequestLink = djProfile
-  ? `playingnext.com/${djProfile.slug}`
+  ? `${window.location.origin}/request/${djProfile.slug}`
   : "";
 
   useEffect(() => {
   const checkAuth = async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-    if (!session) {
-      router.push("/login");
-      return;
-    }
+  if (!session) {
+    router.push("/login");
+    return;
+  }
 
-    fetchDJProfile();
-    fetchRequests();
-  };
+  try {
+    await fetchDJProfile();
+    await fetchRequests();
+  } catch (error) {
+    console.log("Dashboard load error:", error);
+  } finally {
+    setLoadingDashboard(false);
+  }
+};
 
   checkAuth();
 
@@ -391,11 +403,22 @@ useEffect(() => {
   );
 
   const currentPlayingNext = playingNextRequests[0];
-  
+  if (loadingDashboard) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-white">
+      <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center">
+        <p className="text-sm text-zinc-400">Playing Next</p>
+        <h1 className="mt-3 text-3xl font-bold">
+          Loading dashboard...
+        </h1>
+      </div>
+    </main>
+  );
+}
   return (
     <main className="min-h-screen bg-zinc-950 p-6 text-white">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
   {djProfile?.profile_image_url ? (
     <img
@@ -416,7 +439,7 @@ useEffect(() => {
   </div>
 </div>
 
-          <div className="flex items-center gap-3">
+          <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
   <button
     onClick={toggleRequests}
     className={`h-12 rounded-full px-6 text-sm font-semibold transition ${
@@ -475,10 +498,10 @@ useEffect(() => {
               {displayRequestLink}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
               <button
                 onClick={() => navigator.clipboard.writeText(requestLink)}
-                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black"
+                className="w-full rounded-full bg-white px-4 py-3 text-center text-sm font-semibold text-black sm:w-auto"
               >
                 Copy Link
               </button>
@@ -486,7 +509,7 @@ useEffect(() => {
               <a
                 href={qrCodeUrl}
                 download="playing-next-qr-code.png"
-                className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white"
+                className="w-full rounded-full border border-white/10 px-4 py-3 text-center text-sm font-semibold text-white sm:w-auto"
               >
                 Download QR
               </a>
@@ -551,7 +574,7 @@ useEffect(() => {
                     key={request.id}
                     className="rounded-2xl border border-white/10 bg-zinc-950 p-4"
                   >
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h3 className="font-semibold">{request.song_title}</h3>
 
@@ -623,7 +646,7 @@ useEffect(() => {
                     key={request.id}
                     className="rounded-2xl border border-white/10 bg-zinc-950 p-4"
                   >
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h3 className="font-semibold">{request.song_title}</h3>
 
@@ -697,7 +720,7 @@ useEffect(() => {
         </div>
 
         <div className="mt-6 rounded-3xl border border-white/10 bg-zinc-900 p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold">
                 Played History ({playedRequests.length})
@@ -708,7 +731,7 @@ useEffect(() => {
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white"
@@ -737,7 +760,7 @@ useEffect(() => {
                 playedRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950 p-4"
+                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-950 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <h3 className="font-semibold">{request.song_title}</h3>

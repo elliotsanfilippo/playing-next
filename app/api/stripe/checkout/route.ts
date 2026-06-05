@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         djSlug: safeDjSlug,
       },
       success_url: `http://192.168.0.211:3000/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&requestId=${requestId}`,
-      cancel_url: `http://localhost:3000/request/${safeDjSlug}?cancelled=true`,
+      cancel_url: `http://192.168.0.211:3000/request/${safeDjSlug}?cancelled=true`
     });
 
     return NextResponse.json({

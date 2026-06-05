@@ -9,31 +9,38 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const login = async () => {
-  console.log("LOGIN VALUES:", email, password);
+  const login = async (event?: React.FormEvent) => {
+  event?.preventDefault();
+    if (!email || !password) {
+      alert("Please enter your email and password.");
+      return;
+    }
 
-  if (!email || !password) {
-    alert("Please enter your email and password.");
-    return;
-  }
+    setLoading(true);
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { error } = await supabase.auth.signInWithPassword({
+  email,
+  password,
+});
 
-  if (error) {
-    alert(error.message);
-    return;
-  }
+setLoading(false);
 
-  router.push("/dj/dashboard");
-};
+if (error) {
+  return;
+}
+
+setTimeout(() => {
+
+  window.location.href = "/dj/dashboard";
+
+}, 300);
+  };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-black p-6 text-white">
-      <div className="relative z-50 w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-8">
+    <main className="flex min-h-screen items-center justify-center bg-black p-5 text-white sm:p-6">
+      <div className="relative z-50 w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-6 sm:p-8">
         <p className="text-sm text-zinc-400">Playing Next</p>
 
         <h1 className="mt-2 text-4xl font-bold">DJ Login</h1>
@@ -42,13 +49,13 @@ export default function LoginPage() {
           Log in to manage your requests.
         </p>
 
-        <div className="mt-8 space-y-4">
+        <form onSubmit={login} className="mt-8 space-y-4">
           <input
             type="email"
             placeholder="Email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
+            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
           />
 
           <input
@@ -56,18 +63,18 @@ export default function LoginPage() {
             placeholder="Password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
+            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
           />
 
           <button
-  type="button"
-  onClick={login}
-  className="relative z-50 w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black"
+  type="submit"
+  disabled={loading}
+  className="relative z-50 w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
 >
-  Log In
+  {loading ? "Logging In..." : "Log In"}
 </button>
 
-          <p className="mt-6 text-center text-sm text-zinc-400">
+          <p className="pt-4 text-center text-sm text-zinc-400">
             Don&apos;t have an account?{" "}
             <a
               href="/signup"
@@ -76,7 +83,7 @@ export default function LoginPage() {
               Sign Up
             </a>
           </p>
-        </div>
+        </form>
       </div>
     </main>
   );
