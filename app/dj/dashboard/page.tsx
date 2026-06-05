@@ -23,6 +23,8 @@ type DJProfile = {
   request_status: string;
   profile_image_url: string | null;
   request_price?: number | null;
+  stripe_connected?: boolean;
+  plan?: string;
 };
 
 
@@ -479,8 +481,8 @@ useEffect(() => {
       </p>
 
       <p>
-        ⬜ Connect Stripe (Coming Soon)
-      </p>
+  {djProfile.stripe_connected ? "✅" : "⬜"} Connect Stripe
+</p>
     </div>
   </div>
 )}
