@@ -351,26 +351,7 @@ export default function DJSettingsPage() {
               onClick={saveProfile}
               disabled={saving}
               className="w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
-            ><div className="rounded-2xl border border-white/10 bg-zinc-950 p-5">
-  <h3 className="text-lg font-semibold">
-    Current Plan
-  </h3>
-
-  <p className="mt-3 text-zinc-300">
-    Free Plan
-  </p>
-
-  <p className="mt-2 text-sm text-zinc-500">
-    15% fee per accepted request.
-  </p>
-
-  <button
-    type="button"
-    className="mt-4 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold"
-  >
-    Upgrade to Pro (£19/month)
-  </button>
-</div>
+            >
               {saving ? "Saving..." : "Save Settings"}
             </button>
           </div>
