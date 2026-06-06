@@ -211,21 +211,24 @@ document.addEventListener(
       return;
     }
 
-    let existingMyRequests = [];
+    let existingMyRequests: string[] = [];
 
-    try {
-      existingMyRequests = JSON.parse(
-        localStorage.getItem(`myRequestIds_${djSlug}`) || "[]"
-      );
-    } catch (error) {
-      console.log("localStorage parse error", error);
-      existingMyRequests = [];
-    }
+try {
+  existingMyRequests = JSON.parse(
+    localStorage.getItem(`myRequestIds_${djSlug}`) || "[]"
+  );
+} catch (error) {
+  console.log("localStorage parse error", error);
+  existingMyRequests = [];
+}
 
-    localStorage.setItem(
-      `myRequestIds_${djSlug}`,
-      JSON.stringify([...existingMyRequests, data.id])
-    );
+localStorage.setItem(
+  `myRequestIds_${djSlug}`,
+  JSON.stringify([
+    data.id,
+    ...existingMyRequests.filter((id: string) => id !== data.id),
+  ])
+);
 
     const checkoutResponse = await fetch("/api/stripe/checkout", {
       method: "POST",

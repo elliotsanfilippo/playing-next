@@ -36,19 +36,24 @@ export default function MyRequestsPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("song_requests")
-      .select("*")
-      .in("id", myRequestIds)
-      .neq("request_status", "archived")
-      .order("created_at", { ascending: false });
+    const response = await fetch("/api/my-requests", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    requestIds: myRequestIds,
+  }),
+});
 
-    if (error) {
-      console.log(error);
-      return;
-    }
+const result = await response.json();
 
-    setRequests(data || []);
+if (!response.ok) {
+  console.log(result.error);
+  return;
+}
+
+setRequests(result.requests || []);
   };
 
   useEffect(() => {
