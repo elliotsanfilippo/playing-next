@@ -46,8 +46,8 @@ export async function POST(request: Request) {
         artist,
         djSlug: safeDjSlug,
       },
-      success_url: `https://playing-next.vercel.app`,
-      cancel_url: `https://playing-next.vercel.app`
+      success_url: `https://playing-next.vercel.app/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&requestId=${requestId}`,
+      cancel_url: `https://playing-next.vercel.app/request/${safeDjSlug}`
     });
 
     return NextResponse.json({

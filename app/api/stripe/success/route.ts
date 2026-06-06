@@ -52,12 +52,13 @@ const djSlug = djProfile?.slug || "dj-elliot";
     await supabase
   .from("song_requests")
   .update({
-    request_status: "pending",
-  })
+  request_status: "pending",
+  stripe_payment_intent_id: paymentIntentId,
+})
   .eq("id", requestId);
   }
 
   return NextResponse.redirect(
-  `https://playing-next.vercel.app`
+  `https://playing-next.vercel.app/request/${djSlug}/confirmation?requestId=${requestId}`
 );
 }
