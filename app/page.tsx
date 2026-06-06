@@ -36,24 +36,36 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="mx-auto flex min-h-screen max-w-5xl flex-col items-center justify-center px-5 py-12 text-center sm:px-6">
-        <p className="mb-4 rounded-full border border-white/20 px-4 py-2 text-sm text-white/70">
-          Playing Next
-        </p>
+      <section className="relative mx-auto flex min-h-screen max-w-5xl flex-col items-center justify-center px-6 text-center">
+  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+    <div className="h-[500px] w-[500px] rounded-full bg-violet-500/10 blur-[140px]" />
+  </div>
 
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl md:text-7xl">
-          Paid song requests. Controlled by DJs.
-        </h1>
+  <div className="relative z-10 flex flex-col items-center">
+    <img
+      src="/logo.svg"
+      alt="Playing Next"
+      className="mb-8 h-20 w-20"
+    />
 
-        <p className="mt-6 max-w-2xl text-base text-white/70 sm:text-lg">
-          Let crowds request tracks by scanning a QR code. DJs accept, decline,
-          queue, and mark songs as Playing Next.
-        </p>
+    <h1 className="max-w-4xl text-5xl font-bold tracking-tight md:text-7xl">
+      Music requests.
+      <br />
+      Controlled by DJs.
+    </h1>
 
-        <div id="find-dj" className="mt-10 w-full max-w-xl sm:mt-12">
-          <h2 className="mb-2 text-xl font-semibold">
-            Looking for your DJ?
-          </h2>
+        <p className="mt-6 max-w-2xl text-lg text-zinc-400">
+  Guests request songs and shoutouts.
+  DJs stay in control.
+</p>
+
+        <div
+  id="find-dj"
+  className="mt-16 w-full max-w-2xl rounded-3xl border border-white/10 bg-zinc-900/90 p-8 shadow-2xl shadow-violet-500/5 backdrop-blur"
+>
+          <h2 className="mb-2 text-2xl font-semibold">
+  Looking for your DJ?
+</h2>
 
           <p className="mb-4 text-sm text-white/60">
             Search by DJ name if you didn&apos;t scan their QR code.
@@ -88,15 +100,20 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className="mt-8">
+                <p className="mt-8 text-sm font-medium text-zinc-500">
+          Built for bars, clubs, weddings and live events.
+        </p>
+
+        <div className="mt-6 flex flex-col gap-4 sm:flex-row">
           <a
             href="/login"
-            className="inline-flex rounded-full bg-white px-6 py-3 font-semibold text-black"
+            className="rounded-full bg-white px-7 py-3 font-semibold text-black transition hover:opacity-90"
           >
             DJ Login
           </a>
         </div>
-      </section>
-    </main>
-  );
+      </div>
+    </section>
+  </main>
+);
 }
