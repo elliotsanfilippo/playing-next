@@ -457,28 +457,28 @@ document.addEventListener(
           {selectedSong && (
             <div className="mt-8 space-y-3">
               <button
-                type="button"
-                onClick={() => setRequestType("song_request")}
-                className={`w-full rounded-2xl border p-4 text-left ${
-                  requestType === "song_message"
-  ? "border-purple-500 bg-purple-500 text-white"
-  : "border-white/10 bg-zinc-950 text-white"
-                }`}
-              >
-                Song Request (£{(requestPrice / 100).toFixed(2)})
-              </button>
+  type="button"
+  onClick={() => setRequestType("song_request")}
+  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+    requestType === "song_request"
+      ? "border-white bg-white text-black"
+      : "border-white/10 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
+  }`}
+>
+  🎵 Song Request £{(requestPrice / 100).toFixed(2)}
+</button>
 
               <button
-                type="button"
-                onClick={() => setRequestType("song_message")}
-                className={`w-full rounded-2xl border p-4 text-left ${
-                  requestType === "song_message"
-                    ? "border-white bg-white text-black"
-                    : "border-white/10 bg-zinc-950 text-white"
-                }`}
-              >
-                Song + Message (£{(shoutoutPrice / 100).toFixed(2)})
-              </button>
+  type="button"
+  onClick={() => setRequestType("song_message")}
+  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+    requestType === "song_message"
+      ? "border-violet-500 bg-violet-500 text-white"
+      : "border-white/10 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
+  }`}
+>
+  🎤 Song + Message £{(shoutoutPrice / 100).toFixed(2)}
+</button>
 
               {requestType === "song_message" && (
                 <textarea
