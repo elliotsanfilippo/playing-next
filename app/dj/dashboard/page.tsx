@@ -223,8 +223,10 @@ const reorderQueue = async () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        paymentIntentId: request.stripe_payment_intent_id,
-      }),
+  paymentIntentId: request.stripe_payment_intent_id,
+  requestId: request.id,
+  accessToken: (await supabase.auth.getSession()).data.session?.access_token,
+}),
     });
 
     const result = await response.json();
@@ -255,8 +257,10 @@ const declineRequest = async (request: SongRequest) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        paymentIntentId: request.stripe_payment_intent_id,
-      }),
+  paymentIntentId: request.stripe_payment_intent_id,
+  requestId: request.id,
+  accessToken: (await supabase.auth.getSession()).data.session?.access_token,
+}),
     });
 
     if (!response.ok) {
