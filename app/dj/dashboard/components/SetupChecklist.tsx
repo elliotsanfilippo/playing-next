@@ -54,27 +54,53 @@ export default function SetupChecklist({
             />
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {djProfile.dj_name !== "New DJ" ? "✅" : "⬜"} Profile details
-            </div>
+          <div className="mt-6 space-y-4">
 
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {(djProfile.request_price || 0) > 0 ? "✅" : "⬜"} Request prices
-            </div>
+  <div className="rounded-2xl bg-zinc-950 p-5">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="font-semibold">
+          {djProfile.dj_name !== "New DJ"
+            ? "✅ Profile complete"
+            : "Choose your DJ name"}
+        </h3>
 
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {djProfile.profile_image_url ? "✅" : "⬜"} Profile image
-            </div>
+        <p className="mt-1 text-sm text-zinc-500">
+          This is what guests will see.
+        </p>
+      </div>
 
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {qrCodeUrl ? "✅" : "⬜"} QR code ready
-            </div>
+      {djProfile.dj_name === "New DJ" && (
+        <button className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">
+          Edit
+        </button>
+      )}
+    </div>
+  </div>
 
-            <div className="rounded-2xl bg-zinc-950 p-4 sm:col-span-2">
-              {djProfile.stripe_connected ? "✅" : "⬜"} Connect Stripe
-            </div>
-          </div>
+  <div className="rounded-2xl bg-zinc-950 p-5">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="font-semibold">
+          {(djProfile.request_price || 0) > 0
+            ? "✅ Request price set"
+            : "Set request price"}
+        </h3>
+
+        <p className="mt-1 text-sm text-zinc-500">
+          Guests can't send requests until you set a price.
+        </p>
+      </div>
+
+      {(djProfile.request_price || 0) === 0 && (
+        <button className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">
+          Set Price
+        </button>
+      )}
+    </div>
+  </div>
+
+</div>
         </div>
       )}
     </>
