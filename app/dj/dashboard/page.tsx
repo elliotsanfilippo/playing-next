@@ -819,9 +819,7 @@ useEffect(() => {
       <div className="mt-6 rounded-3xl border border-white/10 bg-zinc-900 p-5">
   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <p className="text-sm text-zinc-400">
-        History
-      </p>
+      <p className="text-sm text-zinc-400">History</p>
 
       <h2 className="mt-2 text-2xl font-semibold">
         {playedRequests.length} played songs
@@ -832,12 +830,23 @@ useEffect(() => {
       </p>
     </div>
 
-    <button
-      onClick={() => setShowHistory(!showHistory)}
-      className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white"
-    >
-      {showHistory ? "Hide History" : "Show History"}
-    </button>
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        onClick={() => setShowHistory(!showHistory)}
+        className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white"
+      >
+        {showHistory ? "Hide History" : "Show History"}
+      </button>
+
+      {playedRequests.length > 0 && (
+        <button
+          onClick={clearPlayedHistory}
+          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
+        >
+          Clear History
+        </button>
+      )}
+    </div>
   </div>
 
   {showHistory && (
@@ -853,9 +862,7 @@ useEffect(() => {
             className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-950 p-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
-              <h3 className="font-semibold">
-                {request.song_title}
-              </h3>
+              <h3 className="font-semibold">{request.song_title}</h3>
 
               <p className="text-sm text-zinc-400">
                 {request.artist}
@@ -866,7 +873,7 @@ useEffect(() => {
               Played
             </div>
           </div>
-                ))
+        ))
       )}
     </div>
   )}
