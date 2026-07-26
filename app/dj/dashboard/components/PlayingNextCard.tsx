@@ -1,5 +1,6 @@
+import type { SongRequest } from "@/src/types/dashboard";
 type Props = {
-  currentPlayingNext: any;
+  currentPlayingNext: SongRequest | undefined;
   updateRequestStatus: (id: string, status: string) => Promise<void>;
 };
 

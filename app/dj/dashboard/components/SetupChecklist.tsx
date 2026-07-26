@@ -1,5 +1,6 @@
+import type { DJProfile } from "@/src/types/dashboard";
 type Props = {
-  djProfile: any;
+  djProfile: DJProfile | null;
   qrCodeUrl: string;
 };
 

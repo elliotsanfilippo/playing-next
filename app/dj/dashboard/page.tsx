@@ -1,5 +1,9 @@
 "use client";
 
+import type {
+  SongRequest,
+  DJProfile,
+} from "@/src/types/dashboard";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
@@ -12,28 +16,6 @@ import AcceptedQueue from "./components/AcceptedQueue";
 import SetupChecklist from "./components/SetupChecklist";
 import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
-
-type SongRequest = {
-  id: string;
-  song_title: string;
-  artist: string;
-  message: string | null;
-  request_type: string | null;
-  request_status: string;
-  stripe_payment_intent_id: string | null;
-  queue_position: number | null;
-};
-
-type DJProfile = {
-  id: string;
-  dj_name: string;
-  slug: string;
-  request_status: string;
-  profile_image_url: string | null;
-  request_price?: number | null;
-  stripe_connected?: boolean;
-  plan?: string;
-};
 
 
 export default function DJDashboardPage() {

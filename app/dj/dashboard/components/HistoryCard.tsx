@@ -1,7 +1,8 @@
+import type { SongRequest } from "@/src/types/dashboard";
 type Props = {
   showHistory: boolean;
   setShowHistory: (value: boolean) => void;
-  playedRequests: any[];
+  playedRequests: SongRequest[];
   clearPlayedHistory: () => Promise<void>;
 };
 

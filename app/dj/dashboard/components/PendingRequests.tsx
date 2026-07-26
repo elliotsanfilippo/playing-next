@@ -1,7 +1,10 @@
+import type { SongRequest } from "@/src/types/dashboard";
 type Props = {
-  pendingRequests: any[];
-  acceptRequest: (request: any) => Promise<void>;
-  declineRequest: (request: any) => Promise<void>;
+  pendingRequests: SongRequest[];
+
+acceptRequest: (request: SongRequest) => Promise<void>;
+
+declineRequest: (request: SongRequest) => Promise<void>;
 };
 
 export default function PendingRequests({

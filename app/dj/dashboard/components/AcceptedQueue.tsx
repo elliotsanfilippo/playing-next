@@ -1,6 +1,7 @@
+import type { SongRequest } from "@/src/types/dashboard";
 type Props = {
-  acceptedRequests: any[];
-  currentPlayingNext: any;
+  acceptedRequests: SongRequest[];
+  currentPlayingNext: SongRequest | undefined;
   moveAcceptedRequest: (
     requestId: string,
     direction: "up" | "down" | "top"
