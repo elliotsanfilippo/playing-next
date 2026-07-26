@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { supabase } from "../../../src/lib/supabase";
 import DashboardHeader from "./components/DashboardHeader";
+import StatsCards from "./components/StatsCards";
+import PlayingNextCard from "./components/PlayingNextCard";
+import PendingRequests from "./components/PendingRequests";
+import AcceptedQueue from "./components/AcceptedQueue";
+import SetupChecklist from "./components/SetupChecklist";
+import QRCard from "./components/QRCard";
+import HistoryCard from "./components/HistoryCard";
 
 type SongRequest = {
   id: string;
@@ -416,418 +423,51 @@ useEffect(() => {
   router={router}
 />
 
-      <div className="mb-8 mt-2 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5">
-          <p className="text-sm text-zinc-400">Pending</p>
-          <h2 className="mt-3 text-5xl font-bold">{pendingRequests.length}</h2>
-        </div>
+      <StatsCards
+  pendingCount={pendingRequests.length}
+  queueCount={acceptedRequests.length}
+  playedCount={playedRequests.length}
+/>
 
-        <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5">
-          <p className="text-sm text-zinc-400">Queue</p>
-          <h2 className="mt-3 text-5xl font-bold">{acceptedRequests.length}</h2>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5">
-  <p className="text-sm text-zinc-400">
-    Played
-  </p>
-
-  <h2 className="mt-3 text-5xl font-bold">
-    {playedRequests.length}
-  </h2>
-</div>
-      </div>
-
-      {currentPlayingNext && (
-        <div className="mb-6 rounded-3xl border border-white/10 bg-white p-6 text-black">
-          <p className="text-sm font-semibold text-zinc-500">Playing Next</p>
-
-          <h2 className="mt-2 text-5xl font-bold">
-            {currentPlayingNext.song_title}
-          </h2>
-
-          <p className="mt-1 text-zinc-600">{currentPlayingNext.artist}</p>
-
-          {currentPlayingNext.request_type === "song_message" && (
-            <div className="mt-4 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">
-                Shoutout Message
-              </p>
-
-              <p className="mt-1 text-sm">{currentPlayingNext.message}</p>
-            </div>
-          )}
-
-          <button
-            onClick={() =>
-              updateRequestStatus(currentPlayingNext.id, "played")
-            }
-            className="mt-6 rounded-full bg-black px-5 py-3 text-sm font-semibold text-white"
-          >
-            Mark as Played
-          </button>
-        </div>
-      )}
+      <PlayingNextCard
+  currentPlayingNext={currentPlayingNext}
+  updateRequestStatus={updateRequestStatus}
+/>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border border-white/10 bg-zinc-900 p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Pending Requests</h2>
+  <PendingRequests
+    pendingRequests={pendingRequests}
+    acceptRequest={acceptRequest}
+    declineRequest={declineRequest}
+  />
 
-            <div className="rounded-full bg-yellow-500/20 px-4 py-2 text-sm text-yellow-400">
-              {pendingRequests.length}
-            </div>
-          </div>
+  <AcceptedQueue
+    acceptedRequests={acceptedRequests}
+    currentPlayingNext={currentPlayingNext}
+    moveAcceptedRequest={moveAcceptedRequest}
+    updateRequestStatus={updateRequestStatus}
+  />
+</div> 
 
-          <div className="space-y-4">
-            {pendingRequests.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6 text-center">
-                <p className="font-semibold text-zinc-300">
-                  Waiting for requests...
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  Share your QR code with the crowd.
-                </p>
-              </div>
-            ) : (
-              pendingRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="rounded-2xl border border-white/10 bg-zinc-950 p-4"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="font-semibold">{request.song_title}</h3>
+      <SetupChecklist
+  djProfile={djProfile}
+  qrCodeUrl={qrCodeUrl}
+/>
 
-                      <p className="text-sm text-zinc-400">
-                        {request.artist}
-                      </p>
+      <QRCard
+  showQr={showQr}
+  setShowQr={setShowQr}
+  qrCodeUrl={qrCodeUrl}
+  requestLink={requestLink}
+  displayRequestLink={displayRequestLink}
+/>
 
-                      {request.request_type === "song_message" && (
-                        <div className="mt-3 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-purple-300">
-                            Shoutout Message
-                          </p>
-
-                          <p className="mt-1 text-sm text-white">
-                            {request.message || "No message provided"}
-                          </p>
-                        </div>
-                      )}
-
-                      <p className="mt-2 text-xs text-zinc-500">
-                        {request.stripe_payment_intent_id
-                          ? "Payment authorised"
-                          : "No payment attached"}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => declineRequest(request)}
-                        className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold"
-                      >
-                        Decline
-                      </button>
-
-                      <button
-                        onClick={() => acceptRequest(request)}
-                        className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-black"
-                      >
-                        Accept
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-zinc-900 p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Accepted Queue</h2>
-
-            <div className="rounded-full bg-green-500/20 px-4 py-2 text-sm text-green-400">
-              {acceptedRequests.length}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {acceptedRequests.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6 text-center">
-                <p className="font-semibold text-zinc-300">
-                  No accepted requests yet.
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  Accepted songs will appear here.
-                </p>
-              </div>
-            ) : (
-              acceptedRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="rounded-2xl border border-white/10 bg-zinc-950 p-4"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="font-semibold">{request.song_title}</h3>
-
-                      <p className="text-sm text-zinc-400">
-                        {request.artist}
-                      </p>
-
-                      {request.request_type === "song_message" && (
-                        <div className="mt-3 rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-purple-300">
-                            Shoutout Message
-                          </p>
-
-                          <p className="mt-1 text-sm text-white">
-                            {request.message || "No message provided"}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          onClick={() =>
-                            moveAcceptedRequest(request.id, "top")
-                          }
-                          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold"
-                        >
-                          ⬆ Top
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            moveAcceptedRequest(request.id, "up")
-                          }
-                          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold"
-                        >
-                          ↑ Up
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            moveAcceptedRequest(request.id, "down")
-                          }
-                          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold"
-                        >
-                          ↓ Down
-                        </button>
-                      </div>
-                    </div>
-
-                    {currentPlayingNext ? (
-                      <button
-                        disabled
-                        className="cursor-not-allowed rounded-full bg-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-400"
-                      >
-                        Waiting
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          updateRequestStatus(request.id, "playing_next")
-                        }
-                        className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black"
-                      >
-                        Playing Next
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {djProfile && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-zinc-900 p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-zinc-400">Setup Progress</p>
-
-              <h2 className="mt-1 text-xl font-semibold">
-                Setup Checklist
-              </h2>
-            </div>
-
-            <div className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white">
-              {
-                [
-                  djProfile.dj_name !== "New DJ",
-                  (djProfile.request_price || 0) > 0,
-                  Boolean(djProfile.profile_image_url),
-                  Boolean(qrCodeUrl),
-                  Boolean(djProfile.stripe_connected),
-                ].filter(Boolean).length
-              }
-              /5 complete
-            </div>
-          </div>
-
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-950">
-            <div
-              className="h-full rounded-full bg-white"
-              style={{
-                width: `${
-                  ([
-                    djProfile.dj_name !== "New DJ",
-                    (djProfile.request_price || 0) > 0,
-                    Boolean(djProfile.profile_image_url),
-                    Boolean(qrCodeUrl),
-                    Boolean(djProfile.stripe_connected),
-                  ].filter(Boolean).length /
-                    5) *
-                  100
-                }%`,
-              }}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {djProfile.dj_name !== "New DJ" ? "✅" : "⬜"} Profile details
-            </div>
-
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {(djProfile.request_price || 0) > 0 ? "✅" : "⬜"} Request prices
-            </div>
-
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {djProfile.profile_image_url ? "✅" : "⬜"} Profile image
-            </div>
-
-            <div className="rounded-2xl bg-zinc-950 p-4">
-              {qrCodeUrl ? "✅" : "⬜"} QR code ready
-            </div>
-
-            <div className="rounded-2xl bg-zinc-950 p-4 sm:col-span-2">
-              {djProfile.stripe_connected ? "✅" : "⬜"} Connect Stripe
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 rounded-3xl border border-white/10 bg-zinc-900 p-5">
-  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h2 className="text-xl font-semibold">
-        Request QR
-      </h2>
-
-      <p className="mt-1 text-sm text-zinc-500">
-        Share your request link with the crowd.
-      </p>
-    </div>
-
-    <button
-      onClick={() => setShowQr(!showQr)}
-      className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white"
-    >
-      {showQr ? "Hide QR" : "Show QR"}
-    </button>
-  </div>
-
-  {showQr && (
-    <div className="mt-6 flex flex-col items-center gap-4 text-center">
-      {qrCodeUrl && (
-        <img
-          src={qrCodeUrl}
-          alt="DJ Request QR Code"
-          className="w-32 rounded-2xl bg-white p-2"
-        />
-      )}
-
-      <div className="rounded-full bg-zinc-950 px-4 py-2 text-sm text-zinc-400">
-        {displayRequestLink}
-      </div>
-
-      <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-        <button
-          onClick={() => navigator.clipboard.writeText(requestLink)}
-          className="w-full rounded-full bg-white px-4 py-3 text-center text-sm font-semibold text-black sm:w-auto"
-        >
-          Copy Link
-        </button>
-
-        <a
-          href={qrCodeUrl}
-          download="playing-next-qr-code.png"
-          className="w-full rounded-full border border-white/10 px-4 py-3 text-center text-sm font-semibold text-white sm:w-auto"
-        >
-          Download QR
-        </a>
-      </div>
-    </div>
-  )}
-</div>
-
-      <div className="mt-6 rounded-3xl border border-white/10 bg-zinc-900 p-5">
-  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <p className="text-sm text-zinc-400">History</p>
-
-      <h2 className="mt-2 text-2xl font-semibold">
-        {playedRequests.length} played songs
-      </h2>
-
-      <p className="mt-1 text-sm text-zinc-500">
-        Songs already marked as played.
-      </p>
-    </div>
-
-    <div className="flex flex-wrap items-center gap-3">
-      <button
-        onClick={() => setShowHistory(!showHistory)}
-        className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white"
-      >
-        {showHistory ? "Hide History" : "Show History"}
-      </button>
-
-      {playedRequests.length > 0 && (
-        <button
-          onClick={clearPlayedHistory}
-          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
-        >
-          Clear History
-        </button>
-      )}
-    </div>
-  </div>
-
-  {showHistory && (
-    <div className="mt-6 space-y-3">
-      {playedRequests.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-zinc-950 p-5 text-center text-zinc-400">
-          No played requests yet.
-        </div>
-      ) : (
-        playedRequests.map((request) => (
-          <div
-            key={request.id}
-            className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-950 p-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div>
-              <h3 className="font-semibold">{request.song_title}</h3>
-
-              <p className="text-sm text-zinc-400">
-                {request.artist}
-              </p>
-            </div>
-
-            <div className="rounded-full bg-white/10 px-4 py-2 text-sm text-zinc-300">
-              Played
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  )}
-</div>
+<HistoryCard
+  showHistory={showHistory}
+  setShowHistory={setShowHistory}
+  playedRequests={playedRequests}
+  clearPlayedHistory={clearPlayedHistory}
+/>      
 
 </div>
 </main>
