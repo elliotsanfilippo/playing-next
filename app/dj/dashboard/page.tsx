@@ -16,6 +16,8 @@ import AcceptedQueue from "./components/AcceptedQueue";
 import SetupChecklist from "./components/SetupChecklist";
 import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
+import Onboarding from "./components/Onboarding";
+import LaunchComplete from "./components/LaunchComplete";
 
 
 export default function DJDashboardPage() {
@@ -26,6 +28,8 @@ export default function DJDashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showLaunchComplete, setShowLaunchComplete] = useState(true);
 
   const fetchDJProfile = async () => {
   const {
@@ -358,6 +362,22 @@ const moveAcceptedRequest = async (
 }, [router]);
 
 useEffect(() => {
+  const skippedOnboarding =
+    window.localStorage.getItem("playing-next-onboarding-skipped") === "true";
+
+  if (skippedOnboarding) {
+    setShowOnboarding(false);
+  }
+}, []);
+useEffect(() => {
+  const launchCompleteSeen =
+    window.localStorage.getItem("playing-next-launch-complete") === "true";
+
+  if (launchCompleteSeen) {
+    setShowLaunchComplete(false);
+  }
+}, []);
+useEffect(() => {
   if (!requestLink) {
     setQrCodeUrl("");
     return;
@@ -393,7 +413,50 @@ useEffect(() => {
   );
 
   const currentPlayingNext = playingNextRequests[0];
-  
+  const onboardingComplete =
+  Boolean(djProfile) &&
+  djProfile!.dj_name !== "New DJ" &&
+  (djProfile!.request_price || 0) > 0 &&
+  Boolean(djProfile!.profile_image_url) &&
+  Boolean(qrCodeUrl) &&
+  Boolean(djProfile!.stripe_connected);
+const continueFromLaunch = () => {
+  window.localStorage.setItem(
+    "playing-next-launch-complete",
+    "true"
+  );
+
+  setShowLaunchComplete(false);
+  setShowOnboarding(false);
+};
+const continueToDashboard = () => {
+  window.localStorage.setItem(
+    "playing-next-onboarding-skipped",
+    "true"
+  );
+
+  setShowOnboarding(false);
+};
+
+if (djProfile && showOnboarding && !onboardingComplete) {
+  return (
+    <Onboarding
+      djProfile={djProfile}
+      qrCodeUrl={qrCodeUrl}
+      router={router}
+      onContinue={continueToDashboard}
+    />
+  );
+}
+if (onboardingComplete && showLaunchComplete) {
+  return (
+    <LaunchComplete
+      qrCodeUrl={qrCodeUrl}
+      requestLink={requestLink}
+      onContinue={continueFromLaunch}
+    />
+  );
+}
   return (
   <main className="min-h-screen bg-zinc-950 p-5 text-white sm:p-6">
     <div className="mx-auto max-w-6xl">

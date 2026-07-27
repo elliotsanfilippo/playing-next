@@ -1,0 +1,40 @@
+# Dashboard V2
+
+## Header
+- Greeting
+- DJ name
+- Status badge
+- Analytics
+- Settings
+
+## Stats
+- Pending
+- Queue
+- Played
+- Tonight (£)
+
+## Playing Next
+Large white hero card
+
+## Pending Requests
+Cards with:
+- Song
+- Artist
+- Paid badge
+- Time requested
+- Accept
+- Decline
+
+## Queue
+Spotify style list
+
+## Welcome Card
+Appears until onboarding complete.
+
+## QR
+Copy
+Download
+View QR
+
+## History
+Recent activity
