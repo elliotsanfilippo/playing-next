@@ -201,8 +201,13 @@ the lead times involved, even though it doesn't block engineering work.
 - [ ] Refund & Cancellation Policy
 - [ ] Complaints process
 - [ ] ICO registration/fee assessment
-- [ ] UK GDPR data/retention review
-- [ ] Processor/vendor review
+- [~] UK GDPR data/retention review — factual audit done, see
+      `DATA_AUDIT.md` (what's collected, where it goes, retention gaps
+      found); actual legal assessment against UK GDPR still needs a
+      professional, this is just the input for that
+- [~] Processor/vendor review — covered in the same audit: Supabase,
+      Stripe, Spotify, Sentry, Vercel, what each receives. Data-residency
+      region for Supabase/Vercel not yet confirmed — noted in the doc
 - [ ] VAT/accounting advice
 - [ ] Payments-regulation/Stripe Connect legal review
 - [ ] DJ tax responsibility wording
