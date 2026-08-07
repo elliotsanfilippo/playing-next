@@ -1,10 +1,14 @@
 import Link from "next/link";
+import { Check } from "lucide-react";
+import { buttonVariants } from "@/src/components/ui/Button";
+import Badge from "@/src/components/ui/Badge";
+
 export default function ProductShowcase() {
   return (
     <section className="relative z-10 px-5 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-[34px] border border-white/10 bg-zinc-900/55 p-6 sm:p-10 lg:grid-cols-[0.75fr_1.25fr] lg:p-12">
+        <div className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-card-lg border border-white/10 bg-zinc-900/55 p-6 sm:p-10 lg:grid-cols-[0.75fr_1.25fr] lg:p-12">
           <div className="flex flex-col justify-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-400">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
               Built for the booth
             </p>
 
@@ -21,13 +25,13 @@ export default function ProductShowcase() {
 
             <Link
               href="/signup"
-              className="mt-8 inline-flex w-fit rounded-2xl border border-white/10 bg-white/5 px-6 py-3 font-semibold transition hover:bg-white/10"
+              className={buttonVariants({ variant: "secondary", className: "mt-8 w-fit" })}
             >
               Explore the dashboard
             </Link>
           </div>
 
-          <div className="rounded-[28px] border border-white/10 bg-black/45 p-4 sm:p-6">
+          <div className="rounded-card border border-white/10 bg-black/45 p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
@@ -39,9 +43,7 @@ export default function ProductShowcase() {
                 </h3>
               </div>
 
-              <div className="rounded-full bg-green-500/15 px-3 py-1.5 text-xs font-semibold text-green-400">
-                Live
-              </div>
+              <Badge tone="accent">Live</Badge>
             </div>
 
             <div className="mt-6 space-y-3">
@@ -52,7 +54,7 @@ export default function ProductShowcase() {
               ].map(([title, artist, price], index) => (
                 <div
                   key={title}
-                  className="flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.03] p-4"
+                  className="flex items-center gap-4 rounded-control border border-white/5 bg-white/[0.03] p-4"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-sm font-bold text-zinc-500">
                     {index + 1}
@@ -69,8 +71,8 @@ export default function ProductShowcase() {
                     {price}
                   </span>
 
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-500 text-sm font-bold text-black">
-                    ✓
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-strong text-black">
+                    <Check size={16} strokeWidth={3} />
                   </span>
                 </div>
               ))}

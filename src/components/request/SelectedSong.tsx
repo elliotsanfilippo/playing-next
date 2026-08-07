@@ -1,4 +1,7 @@
+import { Music2 } from "lucide-react";
 import type { SpotifyTrack } from "./TrackResults";
+import Eyebrow from "@/src/components/ui/Eyebrow";
+import Button from "@/src/components/ui/Button";
 
 type Props = {
   selectedSong: SpotifyTrack;
@@ -10,11 +13,9 @@ export default function SelectedSong({
   onChangeSong,
 }: Props) {
   return (
-    <section className="mt-8 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02]">
+    <section className="mt-8 overflow-hidden rounded-card border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02]">
       <div className="border-b border-white/5 px-5 py-4 sm:px-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-400">
-          Now requesting
-        </p>
+        <Eyebrow tone="accent">Now requesting</Eyebrow>
       </div>
 
       <div className="flex items-center gap-4 p-5 sm:p-6">
@@ -25,8 +26,8 @@ export default function SelectedSong({
             className="h-20 w-20 shrink-0 rounded-2xl object-cover shadow-lg shadow-black/30"
           />
         ) : (
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-2xl text-zinc-600">
-            ♪
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-zinc-600">
+            <Music2 size={28} />
           </div>
         )}
 
@@ -39,13 +40,14 @@ export default function SelectedSong({
             {selectedSong.artist}
           </p>
 
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-3 h-9 px-4"
             onClick={onChangeSong}
-            className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
           >
             Change Song
-          </button>
+          </Button>
         </div>
       </div>
     </section>

@@ -1,5 +1,7 @@
+import { Headphones, Check } from "lucide-react";
 import type { DJProfile } from "@/src/types/dashboard";
 import Button from "@/src/components/ui/Button";
+import Eyebrow from "@/src/components/ui/Eyebrow";
 
 type Props = {
   djProfile: DJProfile;
@@ -66,17 +68,15 @@ export default function Onboarding({
       <div className="mx-auto max-w-3xl">
         <div className="rounded-card-lg border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-10">
           <div className="text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-green-500/15 text-3xl">
-              🎧
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-card bg-accent/15 text-accent">
+              <Headphones size={28} />
             </div>
 
-            <p className="mt-6 text-sm font-semibold uppercase tracking-[0.22em] text-green-400">
+            <Eyebrow tone="accent" className="mt-6">
               Welcome to Playing Next
-            </p>
+            </Eyebrow>
 
-            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-              Let&apos;s get you ready
-            </h1>
+            <h1 className="mt-3 text-h1">Let&apos;s get you ready</h1>
 
             <p className="mx-auto mt-4 max-w-xl text-zinc-400">
               Complete your setup so guests can find you, request songs and
@@ -97,7 +97,7 @@ export default function Onboarding({
 
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
               <div
-                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                className="h-full rounded-full bg-accent-strong transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -107,9 +107,9 @@ export default function Onboarding({
             {steps.map((step, index) => (
               <div
                 key={step.title}
-                className={`rounded-3xl border p-5 transition ${
+                className={`rounded-card border p-5 transition ${
                   step.complete
-                    ? "border-green-500/15 bg-green-500/5"
+                    ? "border-accent/15 bg-accent/5"
                     : "border-white/10 bg-black/20"
                 }`}
               >
@@ -118,11 +118,15 @@ export default function Onboarding({
                     <div
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl font-bold ${
                         step.complete
-                          ? "bg-green-500 text-black"
+                          ? "bg-accent-strong text-black"
                           : "bg-white/5 text-zinc-400"
                       }`}
                     >
-                      {step.complete ? "✓" : index + 1}
+                      {step.complete ? (
+                        <Check size={18} strokeWidth={3} />
+                      ) : (
+                        index + 1
+                      )}
                     </div>
 
                     <div>

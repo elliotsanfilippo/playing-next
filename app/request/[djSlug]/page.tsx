@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
 import RequestHeader, {
   type DJProfile,
@@ -16,6 +17,7 @@ import SelectedSong from "@/src/components/request/SelectedSong";
 import RequestOptions from "@/src/components/request/RequestOptions";
 import CheckoutButton from "@/src/components/request/CheckoutButton";
 import EmptySearchState from "@/src/components/request/EmptySearchState";
+import Card from "@/src/components/ui/Card";
 
 
 export default function RequestPage() {
@@ -186,7 +188,7 @@ document.addEventListener(
     if (!selectedSong || !djProfile || !isTakingRequests) return;
 
     if (requestType === "song_message" && message.trim().length === 0) {
-      alert("Please add a message for your Song + Message request.");
+      toast.error("Please add a message for your Song + Message request.");
       return;
     }
 
@@ -217,7 +219,7 @@ document.addEventListener(
 
     if (error || !data) {
       console.log("Request create error:", error);
-      alert("Something went wrong creating your request.");
+      toast.error("Something went wrong creating your request.");
       return;
     }
 
@@ -267,10 +269,10 @@ localStorage.setItem(
     return (
       <main className="min-h-screen bg-canvas p-6 text-white">
         <section className="mx-auto flex min-h-screen max-w-xl items-center justify-center">
-          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center">
+          <Card variant="elevated" className="p-8 text-center">
             <p className="text-sm text-zinc-400">Playing Next</p>
-            <h1 className="mt-3 text-3xl font-bold">Loading DJ...</h1>
-          </div>
+            <h1 className="mt-3 text-h2">Loading DJ...</h1>
+          </Card>
         </section>
       </main>
     );
@@ -280,13 +282,13 @@ localStorage.setItem(
     return (
       <main className="min-h-screen bg-canvas p-6 text-white">
         <section className="mx-auto flex min-h-screen max-w-xl items-center justify-center">
-          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center">
-            <h1 className="text-4xl font-bold">DJ Not Found</h1>
+          <Card variant="elevated" className="p-8 text-center">
+            <h1 className="text-h1">DJ Not Found</h1>
 
             <p className="mt-4 text-zinc-400">
               This request link is invalid or no longer active.
             </p>
-          </div>
+          </Card>
         </section>
       </main>
     );
@@ -301,7 +303,7 @@ localStorage.setItem(
   isTakingRequests={isTakingRequests}
 />
 
-  <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+  <Card variant="elevated" className="mt-6 p-6 sm:p-8">
   <RequestCardHeader />
 
   <SpotifySearchInput
@@ -316,7 +318,7 @@ localStorage.setItem(
     isTakingRequests && (
       <EmptySearchState />
     )}
-</div>
+</Card>
 
 {!selectedSong && tracks.length > 0 && (
   <TrackResults
@@ -329,7 +331,7 @@ localStorage.setItem(
 
           {selectedSong && (
   <>
-    <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+    <Card variant="elevated" className="mt-6 p-6 sm:p-8">
       <SelectedSong
         selectedSong={selectedSong}
         onChangeSong={() => {
@@ -340,9 +342,9 @@ localStorage.setItem(
           setRequestType("song_request");
         }}
       />
-    </div>
+    </Card>
 
-    <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+    <Card variant="elevated" className="mt-6 p-6 sm:p-8">
       <RequestOptions
         requestType={requestType}
         setRequestType={setRequestType}
@@ -352,9 +354,9 @@ localStorage.setItem(
         setMessage={setMessage}
         isTakingRequests={isTakingRequests}
       />
-    </div>
+    </Card>
 
-    <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+    <Card variant="elevated" className="mt-6 p-6 sm:p-8">
       <CheckoutButton
         selectedSong
         isTakingRequests={isTakingRequests}
@@ -363,7 +365,7 @@ localStorage.setItem(
         shoutoutPrice={shoutoutPrice}
         onCheckout={submitRequest}
       />
-    </div>
+    </Card>
   </>
 )}
         

@@ -1,4 +1,8 @@
+import { Music2, Check } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
+import Card from "@/src/components/ui/Card";
+import Button from "@/src/components/ui/Button";
+import Badge from "@/src/components/ui/Badge";
 
 type Props = {
   showHistory: boolean;
@@ -14,7 +18,7 @@ export default function HistoryCard({
   clearPlayedHistory,
 }: Props) {
   return (
-    <section className="mt-8 overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950">
+    <Card variant="elevated" className="mt-8 overflow-hidden">
       <div className="border-b border-white/5 p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -22,30 +26,23 @@ export default function HistoryCard({
               ACTIVITY
             </p>
 
-            <h2 className="mt-2 text-3xl font-bold">
-              Recent Activity
-            </h2>
+            <h2 className="mt-2 text-3xl font-bold">Recent Activity</h2>
 
             <p className="mt-2 text-zinc-400">
-              Songs you've recently played.
+              Songs you&apos;ve recently played.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button
+            <Button
+              variant="secondary"
               onClick={() => setShowHistory(!showHistory)}
-              className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-semibold transition hover:bg-white/5"
             >
               {showHistory ? "Hide Activity" : "Show Activity"}
-            </button>
+            </Button>
 
             {playedRequests.length > 0 && (
-              <button
-                onClick={clearPlayedHistory}
-                className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-black transition hover:bg-zinc-200"
-              >
-                Clear
-              </button>
+              <Button onClick={clearPlayedHistory}>Clear</Button>
             )}
           </div>
         </div>
@@ -54,14 +51,12 @@ export default function HistoryCard({
       {showHistory && (
         <div className="p-6">
           {playedRequests.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-2xl">
-                🎶
+            <div className="rounded-card border border-dashed border-white/10 p-10 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-zinc-400">
+                <Music2 size={24} />
               </div>
 
-              <h3 className="text-lg font-semibold">
-                Nothing here yet
-              </h3>
+              <h3 className="text-lg font-semibold">Nothing here yet</h3>
 
               <p className="mt-2 text-sm text-zinc-500">
                 Songs marked as played will appear here.
@@ -72,11 +67,11 @@ export default function HistoryCard({
               {playedRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-zinc-950/50 p-5 transition hover:border-white/10 hover:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between"
+                  className="flex flex-col gap-4 rounded-control border border-white/5 bg-zinc-950/50 p-5 transition hover:border-white/10 hover:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500 text-lg font-bold text-black">
-                      ✓
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-strong text-black">
+                      <Check size={20} strokeWidth={3} />
                     </div>
 
                     <div>
@@ -84,21 +79,17 @@ export default function HistoryCard({
                         {request.song_title}
                       </h3>
 
-                      <p className="text-zinc-400">
-                        {request.artist}
-                      </p>
+                      <p className="text-zinc-400">{request.artist}</p>
                     </div>
                   </div>
 
-                  <div className="rounded-full bg-green-500/10 px-4 py-2 text-sm font-semibold text-green-400">
-                    Played
-                  </div>
+                  <Badge tone="accent">Played</Badge>
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
-    </section>
+    </Card>
   );
 }

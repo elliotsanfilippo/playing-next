@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { PoundSterling, Radio, QrCode } from "lucide-react";
 import { supabase } from "../src/lib/supabase";
 import DashboardPreview from "@/src/components/home/DashboardPreview";
 import Navbar from "@/src/components/home/Navbar";
@@ -17,19 +18,19 @@ import Footer from "@/src/components/home/Footer";
 
 const featureCards = [
   {
-    symbol: "£",
+    icon: <PoundSterling size={22} />,
     title: "Get paid for requests",
     description:
       "Guests authorise payment when they submit. You decide which requests to accept.",
   },
   {
-    symbol: "♫",
+    icon: <Radio size={22} />,
     title: "Manage your queue live",
     description:
       "Accept, decline and reorder requests in real time from one simple dashboard.",
   },
   {
-    symbol: "▦",
+    icon: <QrCode size={22} />,
     title: "Share one QR code",
     description:
       "Give your crowd one link for song requests, shoutouts and live status updates.",
@@ -109,7 +110,7 @@ export default function HomePage() {
   }, [djs, search]);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#070809] text-white">
+    <main className="min-h-screen overflow-hidden bg-canvas text-white">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute left-[-160px] top-[-160px] h-[420px] w-[420px] rounded-full bg-green-500/10 blur-[140px]" />
 

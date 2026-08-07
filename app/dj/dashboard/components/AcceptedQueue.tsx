@@ -1,4 +1,7 @@
+import { Headphones, ChevronsUp, ChevronUp, ChevronDown, Play, Mic2 } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
+import Card from "@/src/components/ui/Card";
+import Button from "@/src/components/ui/Button";
 
 type Props = {
   acceptedRequests: SongRequest[];
@@ -20,7 +23,7 @@ export default function AcceptedQueue({
   updateRequestStatus,
 }: Props) {
   return (
-    <section className="rounded-[32px] border border-white/10 bg-zinc-900/70 backdrop-blur">
+    <Card>
       <div className="border-b border-white/5 p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -28,9 +31,7 @@ export default function AcceptedQueue({
               UP NEXT
             </p>
 
-            <h2 className="mt-2 text-3xl font-bold">
-              Queue
-            </h2>
+            <h2 className="mt-2 text-3xl font-bold">Queue</h2>
           </div>
 
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/15">
@@ -43,14 +44,12 @@ export default function AcceptedQueue({
 
       <div className="p-4">
         {acceptedRequests.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-2xl">
-              🎧
+          <div className="rounded-card border border-dashed border-white/10 p-10 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-zinc-400">
+              <Headphones size={24} />
             </div>
 
-            <h3 className="text-lg font-semibold">
-              Queue is empty
-            </h3>
+            <h3 className="text-lg font-semibold">Queue is empty</h3>
 
             <p className="mt-2 text-sm text-zinc-500">
               Accepted songs will appear here.
@@ -61,7 +60,7 @@ export default function AcceptedQueue({
             {acceptedRequests.map((request, index) => (
               <div
                 key={request.id}
-                className="group rounded-2xl border border-transparent bg-zinc-950/50 p-4 transition hover:border-white/10 hover:bg-zinc-950"
+                className="group rounded-control border border-transparent bg-zinc-950/50 p-4 transition hover:border-white/10 hover:bg-zinc-950"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                   <div className="flex flex-1 items-center gap-4">
@@ -80,60 +79,60 @@ export default function AcceptedQueue({
 
                       {request.request_type === "song_message" &&
                         request.message && (
-                          <p className="mt-2 truncate text-xs uppercase tracking-[0.2em] text-zinc-500">
-                            🎤 Includes shoutout
+                          <p className="mt-2 flex items-center gap-1.5 truncate text-xs uppercase tracking-[0.2em] text-zinc-500">
+                            <Mic2 size={12} /> Includes shoutout
                           </p>
                         )}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() =>
-                        moveAcceptedRequest(request.id, "top")
-                      }
-                      className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold transition hover:bg-white/5"
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-9 px-3"
+                      onClick={() => moveAcceptedRequest(request.id, "top")}
                     >
-                      ⬆ Top
-                    </button>
+                      <ChevronsUp size={14} /> Top
+                    </Button>
 
-                    <button
-                      onClick={() =>
-                        moveAcceptedRequest(request.id, "up")
-                      }
-                      className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold transition hover:bg-white/5"
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-9 px-3"
+                      onClick={() => moveAcceptedRequest(request.id, "up")}
                     >
-                      ↑ Up
-                    </button>
+                      <ChevronUp size={14} /> Up
+                    </Button>
 
-                    <button
-                      onClick={() =>
-                        moveAcceptedRequest(request.id, "down")
-                      }
-                      className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold transition hover:bg-white/5"
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-9 px-3"
+                      onClick={() => moveAcceptedRequest(request.id, "down")}
                     >
-                      ↓ Down
-                    </button>
+                      <ChevronDown size={14} /> Down
+                    </Button>
 
                     {currentPlayingNext ? (
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-9 px-3"
                         disabled
-                        className="cursor-not-allowed rounded-xl bg-zinc-800 px-4 py-2 text-xs font-semibold text-zinc-500"
                       >
                         Waiting
-                      </button>
+                      </Button>
                     ) : (
-                      <button
+                      <Button
+                        size="sm"
+                        className="h-9 px-3"
                         onClick={() =>
-                          updateRequestStatus(
-                            request.id,
-                            "playing_next"
-                          )
+                          updateRequestStatus(request.id, "playing_next")
                         }
-                        className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-black transition hover:scale-[1.02] hover:bg-zinc-200 active:scale-100"
                       >
-                        ▶ Play Next
-                      </button>
+                        <Play size={14} /> Play Next
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -142,6 +141,6 @@ export default function AcceptedQueue({
           </div>
         )}
       </div>
-    </section>
+    </Card>
   );
 }

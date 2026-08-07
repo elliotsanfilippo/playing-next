@@ -1,3 +1,5 @@
+import { Music2, Check } from "lucide-react";
+
 export type SpotifyTrack = {
   id: string;
   title: string;
@@ -36,10 +38,10 @@ export default function TrackResults({
               type="button"
               disabled={!isTakingRequests}
               onClick={() => onSelect(track)}
-              className={`group w-full rounded-3xl border p-4 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`group w-full rounded-card border p-4 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
                 isSelected
-                  ? "border-green-500/40 bg-green-500/10 shadow-lg shadow-green-500/5"
-                  : "border-white/10 bg-black/30 hover:-translate-y-0.5 hover:border-green-500/30 hover:bg-white/[0.04]"
+                  ? "border-accent/40 bg-accent/10 shadow-lg shadow-green-500/5"
+                  : "border-white/10 bg-black/30 hover:-translate-y-0.5 hover:border-accent/30 hover:bg-white/[0.04]"
               }`}
             >
               <div className="flex items-center gap-4">
@@ -50,8 +52,8 @@ export default function TrackResults({
                     className="h-16 w-16 shrink-0 rounded-2xl object-cover"
                   />
                 ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-xl text-zinc-600">
-                    ♪
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-zinc-600">
+                    <Music2 size={22} />
                   </div>
                 )}
 
@@ -68,13 +70,14 @@ export default function TrackResults({
                     </div>
 
                     <span
-                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition ${
                         isSelected
-                          ? "border border-green-500/30 bg-green-500/15 text-green-400"
+                          ? "border border-accent/30 bg-accent/15 text-accent"
                           : "border border-white/10 bg-white/5 text-zinc-500 group-hover:text-white"
                       }`}
                     >
-                      {isSelected ? "✓ Selected" : "Select"}
+                      {isSelected && <Check size={12} strokeWidth={3} />}
+                      {isSelected ? "Selected" : "Select"}
                     </span>
                   </div>
                 </div>

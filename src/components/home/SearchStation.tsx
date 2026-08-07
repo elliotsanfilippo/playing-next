@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Search } from "lucide-react";
+import Badge from "@/src/components/ui/Badge";
 
 export type HomeDJ = {
   dj_name: string;
@@ -26,7 +28,7 @@ export default function SearchStation({
       id="find-dj"
       className="relative z-10 px-5 py-8 sm:px-6 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl rounded-[32px] border border-white/10 bg-zinc-900/55 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-10 lg:p-12">
+      <div className="mx-auto max-w-7xl rounded-card-lg border border-white/10 bg-zinc-900/55 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-10 lg:p-12">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">
             For guests
@@ -34,7 +36,7 @@ export default function SearchStation({
 
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
             Looking for your{" "}
-            <span className="text-green-400">DJ?</span>
+            <span className="text-accent">DJ?</span>
           </h2>
 
           <p className="mt-3 text-zinc-400">
@@ -42,8 +44,8 @@ export default function SearchStation({
           </p>
 
           <div className="relative mt-8">
-            <div className="flex items-center rounded-2xl border border-white/10 bg-black/50 px-5 transition focus-within:border-green-500/40">
-              <span className="mr-3 text-xl text-zinc-500">⌕</span>
+            <div className="flex items-center rounded-card border border-white/10 bg-black/50 px-5 transition focus-within:border-accent/40">
+              <Search size={20} className="mr-3 shrink-0 text-zinc-500" />
 
               <input
                 type="search"
@@ -55,7 +57,7 @@ export default function SearchStation({
             </div>
 
             {search.trim().length > 0 && (
-              <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-40 overflow-hidden rounded-3xl border border-white/10 bg-zinc-950 p-2 text-left shadow-2xl shadow-black">
+              <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-40 overflow-hidden rounded-card border border-white/10 bg-zinc-950 p-2 text-left shadow-2xl shadow-black">
                 {loadingDJs ? (
                   <div className="p-5 text-sm text-zinc-500">
                     Searching DJs...
@@ -83,7 +85,7 @@ export default function SearchStation({
                       <Link
                         key={dj.slug}
                         href={`/request/${dj.slug}`}
-                        className="flex items-center justify-between gap-4 rounded-2xl p-3 transition hover:bg-white/5"
+                        className="flex items-center justify-between gap-4 rounded-control p-3 transition hover:bg-white/5"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           {dj.profile_image_url ? (
@@ -109,15 +111,9 @@ export default function SearchStation({
                           </div>
                         </div>
 
-                        <div
-                          className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                            isLive
-                              ? "bg-green-500/15 text-green-400"
-                              : "bg-white/5 text-zinc-500"
-                          }`}
-                        >
+                        <Badge tone={isLive ? "accent" : "neutral"}>
                           {isLive ? "Taking requests" : "Paused"}
-                        </div>
+                        </Badge>
                       </Link>
                     );
                   })

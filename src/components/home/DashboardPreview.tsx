@@ -1,3 +1,6 @@
+import { Music2 } from "lucide-react";
+import Badge from "@/src/components/ui/Badge";
+
 export default function DashboardPreview() {
   const queue = [
     {
@@ -19,9 +22,9 @@ export default function DashboardPreview() {
 
   return (
     <div className="relative mx-auto w-full max-w-2xl">
-      <div className="pointer-events-none absolute inset-0 rounded-[40px] bg-green-500/15 blur-[90px]" />
+      <div className="pointer-events-none absolute inset-0 rounded-card-lg bg-green-500/15 blur-[90px]" />
 
-      <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[#111315]/95 p-4 shadow-2xl shadow-black/60 sm:p-5">
+      <div className="relative overflow-hidden rounded-card-lg border border-white/10 bg-[#111315]/95 p-4 shadow-2xl shadow-black/60 sm:p-5">
         <div className="flex items-center justify-between border-b border-white/5 pb-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
@@ -31,9 +34,9 @@ export default function DashboardPreview() {
             <h2 className="mt-1 font-bold">Overview</h2>
           </div>
 
-          <div className="rounded-full bg-green-500/15 px-3 py-1.5 text-xs font-semibold text-green-400">
-            ● Live
-          </div>
+          <Badge tone="accent" dot>
+            Live
+          </Badge>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
@@ -57,14 +60,14 @@ export default function DashboardPreview() {
           ))}
         </div>
 
-        <div className="mt-4 rounded-2xl border border-green-500/15 bg-green-500/[0.06] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-green-400">
+        <div className="mt-4 rounded-2xl border border-accent/15 bg-accent/[0.06] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
             Playing next
           </p>
 
           <div className="mt-3 flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-lg">
-              ♪
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500">
+              <Music2 size={20} className="text-white" />
             </div>
 
             <div className="min-w-0 flex-1">
@@ -76,7 +79,7 @@ export default function DashboardPreview() {
 
             <button
               type="button"
-              className="rounded-xl bg-green-500 px-3 py-2 text-xs font-bold text-black"
+              className="rounded-xl bg-accent-strong px-3 py-2 text-xs font-bold text-black"
             >
               Accept
             </button>

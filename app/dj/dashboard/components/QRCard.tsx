@@ -1,3 +1,8 @@
+import { Copy, Download } from "lucide-react";
+import Card from "@/src/components/ui/Card";
+import Button, { buttonVariants } from "@/src/components/ui/Button";
+import Eyebrow from "@/src/components/ui/Eyebrow";
+
 type Props = {
   showQr: boolean;
   setShowQr: (value: boolean) => void;
@@ -12,72 +17,51 @@ export default function QRCard({
   displayRequestLink,
 }: Props) {
   return (
-    <section className="mt-8 overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950">
+    <Card variant="elevated" className="mt-8 overflow-hidden">
       <div className="p-8">
-
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-
           <div className="max-w-lg">
+            <Eyebrow tone="accent">Share</Eyebrow>
 
-            <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-              SHARE
-            </p>
-
-            <h2 className="mt-3 text-4xl font-bold">
-              Your Request Page
-            </h2>
+            <h2 className="mt-3 text-h2">Your Request Page</h2>
 
             <p className="mt-3 text-zinc-400">
-              Guests simply scan your QR code to send song requests directly to
-              your dashboard.
+              Guests simply scan your QR code to send song requests directly
+              to your dashboard.
             </p>
 
-            <div className="mt-6 rounded-2xl border border-white/5 bg-black/20 p-4">
+            <div className="mt-6 rounded-control border border-white/5 bg-black/20 p-4">
               <p className="truncate text-sm text-zinc-400">
                 {displayRequestLink}
               </p>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-
-              <button
-                onClick={() =>
-                  navigator.clipboard.writeText(requestLink)
-                }
-                className="rounded-2xl bg-white px-6 py-3 font-semibold text-black transition hover:bg-zinc-200"
+              <Button
+                onClick={() => navigator.clipboard.writeText(requestLink)}
               >
-                Copy Link
-              </button>
+                <Copy size={16} /> Copy Link
+              </Button>
 
               <a
                 href={qrCodeUrl}
                 download="playing-next-qr-code.png"
-                className="rounded-2xl border border-white/10 px-6 py-3 font-semibold transition hover:bg-white/5"
+                className={buttonVariants({ variant: "secondary" })}
               >
-                Download QR
+                <Download size={16} /> Download QR
               </a>
-
             </div>
-
           </div>
 
           <div className="flex justify-center">
-
             {qrCodeUrl && (
-              <div className="rounded-[28px] bg-white p-5 shadow-2xl">
-                <img
-                  src={qrCodeUrl}
-                  alt="QR Code"
-                  className="w-56"
-                />
+              <div className="rounded-card bg-white p-5 shadow-2xl">
+                <img src={qrCodeUrl} alt="QR Code" className="w-56" />
               </div>
             )}
-
           </div>
-
         </div>
-
       </div>
-    </section>
+    </Card>
   );
 }

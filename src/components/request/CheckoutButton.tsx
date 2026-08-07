@@ -1,3 +1,6 @@
+import Button from "@/src/components/ui/Button";
+import Eyebrow from "@/src/components/ui/Eyebrow";
+
 type Props = {
   selectedSong: boolean;
   isTakingRequests: boolean;
@@ -18,29 +21,21 @@ export default function CheckoutButton({
   onCheckout,
 }: Props) {
   const requestAmount =
-    requestType === "song_message"
-      ? shoutoutPrice
-      : requestPrice;
+    requestType === "song_message" ? shoutoutPrice : requestPrice;
 
   const totalAmount = requestAmount + SERVICE_FEE;
 
   const requestLabel =
-    requestType === "song_message"
-      ? "Song + Message"
-      : "Song Request";
+    requestType === "song_message" ? "Song + Message" : "Song Request";
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-white/10 bg-black/30">
+    <section className="overflow-hidden rounded-card border border-white/10 bg-black/30">
       <div className="border-b border-white/5 px-5 py-5 sm:px-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-          Order summary
-        </p>
+        <Eyebrow>Order summary</Eyebrow>
 
         <div className="mt-5 space-y-4">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-zinc-400">
-              {requestLabel}
-            </span>
+            <span className="text-zinc-400">{requestLabel}</span>
 
             <span className="font-semibold text-white">
               £{(requestAmount / 100).toFixed(2)}
@@ -49,9 +44,7 @@ export default function CheckoutButton({
 
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-zinc-400">
-                Guest Service Fee
-              </p>
+              <p className="text-zinc-400">Guest Service Fee</p>
 
               <p className="mt-1 text-xs text-zinc-600">
                 Covers payment processing and platform costs.
@@ -68,9 +61,7 @@ export default function CheckoutButton({
       <div className="px-5 py-5 sm:px-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-zinc-500">
-              Total
-            </p>
+            <p className="text-sm text-zinc-500">Total</p>
 
             <p className="mt-1 text-sm text-zinc-400">
               Charged only if the DJ accepts
@@ -82,20 +73,18 @@ export default function CheckoutButton({
           </p>
         </div>
 
-        <button
-          type="button"
+        <Button
+          size="lg"
+          className="mt-5 w-full"
           disabled={!selectedSong || !isTakingRequests}
           onClick={onCheckout}
-          className="mt-5 flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-white px-6 font-bold text-black transition hover:bg-zinc-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
         >
           {!isTakingRequests
             ? "Requests Paused"
             : selectedSong
-              ? `Continue to Payment · £${(
-                  totalAmount / 100
-                ).toFixed(2)}`
+              ? `Continue to Payment · £${(totalAmount / 100).toFixed(2)}`
               : "Select a Song First"}
-        </button>
+        </Button>
 
         <p className="mt-4 text-center text-xs text-zinc-600">
           Secure payment powered by Stripe

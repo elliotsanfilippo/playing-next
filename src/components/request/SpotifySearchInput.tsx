@@ -1,3 +1,5 @@
+import { Search, X } from "lucide-react";
+
 type Props = {
   searchQuery: string;
   isTakingRequests: boolean;
@@ -12,13 +14,13 @@ export default function SpotifySearchInput({
   return (
     <div className="mt-8">
       <div
-        className={`flex items-center gap-4 rounded-3xl border bg-black/50 px-5 transition ${
+        className={`flex items-center gap-4 rounded-card border bg-black/50 px-5 transition ${
           isTakingRequests
-            ? "border-white/10 focus-within:border-green-500/40 focus-within:bg-black/70"
+            ? "border-white/10 focus-within:border-accent/40 focus-within:bg-black/70"
             : "border-white/5 opacity-50"
         }`}
       >
-        <span className="text-2xl text-zinc-500">⌕</span>
+        <Search size={20} className="shrink-0 text-zinc-500" />
 
         <input
           disabled={!isTakingRequests}
@@ -40,7 +42,7 @@ export default function SpotifySearchInput({
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition hover:bg-white/10 hover:text-white"
             aria-label="Clear search"
           >
-            ×
+            <X size={16} />
           </button>
         )}
       </div>

@@ -18,7 +18,7 @@ export default function HowItWorks({
       >
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-400">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
               Start in minutes
             </p>
 
@@ -33,9 +33,9 @@ export default function HowItWorks({
             {steps.map((step) => (
               <article
                 key={step.number}
-                className="relative rounded-3xl border border-white/10 bg-zinc-900/50 p-6 text-center md:border-0 md:bg-transparent md:p-2"
+                className="relative rounded-card border border-white/10 bg-zinc-900/50 p-6 text-center md:border-0 md:bg-transparent md:p-2"
               >
-                <div className="relative z-10 mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-green-500/30 bg-[#0b130e] text-sm font-bold text-green-400 shadow-lg shadow-green-500/10">
+                <div className="relative z-10 mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent/30 bg-[#0b130e] text-sm font-bold text-accent shadow-lg shadow-green-500/10">
                   {step.number}
                 </div>
 

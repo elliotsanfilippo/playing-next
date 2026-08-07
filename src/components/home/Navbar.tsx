@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buttonVariants } from "@/src/components/ui/Button";
 
 export default function Navbar() {
   return (
@@ -33,14 +34,18 @@ export default function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/login"
-            className="hidden rounded-full px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:text-white sm:inline-flex"
+            className={buttonVariants({
+              variant: "ghost",
+              size: "sm",
+              className: "hidden rounded-full sm:inline-flex",
+            })}
           >
             Log in
           </Link>
 
           <Link
             href="/signup"
-            className="rounded-full bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-zinc-200 sm:px-5"
+            className={buttonVariants({ size: "sm", className: "rounded-full" })}
           >
             Start free
           </Link>

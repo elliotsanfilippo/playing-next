@@ -1,3 +1,6 @@
+import { Music2, Mic } from "lucide-react";
+import { Textarea } from "@/src/components/ui/Input";
+
 type Props = {
   requestType: "song_request" | "song_message";
   setRequestType: (
@@ -21,9 +24,7 @@ export default function RequestOptions({
 }: Props) {
   return (
     <div className="mt-8">
-      <h3 className="text-xl font-bold">
-        Choose your request
-      </h3>
+      <h3 className="text-xl font-bold">Choose your request</h3>
 
       <p className="mt-2 text-zinc-400">
         Select how you'd like to send your request.
@@ -34,16 +35,16 @@ export default function RequestOptions({
           type="button"
           disabled={!isTakingRequests}
           onClick={() => setRequestType("song_request")}
-          className={`w-full rounded-3xl border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`w-full rounded-card border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
             requestType === "song_request"
-              ? "border-green-500 bg-green-500/10"
-              : "border-white/10 bg-white/[0.03] hover:border-green-500/20"
+              ? "border-accent bg-accent/10"
+              : "border-white/10 bg-white/[0.03] hover:border-accent/20"
           }`}
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h4 className="text-lg font-bold">
-                🎵 Song Request
+              <h4 className="flex items-center gap-2 text-lg font-bold">
+                <Music2 size={18} className="text-accent" /> Song Request
               </h4>
 
               <p className="mt-2 text-sm text-zinc-400">
@@ -57,7 +58,7 @@ export default function RequestOptions({
               </p>
 
               {requestType === "song_request" && (
-                <p className="mt-2 text-sm font-semibold text-green-400">
+                <p className="mt-2 text-sm font-semibold text-accent">
                   Selected
                 </p>
               )}
@@ -68,19 +69,17 @@ export default function RequestOptions({
         <button
           type="button"
           disabled={!isTakingRequests}
-          onClick={() =>
-            setRequestType("song_message")
-          }
-          className={`w-full rounded-3xl border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          onClick={() => setRequestType("song_message")}
+          className={`w-full rounded-card border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
             requestType === "song_message"
-              ? "border-green-500 bg-green-500/10"
-              : "border-white/10 bg-white/[0.03] hover:border-green-500/20"
+              ? "border-accent bg-accent/10"
+              : "border-white/10 bg-white/[0.03] hover:border-accent/20"
           }`}
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h4 className="text-lg font-bold">
-                🎤 Song + Message
+              <h4 className="flex items-center gap-2 text-lg font-bold">
+                <Mic size={18} className="text-accent" /> Song + Message
               </h4>
 
               <p className="mt-2 text-sm text-zinc-400">
@@ -94,7 +93,7 @@ export default function RequestOptions({
               </p>
 
               {requestType === "song_message" && (
-                <p className="mt-2 text-sm font-semibold text-green-400">
+                <p className="mt-2 text-sm font-semibold text-accent">
                   Selected
                 </p>
               )}
@@ -103,15 +102,13 @@ export default function RequestOptions({
         </button>
 
         {requestType === "song_message" && (
-          <textarea
+          <Textarea
             disabled={!isTakingRequests}
             value={message}
-            onChange={(event) =>
-              setMessage(event.target.value)
-            }
+            onChange={(event) => setMessage(event.target.value)}
             placeholder="Write your message..."
             rows={4}
-            className="w-full rounded-3xl border border-white/10 bg-black/30 p-5 text-white outline-none placeholder:text-zinc-600 disabled:opacity-40"
+            className="bg-black/30"
           />
         )}
       </div>

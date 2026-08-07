@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
+
 type Feature = {
-  symbol: string;
+  icon: ReactNode;
   title: string;
   description: string;
 };
@@ -18,7 +20,7 @@ export default function FeatureCards({
     >
       <div className="mx-auto max-w-7xl">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-400">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
             Everything in one place
           </p>
 
@@ -37,10 +39,10 @@ export default function FeatureCards({
           {features.map((feature) => (
             <article
               key={feature.title}
-              className="rounded-[30px] border border-white/10 bg-zinc-900/60 p-7 transition hover:-translate-y-1 hover:border-green-500/20"
+              className="rounded-card-lg border border-white/10 bg-zinc-900/60 p-7 transition hover:-translate-y-1 hover:border-accent/20"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-2xl font-bold text-green-400">
-                {feature.symbol}
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 text-accent">
+                {feature.icon}
               </div>
 
               <h3 className="mt-7 text-2xl font-bold tracking-tight">
