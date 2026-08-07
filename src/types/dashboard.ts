@@ -7,6 +7,7 @@ export type SongRequest = {
   request_status: string;
   stripe_payment_intent_id: string | null;
   queue_position: number | null;
+  created_at: string;
 };
 
 export type DJProfile = {
@@ -15,9 +16,11 @@ export type DJProfile = {
   slug: string;
   request_status: string;
   profile_image_url: string | null;
+  genres?: string[] | string | null;
   request_price?: number | null;
+  shoutout_price?: number | null;
   stripe_connected?: boolean;
   plan?: string;
   onboarding_complete: boolean;
-launch_complete_seen: boolean;
+  launch_complete_seen: boolean;
 };

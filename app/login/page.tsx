@@ -1,110 +1,115 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "../../src/lib/supabase";
+import Card from "@/src/components/ui/Card";
+import Button from "@/src/components/ui/Button";
+import { Input } from "@/src/components/ui/Input";
+import Eyebrow from "@/src/components/ui/Eyebrow";
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-const [errorMessage, setErrorMessage] = useState("");
-const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
   const login = async (event?: React.FormEvent) => {
-  event?.preventDefault();
+    event?.preventDefault();
 
-  if (!email || !password) {
-  setErrorMessage("Please enter your email and password.");
-  return;
-}
+    if (!email || !password) {
+      setErrorMessage("Please enter your email and password.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
+    setErrorMessage("");
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  setLoading(false);
+    setLoading(false);
 
-  if (error) {
-  let message = error.message;
+    if (error) {
+      let message = error.message;
 
-  if (message.toLowerCase().includes("email not confirmed")) {
-    message =
-      "Please verify your email before signing in.";
-  } else if (
-    message.toLowerCase().includes("invalid login credentials")
-  ) {
-    message =
-      "Incorrect email or password.";
-  }
+      if (message.toLowerCase().includes("email not confirmed")) {
+        message = "Please verify your email before signing in.";
+      } else if (
+        message.toLowerCase().includes("invalid login credentials")
+      ) {
+        message = "Incorrect email or password.";
+      }
 
-  setErrorMessage(message);
-  return;
-}
+      setErrorMessage(message);
+      return;
+    }
 
-window.location.assign(`${window.location.origin}/dj/dashboard`);
-};
+    window.location.assign(`${window.location.origin}/dj/dashboard`);
+  };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-black p-5 text-white sm:p-6">
-      <div className="relative z-50 w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-6 sm:p-8">
-        <p className="text-sm text-zinc-400">Playing Next</p>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-canvas p-5 text-white sm:p-6">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute left-[-160px] top-[-160px] h-[420px] w-[420px] rounded-full bg-green-500/10 blur-[140px]" />
+        <div className="absolute right-[-220px] bottom-[-160px] h-[420px] w-[420px] rounded-full bg-green-500/10 blur-[140px]" />
+      </div>
 
-        <h1 className="mt-2 text-4xl font-bold">DJ Login</h1>
+      <div className="relative z-10 w-full max-w-md">
+        <Link href="/" className="mb-8 flex items-center justify-center gap-3">
+          <img src="/logo.svg" alt="Playing Next" className="h-10 w-10" />
+          <span className="text-base font-bold tracking-tight">
+            Playing Next
+          </span>
+        </Link>
 
-        <p className="mt-3 text-zinc-400">
-          Log in to manage your requests.
-        </p>
-
-        <form onSubmit={login} className="mt-8 space-y-4">
-          <input
-  type="email"
-  autoComplete="email"
-            placeholder="Email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
-          />
-
-          <input
-  type="password"
-  autoComplete="current-password"
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
-          />
-{errorMessage && (
-
-  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-
-    {errorMessage}
-
-  </div>
-
-)}
-          <button
-  type="submit"
-  disabled={loading}
-  className="relative z-50 w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
->
-  {loading ? "Logging In..." : "Log In"}
-</button>
-
-          <p className="pt-4 text-center text-sm text-zinc-400">
-            Don&apos;t have an account?{" "}
-            <a
-              href="/signup"
-              className="font-semibold text-white underline underline-offset-4"
-            >
-              Sign Up
-            </a>
+        <Card variant="elevated" className="p-6 sm:p-8">
+          <Eyebrow tone="accent">DJ account</Eyebrow>
+          <h1 className="mt-2 text-h1">Welcome back</h1>
+          <p className="mt-3 text-zinc-400">
+            Log in to manage your requests.
           </p>
-        </form>
+
+          <form onSubmit={login} className="mt-8 space-y-4">
+            <Input
+              type="email"
+              autoComplete="email"
+              placeholder="Email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+
+            <Input
+              type="password"
+              autoComplete="current-password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+
+            {errorMessage && (
+              <div className="rounded-control border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                {errorMessage}
+              </div>
+            )}
+
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Logging In..." : "Log In"}
+            </Button>
+
+            <p className="pt-4 text-center text-sm text-zinc-400">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/signup"
+                className="font-semibold text-white underline underline-offset-4"
+              >
+                Sign Up
+              </Link>
+            </p>
+          </form>
+        </Card>
       </div>
     </main>
   );

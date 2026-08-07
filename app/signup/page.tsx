@@ -1,27 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { toast } from "sonner";
 import { supabase } from "../../src/lib/supabase";
+import Card from "@/src/components/ui/Card";
+import Button from "@/src/components/ui/Button";
+import { Input } from "@/src/components/ui/Input";
+import Eyebrow from "@/src/components/ui/Eyebrow";
 
 export default function SignupPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-const [errorMessage, setErrorMessage] = useState("");
-const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   const signUp = async (event?: React.FormEvent) => {
-  event?.preventDefault();
+    event?.preventDefault();
+
     if (!email || !password) {
-      setErrorMessage(
-  "Please enter your email and password."
-);
+      setErrorMessage("Please enter your email and password.");
       return;
     }
 
     setLoading(true);
+    setErrorMessage("");
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -32,19 +36,14 @@ const [successMessage, setSuccessMessage] = useState("");
       setLoading(false);
       let message = error.message;
 
-if (
-  message.toLowerCase().includes("rate limit")
-) {
-  message =
-    "Too many verification emails have been requested. Please wait a few minutes before trying again.";
-} else if (
-  message.toLowerCase().includes("already")
-) {
-  message =
-    "An account already exists with this email address.";
-}
+      if (message.toLowerCase().includes("rate limit")) {
+        message =
+          "Too many verification emails have been requested. Please wait a few minutes before trying again.";
+      } else if (message.toLowerCase().includes("already")) {
+        message = "An account already exists with this email address.";
+      }
 
-setErrorMessage(message);
+      setErrorMessage(message);
       return;
     }
 
@@ -71,78 +70,86 @@ setErrorMessage(message);
       if (profileError) {
         setLoading(false);
         console.log("Profile create error:", profileError);
-        alert(profileError.message);
+        toast.error(profileError.message);
         return;
       }
     }
 
     setLoading(false);
     setSuccessMessage(
-  "Account created! Please check your email to verify your account before signing in."
-);
+      "Account created! Please check your email to verify your account before signing in."
+    );
 
-setEmail("");
-setPassword("");
+    setEmail("");
+    setPassword("");
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-black p-5 text-white sm:p-6">
-      <div className="relative z-50 w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-6 sm:p-8">
-        <p className="text-sm text-zinc-400">Playing Next</p>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-canvas p-5 text-white sm:p-6">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute left-[-160px] top-[-160px] h-[420px] w-[420px] rounded-full bg-green-500/10 blur-[140px]" />
+        <div className="absolute right-[-220px] bottom-[-160px] h-[420px] w-[420px] rounded-full bg-green-500/10 blur-[140px]" />
+      </div>
 
-        <h1 className="mt-2 text-4xl font-bold">
-          Create DJ Account
-        </h1>
+      <div className="relative z-10 w-full max-w-md">
+        <Link href="/" className="mb-8 flex items-center justify-center gap-3">
+          <img src="/logo.svg" alt="Playing Next" className="h-10 w-10" />
+          <span className="text-base font-bold tracking-tight">
+            Playing Next
+          </span>
+        </Link>
 
-        <p className="mt-3 text-zinc-400">
-          Sign up to manage requests and share your QR code.
-        </p>
-
-        <form onSubmit={signUp} className="mt-8 space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
-          />
-{errorMessage && (
-  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-    {errorMessage}
-  </div>
-)}
-
-{successMessage && (
-  <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
-    {successMessage}
-  </div>
-)}
-          <button
-  type="submit"
-  disabled={loading}
-  className="relative z-50 w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
->
-  {loading ? "Creating Account..." : "Create Account"}
-</button>
-
-          <p className="pt-4 text-center text-sm text-zinc-400">
-            Already have an account?{" "}
-            <a
-  href="/login"
-  className="font-semibold text-white underline underline-offset-4"
->
-  Log In
-</a>
+        <Card variant="elevated" className="p-6 sm:p-8">
+          <Eyebrow tone="accent">DJ account</Eyebrow>
+          <h1 className="mt-2 text-h1">Create your account</h1>
+          <p className="mt-3 text-zinc-400">
+            Sign up to manage requests and share your QR code.
           </p>
-        </form>
+
+          <form onSubmit={signUp} className="mt-8 space-y-4">
+            <Input
+              type="email"
+              autoComplete="email"
+              placeholder="Email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+
+            {errorMessage && (
+              <div className="rounded-control border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                {errorMessage}
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="rounded-control border border-accent/20 bg-accent/10 p-4 text-sm text-accent">
+                {successMessage}
+              </div>
+            )}
+
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Creating Account..." : "Create Account"}
+            </Button>
+
+            <p className="pt-4 text-center text-sm text-zinc-400">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-semibold text-white underline underline-offset-4"
+              >
+                Log In
+              </Link>
+            </p>
+          </form>
+        </Card>
       </div>
     </main>
   );

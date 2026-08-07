@@ -1,4 +1,5 @@
 import type { DJProfile } from "@/src/types/dashboard";
+import Button from "@/src/components/ui/Button";
 
 type Props = {
   djProfile: DJProfile;
@@ -61,9 +62,9 @@ export default function Onboarding({
   const nextIncompleteStep = steps.find((step) => !step.complete);
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-5 py-8 text-white sm:px-6 sm:py-12">
+    <main className="min-h-screen bg-canvas px-5 py-8 text-white sm:px-6 sm:py-12">
       <div className="mx-auto max-w-3xl">
-        <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-10">
+        <div className="rounded-card-lg border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-10">
           <div className="text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-green-500/15 text-3xl">
               🎧
@@ -134,13 +135,9 @@ export default function Onboarding({
                   </div>
 
                   {!step.complete && (
-                    <button
-                      type="button"
-                      onClick={step.onClick}
-                      className="h-11 rounded-2xl bg-white px-5 text-sm font-semibold text-black transition hover:bg-zinc-200 active:scale-[0.98]"
-                    >
+                    <Button size="sm" onClick={step.onClick}>
                       {step.action}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -149,23 +146,23 @@ export default function Onboarding({
 
           <div className="mt-8 space-y-3">
             {nextIncompleteStep && (
-              <button
-                type="button"
+              <Button
+                variant="accent"
+                className="w-full"
                 onClick={nextIncompleteStep.onClick}
-                className="h-12 w-full rounded-2xl bg-green-500 px-6 font-semibold text-black transition hover:bg-green-400 active:scale-[0.98]"
               >
                 Continue setup
-              </button>
+              </Button>
             )}
 
-            <button
-              type="button"
+            <Button
+              size="lg"
+              className="w-full"
               onClick={onContinue}
               disabled={!onboardingComplete}
-              className="w-full rounded-2xl bg-white px-6 py-4 font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500 disabled:hover:bg-zinc-800"
             >
               Continue to Dashboard
-            </button>
+            </Button>
 
             {!onboardingComplete && (
               <p className="text-center text-sm text-zinc-500">

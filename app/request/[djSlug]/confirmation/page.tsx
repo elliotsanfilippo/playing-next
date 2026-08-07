@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { Check } from "lucide-react";
 import { supabase } from "../../../../src/lib/supabase";
+import Card from "@/src/components/ui/Card";
+import Eyebrow from "@/src/components/ui/Eyebrow";
+import { buttonVariants } from "@/src/components/ui/Button";
+import { toneSurfaceClasses, toneDotClasses } from "@/src/components/ui/Badge";
+import { requestStatusTone } from "@/src/lib/requestStatus";
 
 type SubmittedRequest = {
   id: string;
@@ -13,6 +19,34 @@ type SubmittedRequest = {
   message: string | null;
   request_status: string;
   queue_position: number | null;
+};
+
+const STATUS_COPY: Record<string, { label: string; description: string }> = {
+  checkout_pending: {
+    label: "Confirming Payment",
+    description: "Your payment is being confirmed.",
+  },
+  pending: {
+    label: "Pending Approval",
+    description: "The DJ is reviewing your request.",
+  },
+  accepted: {
+    label: "Request Accepted",
+    description: "Your request has been added to the DJ’s queue.",
+  },
+  playing_next: {
+    label: "Playing Next",
+    description: "Get ready — your request is coming up.",
+  },
+  played: {
+    label: "Played",
+    description: "Your request has been played.",
+  },
+  declined: {
+    label: "Request Declined",
+    description:
+      "The DJ could not accept this request. Your payment will not be captured.",
+  },
 };
 
 export default function ConfirmationPage() {
@@ -27,14 +61,14 @@ export default function ConfirmationPage() {
   const [loadError, setLoadError] = useState("");
 
   const fetchRequest = useCallback(async () => {
-  setLoading(true);
-  setLoadError("");
+    setLoading(true);
+    setLoadError("");
 
-  if (!requestId) {
-    setLoadError("We could not find this request.");
-    setLoading(false);
-    return;
-  }
+    if (!requestId) {
+      setLoadError("We could not find this request.");
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("song_requests")
@@ -81,219 +115,147 @@ export default function ConfirmationPage() {
   }, [fetchRequest, requestId]);
 
   const status = request?.request_status || "pending";
-
-  const statusDetails = {
-    checkout_pending: {
-      label: "Confirming Payment",
-      description: "Your payment is being confirmed.",
-      classes:
-        "border-amber-500/20 bg-amber-500/10 text-amber-300",
-      dot: "bg-amber-400",
-    },
-    pending: {
-      label: "Pending Approval",
-      description: "The DJ is reviewing your request.",
-      classes:
-        "border-amber-500/20 bg-amber-500/10 text-amber-300",
-      dot: "bg-amber-400",
-    },
-    accepted: {
-      label: "Request Accepted",
-      description: "Your request has been added to the DJ’s queue.",
-      classes:
-        "border-green-500/20 bg-green-500/10 text-green-300",
-      dot: "bg-green-400",
-    },
-    playing_next: {
-      label: "Playing Next",
-      description: "Get ready — your request is coming up.",
-      classes:
-        "border-blue-500/20 bg-blue-500/10 text-blue-300",
-      dot: "bg-blue-400",
-    },
-    played: {
-      label: "Played",
-      description: "Your request has been played.",
-      classes:
-        "border-white/10 bg-white/5 text-zinc-200",
-      dot: "bg-zinc-300",
-    },
-    declined: {
-      label: "Request Declined",
-      description:
-        "The DJ could not accept this request. Your payment will not be captured.",
-      classes:
-        "border-red-500/20 bg-red-500/10 text-red-300",
-      dot: "bg-red-400",
-    },
-  }[status] || {
-    label: "Pending Approval",
-    description: "The DJ is reviewing your request.",
-    classes:
-      "border-amber-500/20 bg-amber-500/10 text-amber-300",
-    dot: "bg-amber-400",
-  };
+  const statusCopy = STATUS_COPY[status] || STATUS_COPY.pending;
+  const tone = requestStatusTone(status);
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#070809] p-5 text-white">
-        <div className="w-full max-w-xl rounded-[32px] border border-white/10 bg-zinc-900/70 p-8 text-center">
+      <main className="flex min-h-screen items-center justify-center bg-canvas p-5 text-white">
+        <Card variant="elevated" className="w-full max-w-xl p-8 text-center">
           <div className="mx-auto h-12 w-12 animate-pulse rounded-full bg-white/10" />
 
-          <h1 className="mt-5 text-2xl font-bold">
-            Loading your request...
-          </h1>
-        </div>
+          <h1 className="mt-5 text-h3">Loading your request...</h1>
+        </Card>
       </main>
     );
   }
 
   if (loadError || !request) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#070809] p-5 text-white">
-        <div className="w-full max-w-xl rounded-[32px] border border-white/10 bg-zinc-900/70 p-8 text-center">
+      <main className="flex min-h-screen items-center justify-center bg-canvas p-5 text-white">
+        <Card variant="elevated" className="w-full max-w-xl p-8 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-3xl">
             !
           </div>
 
-          <h1 className="mt-5 text-3xl font-bold">
-            Request not found
-          </h1>
+          <h1 className="mt-5 text-h2">Request not found</h1>
 
-          <p className="mt-3 text-zinc-400">
-            {loadError}
-          </p>
+          <p className="mt-3 text-zinc-400">{loadError}</p>
 
           <Link
             href={`/request/${djSlug}`}
-            className="mt-7 inline-flex rounded-2xl bg-white px-6 py-3 font-semibold text-black"
+            className={buttonVariants({ className: "mt-7" })}
           >
             Return to request page
           </Link>
-        </div>
+        </Card>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#070809] px-5 py-10 text-white sm:px-6 sm:py-14">
+    <main className="min-h-screen bg-canvas px-5 py-10 text-white sm:px-6 sm:py-14">
       <section className="mx-auto max-w-2xl">
         <div className="text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-green-500/20 bg-green-500/10 text-4xl shadow-xl shadow-green-500/10">
-            ✓
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-accent/20 bg-accent/10 shadow-xl shadow-green-500/10">
+            <Check size={32} className="text-accent" strokeWidth={3} />
           </div>
 
-          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.22em] text-green-400">
+          <Eyebrow tone="accent" className="mt-6">
             Request submitted
-          </p>
+          </Eyebrow>
 
-          <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-            You&apos;re in.
-          </h1>
+          <h1 className="mt-3 text-display">You&apos;re in.</h1>
 
           <p className="mx-auto mt-4 max-w-md leading-7 text-zinc-400">
-            Your payment has been authorised and your request has been
-            sent to the DJ.
+            Your payment has been authorised and your request has been sent
+            to the DJ.
           </p>
         </div>
 
-        <div className="mt-10 overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 shadow-2xl shadow-black/30">
+        <Card variant="elevated" className="mt-10 overflow-hidden">
           <div className="p-6 sm:p-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            <Eyebrow>
               {request.request_type === "song_message"
                 ? "Song + Message"
                 : "Song Request"}
-            </p>
+            </Eyebrow>
 
-            <h2 className="mt-3 text-3xl font-bold tracking-tight">
-              {request.song_title}
-            </h2>
+            <h2 className="mt-3 text-h2">{request.song_title}</h2>
 
-            <p className="mt-2 text-lg text-zinc-400">
-              {request.artist}
-            </p>
+            <p className="mt-2 text-lg text-zinc-400">{request.artist}</p>
 
-            {request.request_type === "song_message" &&
-              request.message && (
-                <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                    Your message
-                  </p>
+            {request.request_type === "song_message" && request.message && (
+              <div className="mt-6 rounded-control border border-white/10 bg-black/30 p-5">
+                <Eyebrow>Your message</Eyebrow>
 
-                  <p className="mt-3 leading-7 text-zinc-200">
-                    “{request.message}”
-                  </p>
-                </div>
-              )}
+                <p className="mt-3 leading-7 text-zinc-200">
+                  “{request.message}”
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-white/5 p-6 sm:p-8">
             <div
-              className={`rounded-3xl border p-5 ${statusDetails.classes}`}
+              className={`rounded-card border p-5 ${toneSurfaceClasses[tone]}`}
             >
               <div className="flex items-start gap-3">
                 <span
-                  className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${statusDetails.dot}`}
+                  className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${toneDotClasses[tone]}`}
                 />
 
                 <div>
-                  <h3 className="text-lg font-bold">
-                    {statusDetails.label}
-                  </h3>
+                  <h3 className="text-lg font-bold">{statusCopy.label}</h3>
 
                   <p className="mt-2 text-sm leading-6 opacity-80">
-                    {statusDetails.description}
+                    {statusCopy.description}
                   </p>
                 </div>
               </div>
             </div>
 
-            {status === "accepted" &&
-  request.queue_position && (
-                <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                  <div>
-                    <p className="text-sm text-zinc-500">
-                      Queue position
-                    </p>
+            {status === "accepted" && request.queue_position && (
+              <div className="mt-4 flex items-center justify-between rounded-control border border-white/10 bg-white/[0.03] p-5">
+                <div>
+                  <p className="text-sm text-zinc-500">Queue position</p>
 
-                    <p className="mt-1 text-sm text-zinc-400">
-                      Your place in the accepted queue
-                    </p>
-                  </div>
-
-                  <p className="text-3xl font-bold">
-                    #{request.queue_position}
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Your place in the accepted queue
                   </p>
                 </div>
-              )}
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-5">
-              <p className="font-semibold">
-                Updates happen automatically
-              </p>
+                <p className="text-3xl font-bold">
+                  #{request.queue_position}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 rounded-control border border-white/10 bg-black/25 p-5">
+              <p className="font-semibold">Updates happen automatically</p>
 
               <p className="mt-2 text-sm leading-6 text-zinc-500">
-  {status === "pending" || status === "checkout_pending"
-    ? "No need to refresh. You’ll only be charged if the DJ accepts your request."
-    : status === "declined"
-      ? "No need to refresh. Your payment will not be captured."
-      : "No need to refresh. Your request status will update here automatically."}
-</p>
+                {status === "pending" || status === "checkout_pending"
+                  ? "No need to refresh. You’ll only be charged if the DJ accepts your request."
+                  : status === "declined"
+                    ? "No need to refresh. Your payment will not be captured."
+                    : "No need to refresh. Your request status will update here automatically."}
+              </p>
             </div>
           </div>
-        </div>
+        </Card>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <Link
             href={`/request/${djSlug}/my-requests`}
-            className="flex min-h-[56px] items-center justify-center rounded-2xl bg-white px-6 font-bold text-black transition hover:bg-zinc-200"
+            className={buttonVariants({ size: "lg" })}
           >
             View My Requests
           </Link>
 
           <Link
             href={`/request/${djSlug}`}
-            className="flex min-h-[56px] items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 font-semibold transition hover:bg-white/10"
+            className={buttonVariants({ variant: "secondary", size: "lg" })}
           >
             Request Another Song
           </Link>

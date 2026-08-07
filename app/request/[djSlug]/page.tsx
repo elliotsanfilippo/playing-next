@@ -265,7 +265,7 @@ localStorage.setItem(
 
   if (isLoadingDJ) {
     return (
-      <main className="min-h-screen bg-black p-6 text-white">
+      <main className="min-h-screen bg-canvas p-6 text-white">
         <section className="mx-auto flex min-h-screen max-w-xl items-center justify-center">
           <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center">
             <p className="text-sm text-zinc-400">Playing Next</p>
@@ -278,7 +278,7 @@ localStorage.setItem(
 
   if (djNotFound) {
     return (
-      <main className="min-h-screen bg-black p-6 text-white">
+      <main className="min-h-screen bg-canvas p-6 text-white">
         <section className="mx-auto flex min-h-screen max-w-xl items-center justify-center">
           <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center">
             <h1 className="text-4xl font-bold">DJ Not Found</h1>
@@ -293,7 +293,7 @@ localStorage.setItem(
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-canvas text-white">
       <section className="mx-auto max-w-4xl px-5 py-8 sm:px-6 sm:py-12">
         <RequestHeader
   djSlug={djSlug}

@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  ListMusic,
+  CheckCircle2,
+  XCircle,
+  Percent,
+  PoundSterling,
+} from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
+import Card from "@/src/components/ui/Card";
+import Button from "@/src/components/ui/Button";
+import StatCard from "@/src/components/ui/StatCard";
+import Eyebrow from "@/src/components/ui/Eyebrow";
 
 type Analytics = {
   totalRequests: number;
@@ -130,90 +141,84 @@ export default function AnalyticsPage() {
 
   const acceptanceRate =
     analytics.totalRequests > 0
-      ? ((analytics.acceptedRequests / analytics.totalRequests) * 100).toFixed(1)
+      ? (
+          (analytics.acceptedRequests / analytics.totalRequests) *
+          100
+        ).toFixed(1)
       : "0";
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-white">
-        <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center">
+      <main className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white">
+        <Card variant="elevated" className="p-8 text-center">
           <p className="text-sm text-zinc-400">Playing Next</p>
-          <h1 className="mt-3 text-3xl font-bold">
-            Loading analytics...
-          </h1>
-        </div>
+          <h1 className="mt-3 text-h2">Loading analytics...</h1>
+        </Card>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 p-5 text-white sm:p-6">
+    <main className="min-h-screen bg-canvas p-5 text-white sm:p-6">
       <section className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-zinc-400">Playing Next</p>
-
-            <h1 className="mt-2 text-4xl font-bold">Analytics</h1>
-
+            <Eyebrow tone="accent">Playing Next</Eyebrow>
+            <h1 className="mt-2 text-h1">Analytics</h1>
             <p className="mt-2 text-zinc-400">
               Track request activity and estimated revenue.
             </p>
           </div>
 
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
+            className="rounded-full"
             onClick={() => router.push("/dj/dashboard")}
-            className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold"
           >
             Back to Dashboard
-          </button>
+          </Button>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:p-6">
-            <p className="text-sm text-zinc-400">Total Requests</p>
+          <StatCard
+            label="Total Requests"
+            value={analytics.totalRequests}
+            icon={<ListMusic size={20} />}
+            tone="neutral"
+          />
 
-            <h2 className="mt-4 text-4xl font-bold">
-              {analytics.totalRequests}
-            </h2>
-          </div>
+          <StatCard
+            label="Accepted"
+            value={analytics.acceptedRequests}
+            icon={<CheckCircle2 size={20} />}
+            tone="accent"
+          />
 
-          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:p-6">
-            <p className="text-sm text-zinc-400">Accepted</p>
+          <StatCard
+            label="Declined"
+            value={analytics.declinedRequests}
+            icon={<XCircle size={20} />}
+            tone="danger"
+          />
 
-            <h2 className="mt-4 text-4xl font-bold text-green-400">
-              {analytics.acceptedRequests}
-            </h2>
-          </div>
+          <StatCard
+            label="Acceptance Rate"
+            value={`${acceptanceRate}%`}
+            icon={<Percent size={20} />}
+            tone="info"
+          />
 
-          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:p-6">
-            <p className="text-sm text-zinc-400">Declined</p>
-
-            <h2 className="mt-4 text-4xl font-bold text-red-400">
-              {analytics.declinedRequests}
-            </h2>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:p-6">
-            <p className="text-sm text-zinc-400">Acceptance Rate</p>
-
-            <h2 className="mt-4 text-4xl font-bold">
-              {acceptanceRate}%
-            </h2>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:p-6">
-            <p className="text-sm text-zinc-400">Revenue</p>
-
-            <h2 className="mt-4 text-4xl font-bold text-green-400">
-              £{analytics.totalRevenue.toFixed(2)}
-            </h2>
-          </div>
+          <StatCard
+            label="Revenue"
+            value={`£${analytics.totalRevenue.toFixed(2)}`}
+            icon={<PoundSterling size={20} />}
+            tone="accent"
+          />
         </div>
 
-        <div className="mt-8 rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold">
-            Most Requested Songs
-          </h2>
+        <Card variant="flat" className="mt-8 p-5 sm:p-6">
+          <h2 className="text-h3">Most Requested Songs</h2>
 
           <div className="mt-6 space-y-3">
             {topSongs.length === 0 ? (
@@ -222,7 +227,7 @@ export default function AnalyticsPage() {
               topSongs.map((song, index) => (
                 <div
                   key={song.song_title}
-                  className="flex flex-col gap-3 rounded-2xl bg-zinc-950 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-control bg-zinc-950/60 p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <p className="font-semibold">
                     #{index + 1} {song.song_title}
@@ -235,7 +240,7 @@ export default function AnalyticsPage() {
               ))
             )}
           </div>
-        </div>
+        </Card>
       </section>
     </main>
   );

@@ -1,14 +1,28 @@
 import { HTMLAttributes } from "react";
-import clsx from "clsx";
+import { cn } from "@/src/lib/cn";
+
+type Variant = "flat" | "elevated";
+
+type Props = HTMLAttributes<HTMLDivElement> & {
+  variant?: Variant;
+};
+
+const variantClasses: Record<Variant, string> = {
+  flat: "border border-white/5 bg-zinc-900/70 backdrop-blur-xl",
+  elevated:
+    "border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 shadow-2xl shadow-black/30",
+};
 
 export default function Card({
+  variant = "flat",
   className,
   ...props
-}: HTMLAttributes<HTMLDivElement>) {
+}: Props) {
   return (
     <div
-      className={clsx(
-        "rounded-[32px] border border-white/5 bg-zinc-900/70 backdrop-blur-xl shadow-xl shadow-black/20 transition-all duration-300 hover:border-white/10 hover:-translate-y-1",
+      className={cn(
+        "rounded-card transition-all duration-300",
+        variantClasses[variant],
         className
       )}
       {...props}

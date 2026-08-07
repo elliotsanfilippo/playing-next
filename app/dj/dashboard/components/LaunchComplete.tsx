@@ -1,3 +1,5 @@
+import Button from "@/src/components/ui/Button";
+
 type Props = {
   qrCodeUrl: string;
   requestLink: string;
@@ -10,9 +12,9 @@ export default function LaunchComplete({
   onContinue,
 }: Props) {
   return (
-    <main className="min-h-screen bg-zinc-950 px-5 py-8 text-white sm:px-6 sm:py-12">
+    <main className="min-h-screen bg-canvas px-5 py-8 text-white sm:px-6 sm:py-12">
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-3xl items-center">
-        <section className="w-full overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 text-center shadow-2xl shadow-black/30 sm:p-10">
+        <section className="w-full overflow-hidden rounded-card-lg border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 text-center shadow-2xl shadow-black/30 sm:p-10">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] bg-green-500/15 text-4xl">
             🎉
           </div>
@@ -47,18 +49,15 @@ export default function LaunchComplete({
           </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <button
-              onClick={onContinue}
-              className="h-12 flex-1 rounded-2xl bg-green-500 px-6 font-semibold text-black transition hover:bg-green-400 active:scale-[0.98]"
-            >
+            <Button variant="accent" className="flex-1" onClick={onContinue}>
               View Dashboard
-            </button>
+            </Button>
 
             <a
               href={requestLink}
               target="_blank"
               rel="noreferrer"
-              className="flex h-12 flex-1 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 font-semibold text-white transition hover:bg-white/10 active:scale-[0.98]"
+              className="flex h-12 flex-1 items-center justify-center rounded-control border border-white/10 bg-white/5 px-6 font-semibold text-white transition hover:bg-white/10 active:scale-[0.98]"
             >
               Open Request Page
             </a>
