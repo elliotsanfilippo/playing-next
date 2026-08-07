@@ -72,12 +72,23 @@ export default function RequestPage() {
       return;
     }
 
-    const response = await fetch(
-      `/api/spotify/search?q=${encodeURIComponent(value)}`
-    );
+    try {
+      const response = await fetch(
+        `/api/spotify/search?q=${encodeURIComponent(value)}`
+      );
 
-    const data = await response.json();
-    setTracks(data);
+      if (!response.ok) {
+        throw new Error(`Search failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      setTracks(data);
+    } catch (error) {
+      console.log("Spotify search error:", error);
+      toast.error("Song search is temporarily unavailable. Please try again.", {
+        id: "spotify-search-error",
+      });
+    }
   };
 
   useEffect(() => {
