@@ -140,27 +140,52 @@ most guests will only ever see it on a phone.
 
 Test properly on:
 
-- iPhone Safari
-- Android Chrome
-- Desktop Chrome
-- Safari
-- Smaller phones
+- iPhone Safari — not tested: no full Xcode install here (needs `sudo
+  xcode-select`, requires your password), so no real iOS Simulator access.
+  Everything below used Chromium mobile emulation (375px, mobile UA, touch
+  points) instead, which catches layout bugs but not genuine WebKit quirks.
+- Android Chrome — same caveat as above (emulated, not a real device)
+- Desktop Chrome — covered extensively throughout earlier sessions' work
+- Safari (desktop) — not tested, same Xcode/WebKit limitation
+- Smaller phones — tested at 375px width; worth a manual check at ~320px
+  (iPhone SE) too, not done here
 
 And specifically test:
 
-- [ ] Homepage
-- [ ] DJ search
-- [ ] Request page
-- [ ] Spotify search
-- [ ] Song selection/change song
-- [ ] Stripe Checkout
-- [ ] Confirmation
-- [ ] My Requests
-- [ ] DJ dashboard
-- [ ] QR scanning
-- [ ] Paused requests
-- [ ] Long song/artist names
-- [ ] Slow internet
+- [x] Homepage — no overflow, correct content/section order, all copy
+      present (verified via DOM measurement after the screenshot tool
+      proved unreliable mid-session — see note below)
+- [ ] DJ search — homepage search section renders correctly, but the
+      search interaction itself wasn't exercised on mobile this pass
+- [x] Request page — DJ header, badges, genres, layout all clean
+- [x] Spotify search — real results returned, correct rendering
+- [x] Song selection/change song — selection, truncation on long
+      titles/artists, and Change Song all verified working
+- [~] Stripe Checkout — our own pre-checkout UI (pricing, button) verified
+      on mobile; Stripe's own hosted checkout page wasn't re-checked at
+      mobile width in this pass (it's Stripe's responsive design, out of
+      our control, but worth a glance)
+- [ ] Confirmation — not re-verified at mobile width this pass (uses the
+      same primitives already confirmed responsive elsewhere)
+- [x] My Requests — empty state renders correctly on mobile
+- [ ] DJ dashboard — **not tested, no DJ login credentials available** —
+      needs you to check on your own device
+- [ ] QR scanning — **cannot test at all, inherently physical** — scan
+      your actual printed/displayed QR code with a real phone camera
+- [ ] Paused requests — not tested; didn't want to toggle the live DJ's
+      request status just for this check
+- [x] Long song/artist names — confirmed clean truncation, no overflow
+- [ ] Slow internet — not tested, no network throttling available in this
+      environment; the skeleton loading states built earlier this session
+      should help here regardless
+
+**Tooling note**: the click-simulation part of the browser tool became
+unreliable partway through this session (timeouts on tap gestures,
+independent of the app). Worked around it with direct form input and
+DOM-level interaction to keep testing app logic and rendering, but that
+means the literal touch-tap *gesture* wasn't verified as rigorously as
+earlier in this session — worth a real-device pass before launch,
+especially for anything involving multi-touch or scroll-heavy pages.
 
 ## 4. ⚖️ Legal & compliance
 
