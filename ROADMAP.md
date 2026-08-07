@@ -87,10 +87,33 @@ compromise on.
         concurrent instances under load, the effective limit scales with
         instance count. Upstash Redis would close that gap if/when it
         matters.
-- [ ] Error monitoring
-- [ ] Production logging
-- [ ] Database backups/recovery plan
-- [ ] Environment separation for Stripe test/live
+- [ ] Error monitoring — Sentry SDK fully wired up (`instrumentation.ts`,
+      `instrumentation-client.ts`, `sentry.server.config.ts`,
+      `sentry.edge.config.ts`, `app/global-error.tsx`, `next.config.ts`),
+      verified the app boots cleanly with it in place. It's a no-op until
+      real values are set — still needed from you:
+  - [ ] Create a Sentry account + Next.js project, get the DSN
+  - [ ] Set `NEXT_PUBLIC_SENTRY_DSN` in `.env.local` and on Vercel (all
+        environments)
+  - [ ] Optional, for readable production stack traces: set `SENTRY_ORG`,
+        `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` on Vercel so source maps
+        upload on build
+- [x] Production logging — covered by Vercel's built-in function logs
+      (every existing `console.log`/`console.error` already shows up
+      there once deployed) plus Sentry's log capture (`enableLogs: true`)
+      once the DSN above is set. A dedicated log aggregation service
+      (Axiom, Better Stack) would be a nice upgrade later, not needed to
+      call this handled for launch.
+- [ ] Database backups/recovery plan — pure Supabase dashboard setting,
+      nothing to build: check Database → Backups, confirm your plan
+      includes Point-in-Time Recovery (paid tiers) and note the retention
+      window your tier actually gives you.
+- [ ] Environment separation for Stripe test/live — you're on test keys
+      now (`sk_test_...`). On Vercel: Project Settings → Environment
+      Variables lets you scope different values per environment — put
+      Stripe **test** keys on Preview/Development and **live** keys only
+      on Production, so a preview deploy can never accidentally take a
+      real payment.
 - [x] Review `.gitignore` and GitHub for leaked secrets — `.gitignore`
       correctly covers all `.env*` variants; scanned the full git history
       and current tree for Stripe/Supabase/webhook secret patterns, found
