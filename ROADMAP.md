@@ -91,7 +91,10 @@ compromise on.
 - [ ] Production logging
 - [ ] Database backups/recovery plan
 - [ ] Environment separation for Stripe test/live
-- [ ] Review `.gitignore` and GitHub for leaked secrets
+- [x] Review `.gitignore` and GitHub for leaked secrets — `.gitignore`
+      correctly covers all `.env*` variants; scanned the full git history
+      and current tree for Stripe/Supabase/webhook secret patterns, found
+      none ever committed
 
 **Also test these scenarios:**
 
