@@ -26,11 +26,16 @@ const supabaseAdmin = createClient(
  * - The DJ's Connect account capabilities change (e.g. Stripe requires
  *   more info, or onboarding finishes) — previously this only synced
  *   when a DJ happened to reload the payments settings page.
+ * - A captured payment is refunded, or disputed, outside the app
+ *   entirely (Stripe Dashboard, or the cardholder's bank). Without this,
+ *   the request would keep showing "Playing Next"/"Played" to the guest
+ *   even though the money has moved back.
  *
- * We reuse the existing "declined" status for expiry/auto-cancel rather
- * than introducing a new status the UI doesn't know how to render —
+ * We reuse the existing "declined" status for expiry/auto-cancel, since
  * the guest-facing meaning ("you were not charged") is accurate either
- * way, even if the copy says "DJ declined" rather than "expired".
+ * way. Refunds and disputes get their own statuses ("refunded",
+ * "disputed") because, unlike a decline, a payment genuinely was taken
+ * first — telling the guest "declined" there would be inaccurate.
  */
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -77,6 +82,46 @@ export async function POST(request: Request) {
             .update({ request_status: "declined" })
             .eq("id", requestId)
             .in("request_status", ["checkout_pending", "pending"]);
+        }
+
+        break;
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        const paymentIntentId =
+          typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : charge.payment_intent?.id;
+
+        /*
+         * Only act on a full refund. A partial refund doesn't change
+         * whether the request was fulfilled, so it's left for manual
+         * review rather than guessed at here.
+         */
+        if (paymentIntentId && charge.amount_refunded >= charge.amount) {
+          await supabaseAdmin
+            .from("song_requests")
+            .update({ request_status: "refunded" })
+            .eq("stripe_payment_intent_id", paymentIntentId)
+            .in("request_status", ["accepted", "playing_next", "played"]);
+        }
+
+        break;
+      }
+
+      case "charge.dispute.created": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const paymentIntentId =
+          typeof dispute.payment_intent === "string"
+            ? dispute.payment_intent
+            : dispute.payment_intent?.id;
+
+        if (paymentIntentId) {
+          await supabaseAdmin
+            .from("song_requests")
+            .update({ request_status: "disputed" })
+            .eq("stripe_payment_intent_id", paymentIntentId);
         }
 
         break;

@@ -35,7 +35,9 @@ so they moved to the end.
       uncaptured with no transfer created
 - [ ] Record actual Stripe processing fees
 - [ ] Calculate Playing Next's actual net revenue
-- [ ] Test refunds, failed payments and cancellations
+- [x] Test refunds, failed payments and cancellations — see the full
+      scenario list in §2 below; found and fixed a real gap: refunds and
+      disputes weren't handled by the webhook at all
 
 ## 2. 🔐 Security & production readiness — CURRENT
 
@@ -70,12 +72,24 @@ compromise on.
       verify the authenticated user owns the request/profile being acted
       on
 - [x] Stripe webhook signature verification — also handles abandoned/expired
-      checkouts, Stripe's automatic 7-day uncaptured-auth expiry, and
-      keeps `stripe_connected` in sync reactively
-  - [ ] Still needs a real endpoint registered with Stripe (CLI for local
-        dev via `stripe listen`, Dashboard for production) and a real
-        `STRIPE_WEBHOOK_SECRET` set — nothing is listening for live
-        events yet, only the route code itself is built and tested
+      checkouts, Stripe's automatic 7-day uncaptured-auth expiry, keeps
+      `stripe_connected` in sync reactively, and now also handles
+      post-capture refunds and disputes (`charge.refunded`,
+      `charge.dispute.created`) — this was a real gap found while working
+      through the scenario list below: a refund or chargeback happening
+      outside the app (Stripe Dashboard, cardholder's bank) previously
+      left the request frozen showing "Playing Next"/"Played" to the
+      guest even though the money had moved back. Verified with signed
+      test events against a real disposable DB row: full refund →
+      `refunded`, partial refund → correctly left untouched, dispute →
+      `disputed` even from `played`. New statuses render correctly on
+      the confirmation page and are included in the DJ's "clear history"
+      action alongside `played`/`declined`.
+  - [x] Endpoint is registered with Stripe and live in production
+  - [ ] The live endpoint's subscribed events still need
+        `charge.refunded` and `charge.dispute.created` added in the
+        Stripe Dashboard (Developers → Webhooks) — the code handles them
+        now, but Stripe won't send them until the endpoint is subscribed
 - [x] Prevent duplicate checkout/capture
 - [x] Rate-limit sensitive endpoints — added to spotify/search (40/min),
       request/create (8/min), stripe/checkout (8/min), my-requests (60/min,
@@ -120,18 +134,43 @@ compromise on.
 
 **Also test these scenarios:**
 
-- [ ] Guest abandons Stripe
-- [ ] Card declined
-- [ ] Duplicate button press
-- [ ] DJ pauses during checkout
-- [ ] DJ accepts request
-- [ ] Playing Next
-- [ ] Played
-- [ ] Refund
-- [ ] Chargeback/dispute
-- [ ] Stripe/API outage
-- [ ] User closes confirmation page
-- [ ] Realtime fails and reconnects
+- [x] Guest abandons Stripe — handled by the existing
+      `checkout.session.expired` webhook handler (24h Stripe session
+      expiry → `declined`, guest never charged)
+- [x] Card declined — Stripe Checkout handles this natively on its own
+      hosted page; our side never sees it (no session/PaymentIntent
+      state changes), so the guest just retries or abandons, which folds
+      into the scenario above
+- [x] Duplicate button press — already covered in this section: checkout/
+      capture/cancel all guard on the request's current status before
+      acting
+- [x] DJ pauses during checkout — confirmed via code review:
+      `/api/request/create` blocks *new* requests once paused, but the
+      checkout route (which runs for a request already created) doesn't
+      re-check the DJ's paused flag. That's the correct behaviour, not a
+      gap — the request was already accepted into the flow before the
+      DJ paused, so it still completes and lands as `pending` for the DJ
+      to action manually
+- [x] DJ accepts request — already verified earlier in this section with
+      a real Stripe test-mode Transfer
+- [x] Playing Next / Played — standard dashboard status transitions;
+      confirmation page already had copy for both and reflects them via
+      polling
+- [x] Refund — tested with a signed webhook event against a disposable
+      DB row; found and fixed the missing handler (see above)
+- [x] Chargeback/dispute — same fix, same test method
+- [~] Stripe/API outage — not load-tested against a real outage; reviewed
+      the code instead, every Stripe call in the checkout/capture/cancel/
+      webhook routes is already wrapped in try/catch with a real error
+      response rather than an unhandled crash
+- [x] User closes confirmation page — the page has no client-only state;
+      it re-fetches purely from the `requestId` in the URL on every load,
+      so a reload/reopen always shows the current real status
+- [x] Realtime fails and reconnects — this scenario is stale: realtime
+      was removed earlier this session in favour of 4s polling (see the
+      RLS fix above). Polling doesn't need to "reconnect" the way a
+      WebSocket does — a single failed fetch just gets retried on the
+      next 4s tick automatically
 
 ## 3. 📱 Mobile QA & UX
 

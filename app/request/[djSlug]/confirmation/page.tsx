@@ -46,6 +46,15 @@ const STATUS_COPY: Record<string, { label: string; description: string }> = {
     description:
       "The DJ could not accept this request. Your payment will not be captured.",
   },
+  refunded: {
+    label: "Refunded",
+    description: "This payment has been refunded.",
+  },
+  disputed: {
+    label: "Payment Disputed",
+    description:
+      "A dispute has been raised on this payment with your card issuer.",
+  },
 };
 
 function ConfirmationPageContent() {

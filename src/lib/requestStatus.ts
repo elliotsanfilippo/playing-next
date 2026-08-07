@@ -7,6 +7,8 @@ const STATUS_TONE: Record<string, StatusTone> = {
   playing_next: "info",
   played: "neutral",
   declined: "danger",
+  refunded: "danger",
+  disputed: "danger",
 };
 
 export function requestStatusTone(status: string): StatusTone {
