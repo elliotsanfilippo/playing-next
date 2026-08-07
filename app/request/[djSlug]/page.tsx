@@ -192,36 +192,31 @@ document.addEventListener(
       return;
     }
 
-    const { data: existingRequests } = await supabase
-      .from("song_requests")
-      .select("id")
-      .eq("dj_profile_id", djProfile.id)
-      .in("request_status", ["pending", "accepted", "playing_next"]);
+    const createResponse = await fetch("/api/request/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        djSlug,
+        songTitle: selectedSong.title,
+        artist: selectedSong.artist,
+        requestType,
+        message: requestType === "song_message" ? message.trim() : undefined,
+      }),
+    });
 
-    const nextQueuePosition = (existingRequests?.length || 0) + 1;
+    const createData = await createResponse.json();
 
-    const { data, error } = await supabase
-      .from("song_requests")
-      .insert({
-  dj_profile_id: djProfile.id,
-  song_title: selectedSong.title,
-  artist: selectedSong.artist,
-  request_status: "checkout_pending",
-  queue_position: nextQueuePosition,
-  request_type: requestType,
-  message:
-    requestType === "song_message"
-      ? message.trim()
-      : null,
-})
-      .select()
-      .single();
-
-    if (error || !data) {
-      console.log("Request create error:", error);
-      toast.error("Something went wrong creating your request.");
+    if (!createResponse.ok || !createData.requestId) {
+      console.log("Request create error:", createData.error);
+      toast.error(
+        createData.error || "Something went wrong creating your request."
+      );
       return;
     }
+
+    const requestId = createData.requestId as string;
 
     let existingMyRequests: string[] = [];
 
@@ -237,8 +232,8 @@ try {
 localStorage.setItem(
   `myRequestIds_${djSlug}`,
   JSON.stringify([
-    data.id,
-    ...existingMyRequests.filter((id: string) => id !== data.id),
+    requestId,
+    ...existingMyRequests.filter((id: string) => id !== requestId),
   ])
 );
 
@@ -250,7 +245,7 @@ localStorage.setItem(
       body: JSON.stringify({
         songTitle: selectedSong.title,
         artist: selectedSong.artist,
-        requestId: data.id,
+        requestId,
         djSlug,
         requestType,
         requestPrice:

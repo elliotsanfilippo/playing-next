@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
@@ -73,21 +72,18 @@ export default function MyRequestsPage() {
   useEffect(() => {
     fetchRequests();
 
-    const channel = supabase
-      .channel(`customer_requests_${djSlug}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "song_requests",
-        },
-        () => fetchRequests()
-      )
-      .subscribe();
+    /*
+     * Polling rather than realtime: this page identifies "my requests"
+     * purely via localStorage IDs, with no way to authenticate as their
+     * owner, so it can't rely on a realtime subscription that depends on
+     * unrestricted public read access to song_requests.
+     */
+    const interval = setInterval(() => {
+      fetchRequests();
+    }, 4000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [djSlug]);
 

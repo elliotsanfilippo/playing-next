@@ -19,9 +19,20 @@ export async function POST(request: Request) {
       .filter((id) => typeof id === "string")
       .slice(0, 50);
 
+    /*
+     * Explicit field list, not select("*"). This route is unauthenticated
+     * by design (a guest looks up their own requests by ID from
+     * localStorage), so it must never return internal fields like the
+     * Stripe payment_intent_id or the financial breakdown
+     * (request_amount/platform_fee/dj_earnings/etc) — those aren't needed
+     * for the guest-facing "my requests" list and shouldn't be exposed to
+     * whoever holds a request ID.
+     */
     const { data, error } = await supabase
       .from("song_requests")
-      .select("*")
+      .select(
+        "id, song_title, artist, message, request_type, request_status, queue_position"
+      )
       .in("id", safeRequestIds)
       .neq("request_status", "archived")
       .order("created_at", { ascending: false });

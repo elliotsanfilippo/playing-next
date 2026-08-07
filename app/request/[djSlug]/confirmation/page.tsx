@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
-import { supabase } from "../../../../src/lib/supabase";
 import Card from "@/src/components/ui/Card";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import { buttonVariants } from "@/src/components/ui/Button";
@@ -60,57 +59,63 @@ export default function ConfirmationPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const fetchRequest = useCallback(async () => {
-    setLoading(true);
-    setLoadError("");
+  const fetchRequest = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) {
+        setLoading(true);
+      }
 
-    if (!requestId) {
-      setLoadError("We could not find this request.");
+      setLoadError("");
+
+      if (!requestId) {
+        setLoadError("We could not find this request.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/my-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ requestIds: [requestId] }),
+      });
+
+      const result = await response.json();
+      const data = result.requests?.[0];
+
+      if (!response.ok || !data) {
+        console.log("Confirmation request load error:", result.error);
+        setLoadError("We could not load your request.");
+        setLoading(false);
+        return;
+      }
+
+      setRequest(data);
+      setLoadError("");
       setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("song_requests")
-      .select(
-        "id, song_title, artist, request_type, message, request_status, queue_position"
-      )
-      .eq("id", requestId)
-      .single();
-
-    if (error || !data) {
-      console.log("Confirmation request load error:", error);
-      setLoadError("We could not load your request.");
-      setLoading(false);
-      return;
-    }
-
-    setRequest(data);
-    setLoadError("");
-    setLoading(false);
-  }, [requestId]);
+    },
+    [requestId]
+  );
 
   useEffect(() => {
-    fetchRequest();
+    fetchRequest(true);
 
     if (!requestId) return;
 
-    const channel = supabase
-      .channel(`confirmation_${requestId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "song_requests",
-          filter: `id=eq.${requestId}`,
-        },
-        () => fetchRequest()
-      )
-      .subscribe();
+    /*
+     * Polling rather than realtime: the confirmation page has no way to
+     * authenticate as "the guest who made this request", so it can't
+     * safely use a realtime subscription that depends on unrestricted
+     * public read access to song_requests. A few seconds of delay is an
+     * acceptable trade for not exposing every guest's request data.
+     */
+    const interval = setInterval(() => {
+      fetchRequest(false);
+    }, 4000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [fetchRequest, requestId]);
 

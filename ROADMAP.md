@@ -42,12 +42,27 @@ so they moved to the end.
 Before strangers and real money are involved. This is one area not to
 compromise on.
 
-- [ ] Review Supabase RLS on every table
+- [x] Review Supabase RLS on every table — found and fixed a critical
+      issue: `song_requests` and `dj_profiles` both had policies granting
+      the public anon key unrestricted read access, exposing every
+      guest's private message, every request's financial breakdown, and
+      DJs' Stripe account IDs to anyone. Fixed by moving all guest-facing
+      `song_requests` reads/writes to server routes (`/api/request/create`,
+      `/api/my-requests`) and dropping the anon policies entirely;
+      `dj_profiles` sensitive columns were locked down via column-level
+      `REVOKE`. Verified live: anon key can no longer read or write
+      `song_requests`, and the full guest flow (request → confirmation →
+      My Requests) plus the DJ dashboard still work correctly.
+  - [ ] Re-check when new tables are added (e.g. Pro subscription state)
 - [ ] Ensure service-role key is server-only
 - [ ] Ensure Stripe secret is server-only
-- [ ] Stop trusting client-supplied monetary values
+- [x] Stop trusting client-supplied monetary values — checkout route
+      already re-derives price from the DJ's profile in the database,
+      never trusts the amount the client sends
 - [ ] Validate all API inputs
-- [ ] Protect DJ-only API endpoints
+- [x] Protect DJ-only API endpoints — capture/cancel/connect routes all
+      verify the authenticated user owns the request/profile being acted
+      on
 - [x] Stripe webhook signature verification — also handles abandoned/expired
       checkouts, Stripe's automatic 7-day uncaptured-auth expiry, and
       keeps `stripe_connected` in sync reactively
