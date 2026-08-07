@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
+import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
-  const query = searchParams.get("q");
+  const { allowed, retryAfterSeconds } = rateLimit(
+    `spotify-search:${getClientIp(request)}`,
+    40,
+    60_000
+  );
+
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many searches. Please slow down." },
+      { status: 429, headers: { "Retry-After": retryAfterSeconds.toString() } }
+    );
+  }
+
+  const query = searchParams.get("q")?.slice(0, 200);
 
   if (!query) {
     return NextResponse.json([]);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 
 import {
   SERVICE_FEE,
@@ -24,6 +25,22 @@ type RequestType = "song_request" | "song_message";
 
 export async function POST(request: NextRequest) {
   try {
+    const { allowed, retryAfterSeconds } = rateLimit(
+      `stripe-checkout:${getClientIp(request)}`,
+      8,
+      60_000
+    );
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        {
+          status: 429,
+          headers: { "Retry-After": retryAfterSeconds.toString() },
+        }
+      );
+    }
+
     const body = (await request.json()) as CheckoutBody;
     const requestId = body.requestId?.trim();
 

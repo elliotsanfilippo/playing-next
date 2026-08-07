@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,14 +32,30 @@ type CreateRequestBody = {
  */
 export async function POST(request: NextRequest) {
   try {
+    const { allowed, retryAfterSeconds } = rateLimit(
+      `request-create:${getClientIp(request)}`,
+      8,
+      60_000
+    );
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        {
+          status: 429,
+          headers: { "Retry-After": retryAfterSeconds.toString() },
+        }
+      );
+    }
+
     const body = (await request.json()) as CreateRequestBody;
 
-    const djSlug = body.djSlug?.trim();
-    const songTitle = body.songTitle?.trim();
-    const artist = body.artist?.trim();
+    const djSlug = body.djSlug?.trim().slice(0, 100);
+    const songTitle = body.songTitle?.trim().slice(0, 300);
+    const artist = body.artist?.trim().slice(0, 300);
     const requestType =
       body.requestType === "song_message" ? "song_message" : "song_request";
-    const message = body.message?.trim() || null;
+    const message = body.message?.trim().slice(0, 500) || null;
 
     if (!djSlug || !songTitle || !artist) {
       return NextResponse.json(

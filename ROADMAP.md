@@ -54,12 +54,18 @@ compromise on.
       `song_requests`, and the full guest flow (request → confirmation →
       My Requests) plus the DJ dashboard still work correctly.
   - [ ] Re-check when new tables are added (e.g. Pro subscription state)
-- [ ] Ensure service-role key is server-only
-- [ ] Ensure Stripe secret is server-only
+- [x] Ensure service-role key is server-only — confirmed only used in
+      `app/api/*/route.ts` files, no client component references it, no
+      client code imports a route module, no accidental `NEXT_PUBLIC_`
+      prefix
+- [x] Ensure Stripe secret is server-only — same audit, same result
 - [x] Stop trusting client-supplied monetary values — checkout route
       already re-derives price from the DJ's profile in the database,
       never trusts the amount the client sends
-- [ ] Validate all API inputs
+- [x] Validate all API inputs — reviewed every route; checkout was already
+      solid (only trusts a requestId, re-derives everything else server-side).
+      Added length caps on guest-submitted text (song title/artist/message,
+      DJ slug, Spotify search query) that had none
 - [x] Protect DJ-only API endpoints — capture/cancel/connect routes all
       verify the authenticated user owns the request/profile being acted
       on
@@ -71,7 +77,16 @@ compromise on.
         `STRIPE_WEBHOOK_SECRET` set — nothing is listening for live
         events yet, only the route code itself is built and tested
 - [x] Prevent duplicate checkout/capture
-- [ ] Rate-limit sensitive endpoints
+- [x] Rate-limit sensitive endpoints — added to spotify/search (40/min),
+      request/create (8/min), stripe/checkout (8/min), my-requests (60/min,
+      generous enough for the 4s polling on confirmation + My Requests).
+      Verified live: 9th rapid request in a window gets a real 429 with a
+      correct Retry-After header, normal usage unaffected.
+  - [ ] This is in-memory/per-process, not shared across instances — real
+        protection today, but if deployed somewhere that runs multiple
+        concurrent instances under load, the effective limit scales with
+        instance count. Upstash Redis would close that gap if/when it
+        matters.
 - [ ] Error monitoring
 - [ ] Production logging
 - [ ] Database backups/recovery plan
