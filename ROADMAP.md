@@ -3,11 +3,18 @@
 Working checklist from here to public launch. Check items off as they land;
 keep this file up to date rather than tracking progress anywhere else.
 
+Reordered from the original list: security now follows directly after the
+financial work (it's the direct continuation of it, and launch-blocking),
+mobile QA moved up since this is a QR-code/mobile-first product, and legal
+moved up to start in parallel given its long external lead times — even
+though it's mostly non-coding and doesn't block engineering work. Pro
+subscriptions, the earnings dashboard, and notifications are real features
+but none of them block shipping a working, secure, mobile-tested product,
+so they moved to the end.
+
 ---
 
-## 1. 💰 Finish the financial architecture — CURRENT
-
-This is where we are now, and our immediate priority.
+## 1. 💰 Finish the financial architecture
 
 - [x] 50p Guest Service Fee decided
 - [x] Free plan = 15% platform fee
@@ -16,66 +23,65 @@ This is where we are now, and our immediate priority.
 - [x] `src/lib/pricing.ts` created
 - [x] Replace/finalise the secure Stripe checkout route
 - [x] Verify £5 request → guest authorises £5.50
-- [ ] Verify £8 request → guest authorises £8.50
+- [x] Verify £8 request → guest authorises £8.50
 - [x] Verify Supabase stores `request_amount`, `platform_fee`, `dj_earnings`, etc.
 - [x] Make Stripe Connect actually split the money correctly
 - [x] Ensure 50p remains with Playing Next
 - [x] Ensure Free plan 15% remains with Playing Next
 - [x] Ensure correct DJ amount is transferred
-- [ ] Capture on acceptance / cancel on decline — logic exists and transfer
-      is wired to fire on capture, but not yet tested end-to-end with a
-      real completed payment
+- [x] Capture on acceptance / cancel on decline — verified with real
+      Stripe test-mode objects: capture produces an actual Transfer
+      (correct amount, correct destination); cancel leaves the charge
+      uncaptured with no transfer created
 - [ ] Record actual Stripe processing fees
 - [ ] Calculate Playing Next's actual net revenue
 - [ ] Test refunds, failed payments and cancellations
 
-## 2. 💳 Pro subscriptions
+## 2. 🔐 Security & production readiness — CURRENT
 
-Build the actual £14.99/month product.
+Before strangers and real money are involved. This is one area not to
+compromise on.
 
-- [ ] Add DJ plan/subscription state to database
-- [ ] Create Stripe subscription product/price
-- [ ] Upgrade to Pro flow
-- [ ] Stripe Customer Portal for managing/cancelling subscription
-- [ ] Webhooks to keep Supabase subscription state accurate
-- [ ] Free = 15%
-- [ ] Pro = 0%
-- [ ] Downgrade/cancellation behaviour
-- [ ] Pricing UI
-- [ ] Settings/billing UI
+- [ ] Review Supabase RLS on every table
+- [ ] Ensure service-role key is server-only
+- [ ] Ensure Stripe secret is server-only
+- [ ] Stop trusting client-supplied monetary values
+- [ ] Validate all API inputs
+- [ ] Protect DJ-only API endpoints
+- [x] Stripe webhook signature verification — also handles abandoned/expired
+      checkouts, Stripe's automatic 7-day uncaptured-auth expiry, and
+      keeps `stripe_connected` in sync reactively
+  - [ ] Still needs a real endpoint registered with Stripe (CLI for local
+        dev via `stripe listen`, Dashboard for production) and a real
+        `STRIPE_WEBHOOK_SECRET` set — nothing is listening for live
+        events yet, only the route code itself is built and tested
+- [x] Prevent duplicate checkout/capture
+- [ ] Rate-limit sensitive endpoints
+- [ ] Error monitoring
+- [ ] Production logging
+- [ ] Database backups/recovery plan
+- [ ] Environment separation for Stripe test/live
+- [ ] Review `.gitignore` and GitHub for leaked secrets
 
-> Importantly, the checkout route must read the DJ's actual plan from the
-> database rather than assuming everyone is Free.
+**Also test these scenarios:**
 
-## 3. 📊 DJ earnings & finance dashboard
+- [ ] Guest abandons Stripe
+- [ ] Card declined
+- [ ] Duplicate button press
+- [ ] DJ pauses during checkout
+- [ ] DJ accepts request
+- [ ] Playing Next
+- [ ] Played
+- [ ] Refund
+- [ ] Chargeback/dispute
+- [ ] Stripe/API outage
+- [ ] User closes confirmation page
+- [ ] Realtime fails and reconnects
 
-Once the money calculations are trustworthy:
+## 3. 📱 Mobile QA & UX
 
-- [ ] Gross request value
-- [ ] Platform fees
-- [ ] DJ net earnings
-- [ ] Accepted revenue
-- [ ] Payout information
-- [ ] Transaction/request history
-- [ ] Clear Free vs Pro fee breakdown
-- [ ] CSV/export eventually
-
-> The DJ should always be able to understand exactly how their earnings
-> were calculated.
-
-## 4. 🔔 Notifications
-
-A working DJ shouldn't have to stare at Playing Next.
-
-- [ ] New request notification
-- [ ] New Song + Message notification
-- [ ] Browser/mobile notification approach
-- [ ] Sound/vibration where appropriate
-- [ ] Notification preferences
-
-## 6. 📱 Mobile QA & UX
-
-This is launch-critical, particularly for guests.
+Launch-critical, particularly for guests — this is a QR-code product and
+most guests will only ever see it on a phone.
 
 Test properly on:
 
@@ -101,9 +107,10 @@ And specifically test:
 - [ ] Long song/artist names
 - [ ] Slow internet
 
-## 7. ⚖️ Legal & compliance
+## 4. ⚖️ Legal & compliance
 
-This has now moved firmly into the before-launch category. We need:
+Firmly in the before-launch category — start this in parallel now given
+the lead times involved, even though it doesn't block engineering work.
 
 - [ ] Decide company/business structure
 - [ ] Playing Next trademark/name checks
@@ -126,44 +133,46 @@ This has now moved firmly into the before-launch category. We need:
 > Get professional advice on the payments marketplace structure in
 > particular before public launch.
 
-## 8. 🔐 Security & production readiness
+## 5. 💳 Pro subscriptions
 
-Before strangers and real money are involved:
+Build the actual £14.99/month product.
 
-- [ ] Review Supabase RLS on every table
-- [ ] Ensure service-role key is server-only
-- [ ] Ensure Stripe secret is server-only
-- [ ] Stop trusting client-supplied monetary values
-- [ ] Validate all API inputs
-- [ ] Protect DJ-only API endpoints
-- [x] Stripe webhook signature verification — also handles abandoned/expired
-      checkouts, Stripe's automatic 7-day uncaptured-auth expiry, and
-      keeps `stripe_connected` in sync reactively
-  - [ ] Still needs a real endpoint registered with Stripe (CLI for local
-        dev via `stripe listen`, Dashboard for production) and a real
-        `STRIPE_WEBHOOK_SECRET` set — nothing is listening for live
-        events yet, only the route code itself is built and tested
-- [x] Prevent duplicate checkout/capture
-- [ ] Rate-limit sensitive endpoints
-- [ ] Error monitoring
-- [ ] Production logging
-- [ ] Database backups/recovery plan
-- [ ] Environment separation for Stripe test/live
-- [ ] Review `.gitignore` and GitHub for leaked secrets
+- [ ] Add DJ plan/subscription state to database
+- [ ] Create Stripe subscription product/price
+- [ ] Upgrade to Pro flow
+- [ ] Stripe Customer Portal for managing/cancelling subscription
+- [ ] Webhooks to keep Supabase subscription state accurate
+- [ ] Free = 15%
+- [ ] Pro = 0%
+- [ ] Downgrade/cancellation behaviour
+- [ ] Pricing UI
+- [ ] Settings/billing UI
 
-> This is one area where I wouldn't compromise.
+> Importantly, the checkout route must read the DJ's actual plan from the
+> database rather than assuming everyone is Free.
 
-**Also test these scenarios:**
+## 6. 📊 DJ earnings & finance dashboard
 
-- [ ] Guest abandons Stripe
-- [ ] Card declined
-- [ ] Duplicate button press
-- [ ] DJ pauses during checkout
-- [ ] DJ accepts request
-- [ ] Playing Next
-- [ ] Played
-- [ ] Refund
-- [ ] Chargeback/dispute
-- [ ] Stripe/API outage
-- [ ] User closes confirmation page
-- [ ] Realtime fails and reconnects
+Once the money calculations are trustworthy:
+
+- [ ] Gross request value
+- [ ] Platform fees
+- [ ] DJ net earnings
+- [ ] Accepted revenue
+- [ ] Payout information
+- [ ] Transaction/request history
+- [ ] Clear Free vs Pro fee breakdown
+- [ ] CSV/export eventually
+
+> The DJ should always be able to understand exactly how their earnings
+> were calculated.
+
+## 7. 🔔 Notifications
+
+A working DJ shouldn't have to stare at Playing Next.
+
+- [ ] New request notification
+- [ ] New Song + Message notification
+- [ ] Browser/mobile notification approach
+- [ ] Sound/vibration where appropriate
+- [ ] Notification preferences
