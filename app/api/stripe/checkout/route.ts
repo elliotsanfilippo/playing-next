@@ -104,7 +104,9 @@ export async function POST(request: NextRequest) {
           id,
           slug,
           request_price,
-          shoutout_price
+          shoutout_price,
+          stripe_account_id,
+          stripe_connected
         `
       )
       .eq("id", songRequest.dj_profile_id)
@@ -118,6 +120,22 @@ export async function POST(request: NextRequest) {
           error: "DJ profile could not be found.",
         },
         { status: 404 }
+      );
+    }
+
+    /*
+     * The DJ must have a fully onboarded, transfer-capable Stripe
+     * Connect account before we let a guest pay — otherwise the
+     * guest's money would be captured with nowhere for the DJ's
+     * share to go.
+     */
+    if (!djProfile.stripe_account_id || !djProfile.stripe_connected) {
+      return NextResponse.json(
+        {
+          error:
+            "This DJ has not finished setting up payments yet. Please try again later.",
+        },
+        { status: 409 }
       );
     }
 
@@ -249,6 +267,18 @@ export async function POST(request: NextRequest) {
         payment_intent_data: {
           capture_method: "manual",
           metadata: paymentMetadata,
+
+          /*
+           * Delayed-capture destination charge: the transfer to the
+           * DJ's connected account is created automatically by Stripe
+           * the moment we capture (i.e. only once the DJ accepts).
+           * Whatever isn't transferred (platformFee + SERVICE_FEE)
+           * stays in the platform's own Stripe balance.
+           */
+          transfer_data: {
+            destination: djProfile.stripe_account_id,
+            amount: djEarnings,
+          },
         },
 
         line_items: [
