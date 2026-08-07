@@ -144,10 +144,19 @@ export default function DjTermsPage() {
       <H2>11. Governing law</H2>
       <P>These terms are governed by the law of England and Wales.</P>
 
-      <H2>12. Contact</H2>
+      <H2>12. Complaints &amp; contact</H2>
       <P>
         Questions about these terms, fees, or your account? Contact{" "}
-        <strong>[support email — TBD]</strong>.
+        <strong>[support email — TBD]</strong>. If you want to raise a
+        complaint — about a payout, a fee, or anything else — use the
+        same address; we aim to acknowledge it within 5 business days.
+      </P>
+      <P>
+        This covers complaints about Playing Next itself, not about your
+        Stripe account directly — issues with your connected account
+        (verification, payout delays, restrictions) are Stripe&rsquo;s to
+        resolve under your agreement with them, though we&rsquo;re happy
+        to help however we can.
       </P>
     </LegalDoc>
   );

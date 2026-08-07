@@ -117,10 +117,19 @@ export default function GuestTermsPage() {
         These terms are governed by the law of England and Wales.
       </P>
 
-      <H2>10. Contact</H2>
+      <H2>10. Complaints &amp; contact</H2>
       <P>
         Questions about these terms, or about a specific request? Contact{" "}
-        <strong>[support email — TBD]</strong>.
+        <strong>[support email — TBD]</strong>. If you want to raise a
+        complaint, use the same address and describe what happened,
+        including your request ID if you have one — we aim to acknowledge
+        it within 5 business days.
+      </P>
+      <P>
+        This covers complaints about Playing Next itself. A complaint
+        about a payment or your card being charged should still be sent
+        to us first; if it turns out to be something only Stripe can
+        resolve, we&rsquo;ll point you to them.
       </P>
     </LegalDoc>
   );

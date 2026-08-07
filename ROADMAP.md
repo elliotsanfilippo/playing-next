@@ -192,6 +192,10 @@ especially for anything involving multi-touch or scroll-heavy pages.
 Firmly in the before-launch category — start this in parallel now given
 the lead times involved, even though it doesn't block engineering work.
 
+Every registration and payment this section generates is consolidated in
+[PRE_LAUNCH_CHECKLIST.md](PRE_LAUNCH_CHECKLIST.md) — check that closer to
+launch rather than hunting through this file for costs.
+
 - [ ] Decide company/business structure — deliberately deferred until
       closer to launch
 - [x] Playing Next trademark/name checks — searched the UK IPO trademark
@@ -211,8 +215,21 @@ the lead times involved, even though it doesn't block engineering work.
 - [x] Refund & Cancellation Policy — drafted, `/legal/refund-policy`,
       honestly documents that refunds after capture are handled manually
       (no in-app refund flow exists yet)
-- [ ] Complaints process
-- [ ] ICO registration/fee assessment
+- [x] Complaints process — Guest Terms and DJ Terms §10/§12 now cover how
+      to complain and a 5-business-day acknowledgement commitment, and
+      draw the line between complaints about us vs. things only Stripe
+      can resolve (payout/verification issues on your connected account)
+- [ ] ICO registration/fee assessment — researched, not yet done: we
+      almost certainly need to register and pay the fee, since we process
+      personal data electronically and don't fall under any exemption
+      (not a charity, not paper-only). Given the size of the business,
+      **Tier 1 (micro, ≤£632k turnover or ≤10 staff) applies — £52/year,
+      £47 by direct debit.** This is a real action only you can take
+      (needs your own ICO account/payment): run the ICO's free
+      self-assessment tool, then register, at
+      [ico.org.uk/for-organisations/data-protection-fee](https://ico.org.uk/for-organisations/data-protection-fee/).
+      Can be done as a sole trader now — doesn't need to wait on the
+      company structure decision.
 - [~] UK GDPR data/retention review — factual audit done, see
       `DATA_AUDIT.md` (what's collected, where it goes, retention gaps
       found); actual legal assessment against UK GDPR still needs a
@@ -222,8 +239,10 @@ the lead times involved, even though it doesn't block engineering work.
       region for Supabase/Vercel not yet confirmed — noted in the doc
 - [ ] VAT/accounting advice
 - [ ] Payments-regulation/Stripe Connect legal review
-- [ ] DJ tax responsibility wording
-- [ ] Music licensing responsibility wording
+- [x] DJ tax responsibility wording — covered in DJ Terms §6: DJs are
+      independent, not employees, responsible for their own tax
+- [x] Music licensing responsibility wording — covered in Guest Terms §5
+      and DJ Terms §6: DJ/venue's responsibility, not ours
 - [x] Minimum-age policy — set in the Privacy Policy: 16+ to submit a
       paid request or create a DJ account, 18+ specifically for DJ
       accounts (Stripe Connect requires a legal adult) — a reasonable
