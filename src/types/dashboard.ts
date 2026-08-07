@@ -18,4 +18,6 @@ export type DJProfile = {
   request_price?: number | null;
   stripe_connected?: boolean;
   plan?: string;
+  onboarding_complete: boolean;
+launch_complete_seen: boolean;
 };

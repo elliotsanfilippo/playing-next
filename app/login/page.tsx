@@ -10,14 +10,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
+const [errorMessage, setErrorMessage] = useState("");
+const [successMessage, setSuccessMessage] = useState("");
   const login = async (event?: React.FormEvent) => {
   event?.preventDefault();
 
   if (!email || !password) {
-    alert("Please enter your email and password.");
-    return;
-  }
+  setErrorMessage("Please enter your email and password.");
+  return;
+}
 
   setLoading(true);
 
@@ -29,9 +30,21 @@ export default function LoginPage() {
   setLoading(false);
 
   if (error) {
-    alert(error.message);
-    return;
+  let message = error.message;
+
+  if (message.toLowerCase().includes("email not confirmed")) {
+    message =
+      "Please verify your email before signing in.";
+  } else if (
+    message.toLowerCase().includes("invalid login credentials")
+  ) {
+    message =
+      "Incorrect email or password.";
   }
+
+  setErrorMessage(message);
+  return;
+}
 
 window.location.assign(`${window.location.origin}/dj/dashboard`);
 };
@@ -65,7 +78,15 @@ window.location.assign(`${window.location.origin}/dj/dashboard`);
             onChange={(event) => setPassword(event.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
           />
+{errorMessage && (
 
+  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+
+    {errorMessage}
+
+  </div>
+
+)}
           <button
   type="submit"
   disabled={loading}

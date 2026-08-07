@@ -18,6 +18,7 @@ import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
 import Onboarding from "./components/Onboarding";
 import LaunchComplete from "./components/LaunchComplete";
+import { toast } from "sonner";
 
 
 export default function DJDashboardPage() {
@@ -28,9 +29,7 @@ export default function DJDashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(true);
-  const [showLaunchComplete, setShowLaunchComplete] = useState(true);
-
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
   const fetchDJProfile = async () => {
   const {
     data: { user },
@@ -38,14 +37,16 @@ export default function DJDashboardPage() {
   } = await supabase.auth.getUser();
 
   if (userError) {
-    alert(userError.message);
-    return;
-  }
+  setLoadingDashboard(false);
+  alert(userError.message);
+  return;
+}
 
   if (!user) {
-    alert("No logged-in user found.");
-    return;
-  }
+  setLoadingDashboard(false);
+  alert("No logged-in user found.");
+  return;
+}
 
   const { data, error } = await supabase
   .from("dj_profiles")
@@ -55,12 +56,14 @@ export default function DJDashboardPage() {
   .maybeSingle();
 
   if (error) {
-    console.log("DJ profile load error:", error);
-    alert(error.message);
-    return;
-  }
+  setLoadingDashboard(false);
+  console.log("DJ profile load error:", error);
+  toast.error(error.message);
+  return;
+}
 
   setDjProfile(data);
+  setLoadingDashboard(false);
 };
 
   const fetchRequests = async () => {
@@ -104,7 +107,7 @@ export default function DJDashboardPage() {
 
   const toggleRequests = async () => {
   if (!djProfile) {
-    alert("DJ profile not loaded yet.");
+    toast.error("DJ profile not loaded yet.");
     return;
   }
 
@@ -120,7 +123,7 @@ export default function DJDashboardPage() {
 
   if (error) {
     console.log("Toggle requests error:", error);
-    alert(error.message);
+    toast.error(error.message);
     return;
   }
 
@@ -171,7 +174,7 @@ const reorderQueue = async () => {
 
   if (error) {
     console.log("Update request status error:", error);
-    alert(error.message);
+    toast.error(error.message);
     return;
   }
 
@@ -186,10 +189,10 @@ const reorderQueue = async () => {
 
   await fetchRequests();
 };
-
+toast.success("History cleared");
   const clearPlayedHistory = async () => {
   if (!djProfile) {
-    alert("DJ profile not loaded yet.");
+    toast.error("DJ profile not loaded yet.");
     return;
   }
 
@@ -202,13 +205,13 @@ const reorderQueue = async () => {
 
   if (error) {
     console.log("Clear history error:", error);
-    alert(error.message);
+    toast.error(error.message);
     return;
   }
 
   await fetchRequests();
 };
-
+toast.success("Request accepted");
   const acceptRequest = async (request: SongRequest) => {
   if (request.stripe_payment_intent_id) {
     const response = await fetch("/api/stripe/capture", {
@@ -265,6 +268,7 @@ const declineRequest = async (request: SongRequest) => {
 
   await updateRequestStatus(request.id, "declined");
 };
+toast.success("Request declined");
 const moveAcceptedRequest = async (
   requestId: string,
   direction: "up" | "down" | "top"
@@ -362,22 +366,6 @@ const moveAcceptedRequest = async (
 }, [router]);
 
 useEffect(() => {
-  const skippedOnboarding =
-    window.localStorage.getItem("playing-next-onboarding-skipped") === "true";
-
-  if (skippedOnboarding) {
-    setShowOnboarding(false);
-  }
-}, []);
-useEffect(() => {
-  const launchCompleteSeen =
-    window.localStorage.getItem("playing-next-launch-complete") === "true";
-
-  if (launchCompleteSeen) {
-    setShowLaunchComplete(false);
-  }
-}, []);
-useEffect(() => {
   if (!requestLink) {
     setQrCodeUrl("");
     return;
@@ -389,7 +377,7 @@ useEffect(() => {
     })
     .catch((error) => {
       console.log("QR code error:", error);
-      alert(error.message);
+      toast.error(error.message);
     });
 }, [requestLink]);
 
@@ -420,35 +408,67 @@ useEffect(() => {
   Boolean(djProfile!.profile_image_url) &&
   Boolean(qrCodeUrl) &&
   Boolean(djProfile!.stripe_connected);
-const continueFromLaunch = () => {
-  window.localStorage.setItem(
-    "playing-next-launch-complete",
-    "true"
-  );
+const continueFromLaunch = async () => {
+  if (!djProfile) return;
 
-  setShowLaunchComplete(false);
-  setShowOnboarding(false);
+  const { error } = await supabase
+    .from("dj_profiles")
+    .update({
+      launch_complete_seen: true,
+    })
+    .eq("id", djProfile.id);
+
+  if (error) {
+    toast.error(error.message);
+    return;
+  }
+
+  await fetchDJProfile();
 };
-const continueToDashboard = () => {
-  window.localStorage.setItem(
-    "playing-next-onboarding-skipped",
-    "true"
-  );
+const continueToDashboard = async () => {
+  if (!djProfile || !onboardingComplete) return;
 
-  setShowOnboarding(false);
+  const { error } = await supabase
+    .from("dj_profiles")
+    .update({
+      onboarding_complete: true,
+    })
+    .eq("id", djProfile.id);
+
+  if (error) {
+    toast.error(error.message);
+    return;
+  }
+
+  await fetchDJProfile();
 };
-
-if (djProfile && showOnboarding && !onboardingComplete) {
+if (loadingDashboard) {
   return (
-    <Onboarding
-      djProfile={djProfile}
-      qrCodeUrl={qrCodeUrl}
-      router={router}
-      onContinue={continueToDashboard}
-    />
+    <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
+      <p>Loading dashboard...</p>
+    </main>
   );
 }
-if (onboardingComplete && showLaunchComplete) {
+if (
+  djProfile &&
+  !djProfile.onboarding_complete &&
+  !onboardingComplete
+) {
+  return (
+    <Onboarding
+  djProfile={djProfile}
+  qrCodeUrl={qrCodeUrl}
+  router={router}
+  onboardingComplete={onboardingComplete}
+  onContinue={continueToDashboard}
+/>
+  );
+}
+if (
+  djProfile &&
+  onboardingComplete &&
+  !djProfile.launch_complete_seen
+) {
   return (
     <LaunchComplete
       qrCodeUrl={qrCodeUrl}

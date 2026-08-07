@@ -10,11 +10,14 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
+const [errorMessage, setErrorMessage] = useState("");
+const [successMessage, setSuccessMessage] = useState("");
   const signUp = async (event?: React.FormEvent) => {
   event?.preventDefault();
     if (!email || !password) {
-      alert("Please enter your email and password.");
+      setErrorMessage(
+  "Please enter your email and password."
+);
       return;
     }
 
@@ -27,7 +30,21 @@ export default function SignupPage() {
 
     if (error) {
       setLoading(false);
-      alert(error.message);
+      let message = error.message;
+
+if (
+  message.toLowerCase().includes("rate limit")
+) {
+  message =
+    "Too many verification emails have been requested. Please wait a few minutes before trying again.";
+} else if (
+  message.toLowerCase().includes("already")
+) {
+  message =
+    "An account already exists with this email address.";
+}
+
+setErrorMessage(message);
       return;
     }
 
@@ -60,8 +77,12 @@ export default function SignupPage() {
     }
 
     setLoading(false);
-    alert("Account created. Check your email to confirm your account.");
-    router.push("/login");
+    setSuccessMessage(
+  "Account created! Please check your email to verify your account before signing in."
+);
+
+setEmail("");
+setPassword("");
   };
 
   return (
@@ -93,7 +114,17 @@ export default function SignupPage() {
             onChange={(event) => setPassword(event.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none placeholder:text-zinc-500"
           />
+{errorMessage && (
+  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+    {errorMessage}
+  </div>
+)}
 
+{successMessage && (
+  <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
+    {successMessage}
+  </div>
+)}
           <button
   type="submit"
   disabled={loading}

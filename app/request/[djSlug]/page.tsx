@@ -3,24 +3,20 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../src/lib/supabase";
+import RequestHeader, {
+  type DJProfile,
+} from "@/src/components/request/RequestHeader";
 
-type DJProfile = {
-  id: string;
-  dj_name: string;
-  request_status: string;
-  genres: string[] | string | null;
-  bio: string | null;
-  request_price: number | null;
-  shoutout_price: number | null;
-  profile_image_url: string | null;
-};
+import RequestCardHeader from "@/src/components/request/RequestCardHeader";
+import SpotifySearchInput from "@/src/components/request/SpotifySearchInput";
+import TrackResults, {
+  type SpotifyTrack,
+} from "@/src/components/request/TrackResults";
+import SelectedSong from "@/src/components/request/SelectedSong";
+import RequestOptions from "@/src/components/request/RequestOptions";
+import CheckoutButton from "@/src/components/request/CheckoutButton";
+import EmptySearchState from "@/src/components/request/EmptySearchState";
 
-type SpotifyTrack = {
-  id: string;
-  title: string;
-  artist: string;
-  artwork: string | null;
-};
 
 export default function RequestPage() {
   const params = useParams();
@@ -108,6 +104,13 @@ export default function RequestPage() {
     }
 
     setDjProfile(data);
+    if (data.request_status !== "taking_requests") {
+  setSearchQuery("");
+  setTracks([]);
+  setSelectedSong(null);
+  setMessage("");
+  setRequestType("song_request");
+}
     setDjNotFound(false);
     setIsLoadingDJ(false);
   };
@@ -124,6 +127,13 @@ export default function RequestPage() {
     if (!isMounted || !data) return;
 
     setDjProfile(data);
+    if (data.request_status !== "taking_requests") {
+  setSearchQuery("");
+  setTracks([]);
+  setSelectedSong(null);
+  setMessage("");
+  setRequestType("song_request");
+}
   };
 
   loadDJ();
@@ -284,235 +294,79 @@ localStorage.setItem(
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="mx-auto max-w-3xl px-5 py-8 sm:px-6 sm:py-12">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          {djProfile?.profile_image_url ? (
-            <img
-              src={djProfile.profile_image_url}
-              alt={djProfile.dj_name}
-              className="h-20 w-20 rounded-full object-cover"
-            />
-          ) : (
-            <div className="h-20 w-20 rounded-full bg-zinc-800" />
-          )}
+      <section className="mx-auto max-w-4xl px-5 py-8 sm:px-6 sm:py-12">
+        <RequestHeader
+  djSlug={djSlug}
+  djProfile={djProfile!}
+  isTakingRequests={isTakingRequests}
+/>
 
-          <div>
-            <p className="text-sm text-zinc-400">Playing Next</p>
+  <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+  <RequestCardHeader />
 
-            <h1 className="mt-1 text-4xl font-bold">
-              {djProfile?.dj_name}
-            </h1>
-<p
-  className={`mt-1 text-sm font-medium ${
-    isTakingRequests
-      ? "text-green-400"
-      : "text-red-400"
-  }`}
->
-  {isTakingRequests
-    ? "🟢 Live now"
-    : "🔴 Requests paused"}
-</p>
-            <p className="mt-2 text-zinc-400">
-              {Array.isArray(djProfile?.genres)
-                ? djProfile.genres.join(" • ")
-                : djProfile?.genres || "Genres coming soon"}
-            </p>
+  <SpotifySearchInput
+    searchQuery={searchQuery}
+    isTakingRequests={isTakingRequests}
+    onSearch={searchSpotify}
+  />
 
-            {djProfile?.bio && (
-              <p className="mt-2 max-w-xl text-zinc-400">
-                {djProfile.bio}
-              </p>
-            )}
-
-            <div className="mt-4">
-              <a
-                href={`/request/${djSlug}/my-requests`}
-                className="inline-flex rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white"
-              >
-                View My Requests
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <div
-  className={`mt-8 rounded-2xl border px-4 py-3 ${
-    isTakingRequests
-      ? "border-green-500/20 bg-green-500/10"
-      : "border-red-500/20 bg-red-500/10"
-  }`}
->
-  <p
-    className={`font-semibold ${
-      isTakingRequests ? "text-green-400" : "text-red-400"
-    }`}
-  >
-    {isTakingRequests ? "🟢 Taking Requests" : "🔴 Requests Paused"}
-  </p>
+  {!selectedSong &&
+    tracks.length === 0 &&
+    searchQuery.length < 2 &&
+    isTakingRequests && (
+      <EmptySearchState />
+    )}
 </div>
 
-        <div className="mt-8 rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:mt-10 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold">Request a Song</h2>
-
-              <p className="mt-2 text-zinc-400">
-                Search Spotify and choose a track.
-              </p>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-3">
-  <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">
-    🎵 Song Request £{(requestPrice / 100).toFixed(2)}
-  </div>
-
-  <div className="rounded-full bg-purple-500/20 px-4 py-2 text-sm font-semibold text-purple-300">
-    🎤 Song + Message £{(shoutoutPrice / 100).toFixed(2)}
-  </div>
-</div>
-          </div>
-
-          <div className="mt-8">
-            <label className="text-sm text-zinc-400">Search Song</label>
-
-            <input
-              disabled={!isTakingRequests}
-              type="text"
-              value={searchQuery}
-              onChange={(event) => searchSpotify(event.target.value)}
-              placeholder="Search Spotify..."
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-
-          <div className="mt-6 space-y-3">
-            {tracks.map((track) => (
-              <button
-                key={track.id}
-                disabled={!isTakingRequests}
-                onClick={() => setSelectedSong(track)}
-                className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                  selectedSong?.id === track.id
-                    ? "border-green-500 bg-green-500/10"
-                    : "border-white/10 bg-zinc-950 hover:border-white/30"
-                }`}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  {track.artwork ? (
-                    <img
-                      src={track.artwork}
-                      alt={track.title}
-                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 shrink-0 rounded-lg bg-zinc-800" />
-                  )}
-
-                  <div className="min-w-0">
-                    <h3 className="truncate font-semibold">
-                      {track.title}
-                    </h3>
-
-                    <p className="truncate text-sm text-zinc-400">
-                      {track.artist}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">
-                  {selectedSong?.id === track.id ? "Selected" : "Select"}
-                </div>
-              </button>
-            ))}
-          </div>
+{!selectedSong && tracks.length > 0 && (
+  <TrackResults
+    tracks={tracks}
+    selectedSong={selectedSong}
+    isTakingRequests={isTakingRequests}
+    onSelect={setSelectedSong}
+  />
+)}
 
           {selectedSong && (
-            <div className="mt-8 rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-green-400">
-  Ready to Request
-</p>
+  <>
+    <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+      <SelectedSong
+        selectedSong={selectedSong}
+        onChangeSong={() => {
+          setSelectedSong(null);
+          setSearchQuery("");
+          setTracks([]);
+          setMessage("");
+          setRequestType("song_request");
+        }}
+      />
+    </div>
 
-              <div className="mt-3 flex items-center gap-4">
-                {selectedSong.artwork ? (
-                  <img
-                    src={selectedSong.artwork}
-                    alt={selectedSong.title}
-                    className="h-16 w-16 rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="h-16 w-16 rounded-xl bg-zinc-800" />
-                )}
+    <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+      <RequestOptions
+        requestType={requestType}
+        setRequestType={setRequestType}
+        requestPrice={requestPrice}
+        shoutoutPrice={shoutoutPrice}
+        message={message}
+        setMessage={setMessage}
+        isTakingRequests={isTakingRequests}
+      />
+    </div>
 
-                <div>
-                  <h3 className="text-xl font-semibold">
-                    {selectedSong.title}
-                  </h3>
-
-                  <p className="text-zinc-300">
-                    {selectedSong.artist}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {selectedSong && (
-            <div className="mt-8 space-y-3">
-              <button
-  type="button"
-  onClick={() => setRequestType("song_request")}
-  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-    requestType === "song_request"
-      ? "border-white bg-white text-black"
-      : "border-white/10 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
-  }`}
->
-  🎵 Song Request £{(requestPrice / 100).toFixed(2)}
-</button>
-
-              <button
-  type="button"
-  onClick={() => setRequestType("song_message")}
-  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-    requestType === "song_message"
-      ? "border-violet-500 bg-violet-500 text-white"
-      : "border-white/10 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
-  }`}
->
-  🎤 Song + Message £{(shoutoutPrice / 100).toFixed(2)}
-</button>
-
-              {requestType === "song_message" && (
-                <textarea
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value)}
-                  placeholder="Add a birthday, hen do, stag do or shoutout message..."
-                  rows={3}
-                  className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-4 text-white outline-none"
-                />
-              )}
-            </div>
-          )}
-
-          <button
-            disabled={!selectedSong || !isTakingRequests}
-            onClick={submitRequest}
-            className={`mt-8 w-full rounded-2xl px-6 py-4 font-semibold transition ${
-              selectedSong && isTakingRequests
-                ? "bg-white text-black hover:opacity-90"
-                : "cursor-not-allowed bg-zinc-800 text-zinc-500"
-            }`}
-          >
-            {!isTakingRequests
-  ? "Requests Paused"
-  : selectedSong
-  ? requestType === "song_message"
-    ? `Continue to Payment • £${(shoutoutPrice / 100).toFixed(2)}`
-    : `Continue to Payment • £${(requestPrice / 100).toFixed(2)}`
-  : "Select a Song First"}
-          </button>
-        </div>
+    <div className="mt-6 rounded-[32px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-black/30 sm:p-8">
+      <CheckoutButton
+        selectedSong
+        isTakingRequests={isTakingRequests}
+        requestType={requestType}
+        requestPrice={requestPrice}
+        shoutoutPrice={shoutoutPrice}
+        onCheckout={submitRequest}
+      />
+    </div>
+  </>
+)}
+        
       </section>
     </main>
   );

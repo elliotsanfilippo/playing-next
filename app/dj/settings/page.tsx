@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../src/lib/supabase";
 
 type DJProfile = {
@@ -18,7 +18,10 @@ type DJProfile = {
 
 export default function DJSettingsPage() {
   const router = useRouter();
+const searchParams = useSearchParams();
 
+const cameFromOnboarding =
+  searchParams.get("from") === "onboarding";
   const [profile, setProfile] = useState<DJProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
@@ -199,11 +202,13 @@ export default function DJSettingsPage() {
           </div>
 
           <button
-            onClick={() => router.push("/dj/dashboard")}
-            className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold"
-          >
-            Back to Dashboard
-          </button>
+  onClick={() => router.push("/dj/dashboard")}
+  className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold"
+>
+  {cameFromOnboarding
+    ? "Back to Onboarding"
+    : "Back to Dashboard"}
+</button>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5 sm:p-6">

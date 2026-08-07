@@ -3,15 +3,17 @@ import type { DJProfile } from "@/src/types/dashboard";
 type Props = {
   djProfile: DJProfile;
   qrCodeUrl: string;
+  onboardingComplete: boolean;
   router: {
     push: (path: string) => void;
   };
-  onContinue: () => void;
+  onContinue: () => void | Promise<void>;
 };
 
 export default function Onboarding({
   djProfile,
   qrCodeUrl,
+  onboardingComplete,
   router,
   onContinue,
 }: Props) {
@@ -21,35 +23,36 @@ export default function Onboarding({
       description: "Set your DJ name and public profile details.",
       complete: djProfile.dj_name !== "New DJ",
       action: "Edit profile",
-      onClick: () => router.push("/dj/settings"),
+      onClick: () => router.push("/dj/settings?from=onboarding"),
     },
     {
       title: "Set your request price",
       description: "Choose how much guests pay to submit a song.",
       complete: (djProfile.request_price || 0) > 0,
       action: "Set pricing",
-      onClick: () => router.push("/dj/settings"),
+      onClick: () => router.push("/dj/settings?from=onboarding"),
     },
     {
       title: "Upload a profile photo",
       description: "Help guests recognise the correct DJ.",
       complete: Boolean(djProfile.profile_image_url),
       action: "Upload photo",
-      onClick: () => router.push("/dj/settings"),
+      onClick: () => router.push("/dj/settings?from=onboarding"),
     },
     {
       title: "Prepare your QR code",
       description: "Your crowd will scan this to open your request page.",
       complete: Boolean(qrCodeUrl),
-      action: "View dashboard",
-      onClick: onContinue,
+      action: "View QR code",
+      onClick: () => router.push("/dj/dashboard"),
     },
     {
       title: "Connect Stripe",
       description: "Receive request payments directly.",
       complete: Boolean(djProfile.stripe_connected),
       action: "Set up payments",
-      onClick: () => router.push("/dj/settings"),
+      onClick: () =>
+        router.push("/dj/settings/payments?from=onboarding"),
     },
   ];
 
@@ -122,9 +125,7 @@ export default function Onboarding({
                     </div>
 
                     <div>
-                      <h2 className="font-semibold">
-                        {step.title}
-                      </h2>
+                      <h2 className="font-semibold">{step.title}</h2>
 
                       <p className="mt-1 text-sm text-zinc-500">
                         {step.description}
@@ -134,6 +135,7 @@ export default function Onboarding({
 
                   {!step.complete && (
                     <button
+                      type="button"
                       onClick={step.onClick}
                       className="h-11 rounded-2xl bg-white px-5 text-sm font-semibold text-black transition hover:bg-zinc-200 active:scale-[0.98]"
                     >
@@ -145,22 +147,31 @@ export default function Onboarding({
             ))}
           </div>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 space-y-3">
             {nextIncompleteStep && (
               <button
+                type="button"
                 onClick={nextIncompleteStep.onClick}
-                className="h-12 flex-1 rounded-2xl bg-green-500 px-6 font-semibold text-black transition hover:bg-green-400 active:scale-[0.98]"
+                className="h-12 w-full rounded-2xl bg-green-500 px-6 font-semibold text-black transition hover:bg-green-400 active:scale-[0.98]"
               >
                 Continue setup
               </button>
             )}
 
             <button
+              type="button"
               onClick={onContinue}
-              className="h-12 flex-1 rounded-2xl border border-white/10 bg-white/5 px-6 font-semibold text-white transition hover:bg-white/10 active:scale-[0.98]"
+              disabled={!onboardingComplete}
+              className="w-full rounded-2xl bg-white px-6 py-4 font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500 disabled:hover:bg-zinc-800"
             >
-              Continue to dashboard
+              Continue to Dashboard
             </button>
+
+            {!onboardingComplete && (
+              <p className="text-center text-sm text-zinc-500">
+                Complete every setup step before continuing.
+              </p>
+            )}
           </div>
 
           <p className="mt-5 text-center text-xs text-zinc-600">
