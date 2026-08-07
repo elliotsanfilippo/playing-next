@@ -192,13 +192,25 @@ especially for anything involving multi-touch or scroll-heavy pages.
 Firmly in the before-launch category — start this in parallel now given
 the lead times involved, even though it doesn't block engineering work.
 
-- [ ] Decide company/business structure
-- [ ] Playing Next trademark/name checks
-- [ ] DJ Terms
-- [ ] Guest Terms
-- [ ] Privacy Policy
-- [ ] Cookie Policy/consent
-- [ ] Refund & Cancellation Policy
+- [ ] Decide company/business structure — deliberately deferred until
+      closer to launch
+- [x] Playing Next trademark/name checks — searched the UK IPO trademark
+      register directly (Similar/All words, and Contains String for the
+      exact phrase): zero results either way. No one currently holds a UK
+      trademark on "Playing Next". Not a full legal clearance (doesn't
+      check unregistered/passing-off rights or EU/international marks) —
+      worth a proper solicitor-run clearance before committing long-term
+      to the name.
+- [x] DJ Terms — drafted, `/legal/dj-terms`
+- [x] Guest Terms — drafted, `/legal/guest-terms`
+- [x] Privacy Policy — drafted, `/legal/privacy`, using the facts already
+      gathered in `DATA_AUDIT.md`
+- [ ] Cookie Policy/consent — not needed as a standalone page: confirmed
+      in `DATA_AUDIT.md` that we don't set cookies ourselves; Privacy
+      Policy already covers Stripe's checkout cookies
+- [x] Refund & Cancellation Policy — drafted, `/legal/refund-policy`,
+      honestly documents that refunds after capture are handled manually
+      (no in-app refund flow exists yet)
 - [ ] Complaints process
 - [ ] ICO registration/fee assessment
 - [~] UK GDPR data/retention review — factual audit done, see
@@ -212,8 +224,15 @@ the lead times involved, even though it doesn't block engineering work.
 - [ ] Payments-regulation/Stripe Connect legal review
 - [ ] DJ tax responsibility wording
 - [ ] Music licensing responsibility wording
-- [ ] Minimum-age policy
-- [ ] Company/contact information on website
+- [x] Minimum-age policy — set in the Privacy Policy: 16+ to submit a
+      paid request or create a DJ account, 18+ specifically for DJ
+      accounts (Stripe Connect requires a legal adult) — a reasonable
+      default, not a legally reviewed one
+- [~] Company/contact information on website — footer now has a
+      site-wide support contact line and links to all four legal pages
+      (Stripe requires this to be publicly visible, not just linked from
+      checkout). The support email itself is still a `[TBD]` placeholder
+      — needs a real address before launch
 
 > Get professional advice on the payments marketplace structure in
 > particular before public launch.

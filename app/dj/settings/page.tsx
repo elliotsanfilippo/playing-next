@@ -333,7 +333,7 @@ function DJSettingsPageContent() {
                   <div>
                     <h4 className="font-semibold">Pro</h4>
                     <p className="mt-1 text-sm text-zinc-400">
-                      £19/month · 0% platform fee
+                      £14.99/month · 0% platform fee
                     </p>
                   </div>
 
