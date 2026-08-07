@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
 import { supabase } from "../../../../src/lib/supabase";
@@ -35,7 +35,7 @@ async function readApiResponse(response: Response) {
   }
 }
 
-export default function PaymentsPage() {
+function PaymentsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -288,5 +288,22 @@ export default function PaymentsPage() {
         </Card>
       </div>
     </main>
+  );
+}
+
+export default function PaymentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white">
+          <Card variant="elevated" className="p-8 text-center">
+            <p className="text-sm text-zinc-400">Playing Next</p>
+            <h1 className="mt-3 text-h2">Loading...</h1>
+          </Card>
+        </main>
+      }
+    >
+      <PaymentsPageContent />
+    </Suspense>
   );
 }

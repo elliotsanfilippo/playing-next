@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
 import Card from "@/src/components/ui/Card";
@@ -48,7 +48,7 @@ const STATUS_COPY: Record<string, { label: string; description: string }> = {
   },
 };
 
-export default function ConfirmationPage() {
+function ConfirmationPageContent() {
   const params = useParams();
   const djSlug = params.djSlug as string;
 
@@ -271,5 +271,22 @@ export default function ConfirmationPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+export default function ConfirmationPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-canvas p-5 text-white">
+          <Card variant="elevated" className="w-full max-w-xl p-8 text-center">
+            <div className="mx-auto h-12 w-12 animate-pulse rounded-full bg-white/10" />
+            <h1 className="mt-5 text-h3">Loading your request...</h1>
+          </Card>
+        </main>
+      }
+    >
+      <ConfirmationPageContent />
+    </Suspense>
   );
 }

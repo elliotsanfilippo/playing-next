@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
@@ -23,7 +23,7 @@ type DJProfile = {
 
 const fieldLabel = "text-sm text-zinc-400";
 
-export default function DJSettingsPage() {
+function DJSettingsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -356,5 +356,22 @@ export default function DJSettingsPage() {
         </Card>
       </section>
     </main>
+  );
+}
+
+export default function DJSettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white">
+          <Card variant="elevated" className="p-8 text-center">
+            <p className="text-sm text-zinc-400">Playing Next</p>
+            <h1 className="mt-3 text-h2">Loading settings...</h1>
+          </Card>
+        </main>
+      }
+    >
+      <DJSettingsPageContent />
+    </Suspense>
   );
 }
