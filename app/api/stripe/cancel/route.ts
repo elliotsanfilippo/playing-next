@@ -42,7 +42,9 @@ export async function POST(request: Request) {
 
     const { data: songRequest, error: requestError } = await supabase
       .from("song_requests")
-      .select("id, stripe_payment_intent_id, dj_profiles!inner(user_id)")
+      .select(
+        "id, request_status, stripe_payment_intent_id, dj_profiles!inner(user_id)"
+      )
       .eq("id", requestId)
       .eq("stripe_payment_intent_id", paymentIntentId)
       .single();
@@ -62,6 +64,22 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
+      );
+    }
+
+    /*
+     * A request can only be cancelled once, from "pending". This is a
+     * fast-fail for double-clicks/retries — Stripe itself also refuses
+     * to cancel a PaymentIntent that's already been captured/cancelled,
+     * but checking here first avoids an unnecessary Stripe call and
+     * gives a clearer error.
+     */
+    if (songRequest.request_status !== "pending") {
+      return NextResponse.json(
+        {
+          error: `This request is already "${songRequest.request_status}" and cannot be declined again.`,
+        },
+        { status: 409 }
       );
     }
 

@@ -14,15 +14,17 @@ This is where we are now, and our immediate priority.
 - [x] Pro = £14.99/month / 0% platform fee
 - [x] Financial columns added to `song_requests`
 - [x] `src/lib/pricing.ts` created
-- [ ] Replace/finalise the secure Stripe checkout route
-- [ ] Verify £5 request → guest authorises £5.50
+- [x] Replace/finalise the secure Stripe checkout route
+- [x] Verify £5 request → guest authorises £5.50
 - [ ] Verify £8 request → guest authorises £8.50
-- [ ] Verify Supabase stores `request_amount`, `platform_fee`, `dj_earnings`, etc.
-- [ ] Make Stripe Connect actually split the money correctly
-- [ ] Ensure 50p remains with Playing Next
-- [ ] Ensure Free plan 15% remains with Playing Next
-- [ ] Ensure correct DJ amount is transferred
-- [ ] Capture on acceptance / cancel on decline
+- [x] Verify Supabase stores `request_amount`, `platform_fee`, `dj_earnings`, etc.
+- [x] Make Stripe Connect actually split the money correctly
+- [x] Ensure 50p remains with Playing Next
+- [x] Ensure Free plan 15% remains with Playing Next
+- [x] Ensure correct DJ amount is transferred
+- [ ] Capture on acceptance / cancel on decline — logic exists and transfer
+      is wired to fire on capture, but not yet tested end-to-end with a
+      real completed payment
 - [ ] Record actual Stripe processing fees
 - [ ] Calculate Playing Next's actual net revenue
 - [ ] Test refunds, failed payments and cancellations
@@ -134,8 +136,14 @@ Before strangers and real money are involved:
 - [ ] Stop trusting client-supplied monetary values
 - [ ] Validate all API inputs
 - [ ] Protect DJ-only API endpoints
-- [ ] Stripe webhook signature verification
-- [ ] Prevent duplicate checkout/capture
+- [x] Stripe webhook signature verification — also handles abandoned/expired
+      checkouts, Stripe's automatic 7-day uncaptured-auth expiry, and
+      keeps `stripe_connected` in sync reactively
+  - [ ] Still needs a real endpoint registered with Stripe (CLI for local
+        dev via `stripe listen`, Dashboard for production) and a real
+        `STRIPE_WEBHOOK_SECRET` set — nothing is listening for live
+        events yet, only the route code itself is built and tested
+- [x] Prevent duplicate checkout/capture
 - [ ] Rate-limit sensitive endpoints
 - [ ] Error monitoring
 - [ ] Production logging
