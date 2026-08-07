@@ -87,17 +87,16 @@ compromise on.
         concurrent instances under load, the effective limit scales with
         instance count. Upstash Redis would close that gap if/when it
         matters.
-- [ ] Error monitoring — Sentry SDK fully wired up (`instrumentation.ts`,
-      `instrumentation-client.ts`, `sentry.server.config.ts`,
-      `sentry.edge.config.ts`, `app/global-error.tsx`, `next.config.ts`),
-      verified the app boots cleanly with it in place. It's a no-op until
-      real values are set — still needed from you:
-  - [ ] Create a Sentry account + Next.js project, get the DSN
-  - [ ] Set `NEXT_PUBLIC_SENTRY_DSN` in `.env.local` and on Vercel (all
-        environments)
-  - [ ] Optional, for readable production stack traces: set `SENTRY_ORG`,
-        `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` on Vercel so source maps
-        upload on build
+- [x] Error monitoring — Sentry fully live in local dev: DSN, org, project
+      slug and an organisation auth token (for source maps) are all set in
+      `.env.local`. Verified for real, not just "should work" — threw a
+      real error from a temporary test route and confirmed via Sentry's
+      own debug logging that it was captured and successfully flushed to
+      Sentry's servers (`Captured error event` → `Done flushing events`).
+  - [ ] Still needed: add the same four env vars
+        (`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`,
+        `SENTRY_AUTH_TOKEN`) to Vercel once deployed, so production errors
+        report too
 - [x] Production logging — covered by Vercel's built-in function logs
       (every existing `console.log`/`console.error` already shows up
       there once deployed) plus Sentry's log capture (`enableLogs: true`)
