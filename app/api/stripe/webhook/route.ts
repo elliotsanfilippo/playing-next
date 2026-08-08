@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToDJ } from "@/src/lib/webpush";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -18,6 +19,14 @@ const supabaseAdmin = createClient(
 
 /*
  * Reconciliation for the cases nothing else in the app catches:
+ * - A guest completes Stripe Checkout but their browser never makes it
+ *   back to /api/stripe/success (closed tab, dropped connection, a
+ *   blocked redirect). Without this, the request — and the payment
+ *   Stripe already took — would be stuck showing "Confirming Payment"
+ *   forever, and the DJ would never even see it to accept or decline.
+ *   checkout.session.completed is the server-side source of truth for
+ *   that transition; the client redirect is just the fast path for a
+ *   guest who's still watching their screen.
  * - A guest opens Stripe Checkout but never completes it. The session
  *   expires after 24h and the request would otherwise sit in
  *   "checkout_pending" forever.
@@ -61,6 +70,58 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const requestId = session.metadata?.requestId;
+
+        const paymentIntentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id;
+
+        if (requestId && paymentIntentId) {
+          /*
+           * Guarded on the current status still being "checkout_pending"
+           * so this is a no-op on the common path where the guest's
+           * browser already completed the /api/stripe/success redirect
+           * — only the browser-never-made-it-back case actually needs
+           * this to do anything.
+           */
+          const { data: updatedRequests, error: updateError } =
+            await supabaseAdmin
+              .from("song_requests")
+              .update({
+                request_status: "pending",
+                stripe_payment_intent_id: paymentIntentId,
+              })
+              .eq("id", requestId)
+              .eq("request_status", "checkout_pending")
+              .select("dj_profile_id, song_title, artist, request_type");
+
+          if (updateError) {
+            console.error(
+              "Webhook checkout.session.completed update error:",
+              updateError
+            );
+          } else if (updatedRequests && updatedRequests.length > 0) {
+            const updated = updatedRequests[0];
+
+            sendPushToDJ(updated.dj_profile_id, {
+              title:
+                updated.request_type === "song_message"
+                  ? "New Song + Message request"
+                  : "New song request",
+              body: `${updated.song_title} — ${updated.artist}`,
+              url: "/dj/dashboard",
+            }).catch((pushError) => {
+              console.error("Push notification error:", pushError);
+            });
+          }
+        }
+
+        break;
+      }
+
       case "checkout.session.expired": {
         const session = event.data.object as Stripe.Checkout.Session;
         const requestId = session.metadata?.requestId;
