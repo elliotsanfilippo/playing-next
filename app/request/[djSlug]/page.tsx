@@ -47,6 +47,8 @@ export default function RequestPage() {
     null
   );
 
+  const searchAbortControllerRef = useRef<AbortController | null>(null);
+
   const fetchDJProfile = async (showLoading = false) => {
   if (showLoading) {
     setIsLoadingDJ(true);
@@ -73,32 +75,50 @@ export default function RequestPage() {
   setIsLoadingDJ(false);
 };
 
-  const searchSpotify = async (value: string) => {
-    setSearchQuery(value);
-
-    if (value.length < 2) {
+  /*
+   * Debounced rather than firing on every keystroke — searching "levels"
+   * used to mean 6 separate Spotify calls instead of 1. 300ms is short
+   * enough to still feel instant, long enough to skip past mid-word
+   * keystrokes for anyone typing at a normal pace.
+   */
+  useEffect(() => {
+    if (searchQuery.length < 2) {
       setTracks([]);
       return;
     }
 
-    try {
-      const response = await fetch(
-        `/api/spotify/search?q=${encodeURIComponent(value)}`
-      );
+    const timeout = setTimeout(async () => {
+      searchAbortControllerRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortControllerRef.current = controller;
 
-      if (!response.ok) {
-        throw new Error(`Search failed with status ${response.status}`);
+      try {
+        const response = await fetch(
+          `/api/spotify/search?q=${encodeURIComponent(searchQuery)}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Search failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        setTracks(data);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        console.log("Spotify search error:", error);
+        toast.error(
+          "Song search is temporarily unavailable. Please try again.",
+          { id: "spotify-search-error" }
+        );
       }
+    }, 300);
 
-      const data = await response.json();
-      setTracks(data);
-    } catch (error) {
-      console.log("Spotify search error:", error);
-      toast.error("Song search is temporarily unavailable. Please try again.", {
-        id: "spotify-search-error",
-      });
-    }
-  };
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   useEffect(() => {
   let isMounted = true;
@@ -397,7 +417,7 @@ localStorage.setItem(
   <SpotifySearchInput
     searchQuery={searchQuery}
     isTakingRequests={isTakingRequests}
-    onSearch={searchSpotify}
+    onSearch={setSearchQuery}
   />
 
   {!selectedSong &&

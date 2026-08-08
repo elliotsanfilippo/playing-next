@@ -498,13 +498,15 @@ but worth closing out alongside 5–7 above.
         excluded by agreement and the guest's own card-issuer dispute
         rights (§5), which no policy wording can override anyway.
         Nothing to build — the answer is simply "we don't do it."
-- [ ] Spotify search has no debounce — fires a request on every
-      keystroke rather than after a pause. Not broken, just more
-      requests than necessary; worth revisiting once the app has real
-- [ ] Spotify search has no debounce — fires a request on every
-      keystroke rather than after a pause. Not broken, just more
-      requests than necessary; worth revisiting once the app has real
-      usage volume to see if it actually matters
+- [x] Spotify search debounce — 300ms debounce plus `AbortController` to
+      cancel any still-in-flight search when a newer one starts, so a
+      slow response for an earlier keystroke can never overwrite fresher
+      results. Verified live via direct `fetch` instrumentation (not
+      just the network log, which displayed misleadingly during earlier
+      testing this session): typing "levels" as 6 separate keystrokes
+      produced exactly 1 API call, for the final complete word — not any
+      intermediate partial string — and real results still rendered
+      correctly.
 
 ## 9. 🎬 Motion & page transitions
 
