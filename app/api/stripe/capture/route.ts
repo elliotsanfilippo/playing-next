@@ -4,6 +4,16 @@ import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+/*
+ * Financial data — written server-side via the service role, not the
+ * DJ's own RLS-scoped client, matching how every other money field on
+ * this table is set (checkout route, webhook).
+ */
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -82,7 +92,39 @@ export async function POST(request: Request) {
       );
     }
 
-    const paymentIntent = await stripe.paymentIntents.capture(paymentIntentId);
+    const paymentIntent = await stripe.paymentIntents.capture(paymentIntentId, {
+      expand: ["latest_charge.balance_transaction"],
+    });
+
+    /*
+     * Stripe's actual processing fee for this specific charge — not
+     * estimated, read straight off the real balance transaction.
+     * Best-effort: if the fee isn't available for some reason, that
+     * shouldn't block the DJ's request from being accepted.
+     */
+    const charge = paymentIntent.latest_charge;
+    const balanceTransaction =
+      charge && typeof charge === "object" ? charge.balance_transaction : null;
+    const stripeFee =
+      balanceTransaction && typeof balanceTransaction === "object"
+        ? balanceTransaction.fee
+        : null;
+
+    if (stripeFee !== null) {
+      const { error: feeUpdateError } = await supabaseAdmin
+        .from("song_requests")
+        .update({ stripe_fee: stripeFee })
+        .eq("id", requestId);
+
+      if (feeUpdateError) {
+        console.error("Stripe fee save failed:", feeUpdateError);
+      }
+    } else {
+      console.error(
+        "Stripe fee unavailable on capture for request:",
+        requestId
+      );
+    }
 
     return NextResponse.json(paymentIntent);
   } catch (error) {

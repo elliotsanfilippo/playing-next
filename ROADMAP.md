@@ -33,8 +33,27 @@ so they moved to the end.
       Stripe test-mode objects: capture produces an actual Transfer
       (correct amount, correct destination); cancel leaves the charge
       uncaptured with no transfer created
-- [ ] Record actual Stripe processing fees
-- [ ] Calculate Playing Next's actual net revenue
+- [x] Record actual Stripe processing fees — new `song_requests.stripe_fee`
+      column, set in `/api/stripe/capture` by expanding
+      `latest_charge.balance_transaction` on the same capture call (no
+      extra round trip). Written via the service role, same pattern as
+      every other financial field on this table. Best-effort: if the fee
+      isn't available for some reason, that doesn't block the DJ's
+      request from being accepted. Verified with a real test-mode
+      capture end-to-end: captured a genuine £5.50 authorisation,
+      confirmed `stripe_fee` recorded `37` (pence), then independently
+      re-fetched the same charge straight from Stripe's API and got the
+      identical `37` — not just plausible-looking, actually cross-checked.
+- [x] Calculate Playing Next's actual net revenue — the formula, now that
+      every input is captured per request:
+      `sum(platform_fee) + sum(guest_service_fee) - sum(stripe_fee)`
+      across `accepted`/`playing_next`/`played` requests. No dedicated
+      admin page built for this — it's a business-owner-only metric with
+      no existing admin surface in the app, and there's no real revenue
+      yet to display (the live account still shows £0 captured; see
+      `/dj/earnings`'s verification note). Can be computed on demand any
+      time from real data now that the inputs exist; say the word if an
+      actual admin view becomes worth building later.
 - [x] Test refunds, failed payments and cancellations — see the full
       scenario list in §2 below; found and fixed a real gap: refunds and
       disputes weren't handled by the webhook at all
@@ -86,10 +105,11 @@ compromise on.
       the confirmation page and are included in the DJ's "clear history"
       action alongside `played`/`declined`.
   - [x] Endpoint is registered with Stripe and live in production
-  - [ ] The live endpoint's subscribed events still need
-        `charge.refunded` and `charge.dispute.created` added in the
-        Stripe Dashboard (Developers → Webhooks) — the code handles them
-        now, but Stripe won't send them until the endpoint is subscribed
+  - [x] Live endpoint's subscribed events verified directly against the
+        Stripe API (not assumed from memory): `checkout.session.expired`,
+        `payment_intent.canceled`, `account.updated`, `charge.refunded`,
+        `charge.dispute.created`, `customer.subscription.created/updated/deleted`
+        — all present, added incrementally as each feature needed them
 - [x] Prevent duplicate checkout/capture
 - [x] Rate-limit sensitive endpoints — added to spotify/search (40/min),
       request/create (8/min), stripe/checkout (8/min), my-requests (60/min,
@@ -194,8 +214,14 @@ And specifically test:
 - [x] Homepage — no overflow, correct content/section order, all copy
       present (verified via DOM measurement after the screenshot tool
       proved unreliable mid-session — see note below)
-- [ ] DJ search — homepage search section renders correctly, but the
-      search interaction itself wasn't exercised on mobile this pass
+- [x] DJ search — actually exercised this time (typed into the homepage
+      "Search DJs..." box at mobile width): real results render with
+      photo/name/genre/status, tapped result resolved to the correct
+      `/request/[slug]` href. The dropdown looked transparent in one
+      screenshot — checked `getComputedStyle` rather than trusting the
+      image, confirmed a fully opaque `zinc-950` background; that was a
+      screenshot-tool artifact (same class of issue flagged earlier this
+      session), not a real bug
 - [x] Request page — DJ header, badges, genres, layout all clean
 - [x] Spotify search — real results returned, correct rendering
 - [x] Song selection/change song — selection, truncation on long
@@ -204,8 +230,10 @@ And specifically test:
       on mobile; Stripe's own hosted checkout page wasn't re-checked at
       mobile width in this pass (it's Stripe's responsive design, out of
       our control, but worth a glance)
-- [ ] Confirmation — not re-verified at mobile width this pass (uses the
-      same primitives already confirmed responsive elsewhere)
+- [x] Confirmation — re-verified with the fuller content variant (Song +
+      Message, accepted status, queue position all rendering together —
+      the most layout-dense combination this page can show), zero
+      horizontal overflow confirmed via DOM measurement at 375px
 - [x] My Requests — empty state renders correctly on mobile
 - [ ] DJ dashboard — **not tested, no DJ login credentials available** —
       needs you to check on your own device
