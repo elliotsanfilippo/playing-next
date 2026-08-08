@@ -30,6 +30,10 @@ const supabaseAdmin = createClient(
  *   entirely (Stripe Dashboard, or the cardholder's bank). Without this,
  *   the request would keep showing "Playing Next"/"Played" to the guest
  *   even though the money has moved back.
+ * - A DJ's Pro subscription status changes (new subscription, payment
+ *   failure, cancellation) — keeps dj_profiles.plan and
+ *   stripe_subscription_status in sync so the checkout route always
+ *   charges the correct platform fee.
  *
  * We reuse the existing "declined" status for expiry/auto-cancel, since
  * the guest-facing meaning ("you were not charged") is accurate either
@@ -123,6 +127,41 @@ export async function POST(request: Request) {
             .update({ request_status: "disputed" })
             .eq("stripe_payment_intent_id", paymentIntentId);
         }
+
+        break;
+      }
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId =
+          typeof subscription.customer === "string"
+            ? subscription.customer
+            : subscription.customer.id;
+
+        /*
+         * A subscription that's ended (cancelled, or never completed
+         * payment) puts the DJ back on Free. Anything else — active,
+         * trialing, even past_due/unpaid while a card retries — keeps
+         * them marked as Pro; the 0% fee itself is gated separately in
+         * the checkout route on stripe_subscription_status === "active",
+         * so a lapsed payment falls back to the 15% fee automatically
+         * without needing to flip plan back and forth here too.
+         */
+        const terminalStatuses = ["canceled", "incomplete_expired"];
+        const plan = terminalStatuses.includes(subscription.status)
+          ? "free"
+          : "pro";
+
+        await supabaseAdmin
+          .from("dj_profiles")
+          .update({
+            stripe_subscription_id: subscription.id,
+            stripe_subscription_status: subscription.status,
+            plan,
+          })
+          .eq("stripe_customer_id", customerId);
 
         break;
       }

@@ -19,6 +19,8 @@ type DJProfile = {
   genres: string[] | string | null;
   request_price: number | null;
   shoutout_price: number | null;
+  plan: string | null;
+  stripe_subscription_status: string | null;
 };
 
 const fieldLabel = "text-sm text-zinc-400";
@@ -40,6 +42,8 @@ function DJSettingsPageContent() {
   const [requestPrice, setRequestPrice] = useState("5");
   const [shoutoutPrice, setShoutoutPrice] = useState("8");
   const [saving, setSaving] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   const fetchProfile = async () => {
     setLoadingProfile(true);
@@ -134,6 +138,84 @@ function DJSettingsPageContent() {
     await fetchProfile();
   };
 
+  const getAccessToken = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.access_token ?? null;
+  };
+
+  const upgradeToPro = async () => {
+    if (subscribing) return;
+
+    setSubscribing(true);
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("/api/stripe/subscribe", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Unable to start the Pro upgrade.");
+      }
+
+      window.location.href = result.url;
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to start the Pro upgrade."
+      );
+      setSubscribing(false);
+    }
+  };
+
+  const manageBilling = async () => {
+    if (openingPortal) return;
+
+    setOpeningPortal(true);
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("/api/stripe/billing-portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Unable to open billing.");
+      }
+
+      window.location.href = result.url;
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to open billing."
+      );
+      setOpeningPortal(false);
+    }
+  };
+
   const uploadProfileImage = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -183,6 +265,10 @@ function DJSettingsPageContent() {
 
   useEffect(() => {
     fetchProfile();
+
+    if (searchParams.get("pro") === "success") {
+      toast.success("Welcome to Pro! This can take a few seconds to appear below.");
+    }
   }, []);
 
   if (loadingProfile) {
@@ -313,36 +399,90 @@ function DJSettingsPageContent() {
               </div>
             </div>
 
-            <div className="rounded-card border border-white/10 bg-black/20 p-5 sm:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm text-zinc-400">Current Plan</p>
-                  <h3 className="mt-1 text-2xl font-semibold">Free</h3>
-                  <p className="mt-3 text-sm text-zinc-400">
-                    15% platform fee per accepted request.
-                  </p>
-                </div>
+            {(() => {
+              const isPro = profile?.plan === "pro";
+              const subscriptionStatus = profile?.stripe_subscription_status;
+              const isActivePro = isPro && subscriptionStatus === "active";
+              const hasPaymentIssue =
+                isPro && subscriptionStatus && subscriptionStatus !== "active";
 
-                <div className="rounded-full bg-accent/20 px-4 py-2 text-sm font-semibold text-accent">
-                  Active
-                </div>
-              </div>
+              return (
+                <div className="rounded-card border border-white/10 bg-black/20 p-5 sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-sm text-zinc-400">Current Plan</p>
+                      <h3 className="mt-1 text-2xl font-semibold">
+                        {isPro ? "Pro" : "Free"}
+                      </h3>
+                      <p className="mt-3 text-sm text-zinc-400">
+                        {isActivePro
+                          ? "0% platform fee per accepted request."
+                          : "15% platform fee per accepted request."}
+                      </p>
+                      {hasPaymentIssue && (
+                        <p className="mt-2 text-sm text-amber-400">
+                          There&apos;s a problem with your Pro payment — you&apos;re
+                          being charged the Free rate (15%) until it&apos;s
+                          resolved.
+                        </p>
+                      )}
+                    </div>
 
-              <div className="mt-6 rounded-control border border-white/10 bg-zinc-900 p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h4 className="font-semibold">Pro</h4>
-                    <p className="mt-1 text-sm text-zinc-400">
-                      £14.99/month · 0% platform fee
-                    </p>
+                    <div
+                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                        hasPaymentIssue
+                          ? "bg-amber-500/20 text-amber-400"
+                          : "bg-accent/20 text-accent"
+                      }`}
+                    >
+                      {hasPaymentIssue ? "Payment issue" : "Active"}
+                    </div>
                   </div>
 
-                  <Button variant="secondary" size="sm" disabled>
-                    Coming Soon
-                  </Button>
+                  {isPro ? (
+                    <div className="mt-6 rounded-control border border-white/10 bg-zinc-900 p-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h4 className="font-semibold">Billing</h4>
+                          <p className="mt-1 text-sm text-zinc-400">
+                            Manage your card, invoices, or cancel Pro.
+                          </p>
+                        </div>
+
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={manageBilling}
+                          disabled={openingPortal}
+                        >
+                          {openingPortal ? "Opening..." : "Manage Billing"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-6 rounded-control border border-white/10 bg-zinc-900 p-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h4 className="font-semibold">Pro</h4>
+                          <p className="mt-1 text-sm text-zinc-400">
+                            £14.99/month · 0% platform fee
+                          </p>
+                        </div>
+
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={upgradeToPro}
+                          disabled={subscribing}
+                        >
+                          {subscribing ? "Opening..." : "Upgrade to Pro"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              );
+            })()}
 
             <Button
               type="button"

@@ -6,8 +6,8 @@ import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 import {
   SERVICE_FEE,
   FREE_PLATFORM_FEE_BPS,
+  PRO_PLATFORM_FEE_BPS,
   PRICING_VERSION,
-  DEFAULT_PLAN,
 } from "@/src/lib/pricing";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -123,7 +123,9 @@ export async function POST(request: NextRequest) {
           request_price,
           shoutout_price,
           stripe_account_id,
-          stripe_connected
+          stripe_connected,
+          plan,
+          stripe_subscription_status
         `
       )
       .eq("id", songRequest.dj_profile_id)
@@ -189,21 +191,21 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Pro subscriptions are not live yet, so DEFAULT_PLAN should
-     * currently resolve to free.
-     *
-     * String() avoids TypeScript treating DEFAULT_PLAN as a value
-     * that can never equal "pro".
+     * A DJ only gets the 0% Pro fee while their subscription is
+     * genuinely active. A lapsed payment (past_due, unpaid, etc.) falls
+     * straight back to the Free rate — no separate grace-period logic,
+     * and it recovers automatically the moment the subscription's
+     * status flips back to "active" via the webhook.
      */
-    const planAtCheckout: "free" | "pro" =
-      String(DEFAULT_PLAN) === "pro"
-        ? "pro"
-        : "free";
+    const isPro =
+      djProfile.plan === "pro" &&
+      djProfile.stripe_subscription_status === "active";
 
-    const platformFeeRateBps =
-      planAtCheckout === "pro"
-        ? 0
-        : FREE_PLATFORM_FEE_BPS;
+    const planAtCheckout: "free" | "pro" = isPro ? "pro" : "free";
+
+    const platformFeeRateBps = isPro
+      ? PRO_PLATFORM_FEE_BPS
+      : FREE_PLATFORM_FEE_BPS;
 
     const platformFee = Math.round(
       (requestAmount * platformFeeRateBps) / 10_000

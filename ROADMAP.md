@@ -295,23 +295,45 @@ launch rather than hunting through this file for costs.
 > Get professional advice on the payments marketplace structure in
 > particular before public launch.
 
-## 5. 💳 Pro subscriptions
+## 5. 💳 Pro subscriptions — done
 
-Build the actual £14.99/month product.
+Built the actual £14.99/month product.
 
-- [ ] Add DJ plan/subscription state to database
-- [ ] Create Stripe subscription product/price
-- [ ] Upgrade to Pro flow
-- [ ] Stripe Customer Portal for managing/cancelling subscription
-- [ ] Webhooks to keep Supabase subscription state accurate
-- [ ] Free = 15%
-- [ ] Pro = 0%
-- [ ] Downgrade/cancellation behaviour
-- [ ] Pricing UI
-- [ ] Settings/billing UI
+- [x] Add DJ plan/subscription state to database — `dj_profiles.plan`
+      already existed; added `stripe_customer_id`, `stripe_subscription_id`,
+      `stripe_subscription_status`
+- [x] Create Stripe subscription product/price — real recurring
+      £14.99/month GBP price created in Stripe test mode
+      (`STRIPE_PRO_PRICE_ID`)
+- [x] Upgrade to Pro flow — `/api/stripe/subscribe`: creates a Stripe
+      Customer for the DJ (separate from their Connect payout account),
+      then a subscription Checkout Session
+- [x] Stripe Customer Portal for managing/cancelling subscription —
+      `/api/stripe/billing-portal`
+- [x] Webhooks to keep Supabase subscription state accurate —
+      `customer.subscription.created/updated/deleted` now handled
+- [x] Free = 15%
+- [x] Pro = 0% — only while `stripe_subscription_status === "active"`;
+      any other status (past_due, unpaid, etc.) falls back to the 15%
+      Free rate automatically, no separate grace-period logic, recovers
+      the moment the subscription goes active again
+- [x] Downgrade/cancellation behaviour — subscription end (via Portal or
+      webhook) flips `plan` back to `free`
+- [x] Pricing UI — DJ Settings' "Coming Soon" card now a real "Upgrade
+      to Pro" button
+- [x] Settings/billing UI — Free/Pro/payment-issue states all render
+      distinctly, with a "Manage Billing" link once subscribed
 
-> Importantly, the checkout route must read the DJ's actual plan from the
-> database rather than assuming everyone is Free.
+Checkout route now reads the DJ's real plan + subscription status from
+the database rather than a hardcoded default. Verified end-to-end: real
+signed webhook events for created(active)/updated(past_due)/deleted all
+correctly flipped `plan`/`stripe_subscription_status`, and a real
+checkout call priced 0% fee while active and correctly fell back to 15%
+fee while past_due. Also drove the actual UI as a real logged-in DJ —
+"Upgrade to Pro" genuinely redirects to Stripe's hosted subscription
+Checkout, "Manage Billing" genuinely redirects to Stripe's Customer
+Portal. All test Stripe customers and DB state were cleaned up
+afterward.
 
 ## 6. 📊 DJ earnings & finance dashboard
 
@@ -338,3 +360,22 @@ A working DJ shouldn't have to stare at Playing Next.
 - [ ] Browser/mobile notification approach
 - [ ] Sound/vibration where appropriate
 - [ ] Notification preferences
+
+## 8. 🧹 Smaller gaps
+
+Found in passing rather than planned from the start; not launch-blocking
+but worth closing out alongside 5–7 above.
+
+- [x] Spotify search had no error handling and re-authenticated with
+      Spotify on every keystroke — fixed: wrapped in try/catch, caches
+      the access token in memory, frontend shows a toast instead of
+      silently doing nothing on failure
+- [ ] Guests have no self-serve way to cancel a pending request or
+      request a refund — currently manual-only (see
+      `/legal/refund-policy`). Needs a decision on scope: cancel-before-
+      DJ-responds is straightforward (mirrors the DJ's own decline path);
+      self-serve refund-after-capture is a bigger, more sensitive piece
+- [ ] Spotify search has no debounce — fires a request on every
+      keystroke rather than after a pause. Not broken, just more
+      requests than necessary; worth revisiting once the app has real
+      usage volume to see if it actually matters

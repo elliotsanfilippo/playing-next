@@ -69,10 +69,12 @@ export default function DjTermsPage() {
         remaining 85%.
       </P>
       <P>
-        <strong>Pro plan</strong>{" "}(not yet available): once released, Pro
-        will be £14.99/month with a 0% platform fee — you&rsquo;ll keep
-        100% of the request price on accepted requests. We&rsquo;ll update
-        this page and notify DJs when Pro launches.
+        <strong>Pro plan</strong>{" "}(£14.99/month): a 0% platform fee —
+        you keep 100% of the request price on accepted requests. Billed
+        monthly via Stripe; manage or cancel your subscription any time
+        from your account settings. If your payment fails, your account
+        automatically reverts to the Free plan&rsquo;s 15% fee until it&rsquo;s
+        resolved, rather than being suspended outright.
       </P>
       <P>
         If we ever change these rates, we&rsquo;ll give existing DJs
