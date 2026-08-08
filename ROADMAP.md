@@ -337,19 +337,49 @@ afterward.
 
 ## 6. 📊 DJ earnings & finance dashboard
 
-Once the money calculations are trustworthy:
+Done — new `/dj/earnings` page, linked from the dashboard header.
 
-- [ ] Gross request value
-- [ ] Platform fees
-- [ ] DJ net earnings
-- [ ] Accepted revenue
-- [ ] Payout information
-- [ ] Transaction/request history
-- [ ] Clear Free vs Pro fee breakdown
-- [ ] CSV/export eventually
+- [x] Gross request value
+- [x] Platform fees
+- [x] DJ net earnings
+- [x] Accepted revenue — all four computed from each request's actual
+      stored snapshot (`request_amount`, `platform_fee`, `dj_earnings`,
+      taken at checkout time), not recalculated from the DJ's current
+      prices, so historical figures stay correct even after a price or
+      plan change
+- [x] Payout information — new `/api/stripe/connect/payouts` route
+      pulls the DJ's real Stripe balance (available/pending) and recent
+      payouts directly from their connected account
+- [x] Transaction/request history — most recent 50 requests with gross
+      and net per row
+- [x] Clear Free vs Pro fee breakdown — split by `plan_at_checkout`
+      (the plan active *when that specific request* was accepted, not
+      the DJ's current plan)
+- [x] CSV export — client-side, all fields, not just the visible 50
 
 > The DJ should always be able to understand exactly how their earnings
 > were calculated.
+
+**Fixed**: `/dj/analytics`'s "Revenue" stat used to recalculate from the
+DJ's *current* `request_price`/`shoutout_price` rather than the stored
+per-request snapshot, silently misreporting history for any DJ who'd
+changed their prices, and ignored the platform fee entirely (it was
+really showing gross request value, mislabeled as revenue). Now uses
+each request's actual stored `dj_earnings`, relabelled "Net Earnings"
+with a pointer to the full breakdown on `/dj/earnings`. Verified live:
+correctly now shows £0.00 for the real test account, matching the
+`/dj/earnings` finding that nothing has actually been captured yet —
+previously this stat would have shown a fabricated ~£250+ from 51
+"accepted" requests that were never really paid out.
+
+Verified live: real Stripe payout/balance data loaded correctly for a
+connected account; confirmed the £0.00 totals shown for the actual
+account were the *correct* answer (every stored financial row belonged
+to a `checkout_pending`/`declined` request, never `accepted`+, so
+nothing has actually been earned yet) rather than a bug, by cross-
+checking the raw DB directly — then proved the summing logic itself
+works by inserting one disposable `played` row with known figures and
+confirming the totals updated to exactly match before cleaning it up.
 
 ## 7. 🔔 Notifications
 
@@ -379,3 +409,19 @@ but worth closing out alongside 5–7 above.
       keystroke rather than after a pause. Not broken, just more
       requests than necessary; worth revisiting once the app has real
       usage volume to see if it actually matters
+
+## 9. 🎬 Motion & page transitions
+
+Explicitly requested, not found in passing: navigation currently just
+jump-cuts from page to page. Should feel like a considered, premium
+product instead — slide/fade transitions between views rather than a
+hard cut, in the same spirit as the earlier icon/primitive/atmosphere
+polish pass.
+
+- [ ] Decide the transition mechanism (Next.js View Transitions API vs.
+      a library like Framer Motion/motion — trade-off between how much
+      control we get and how much complexity/bundle size it adds)
+- [ ] Apply consistently across the primary flows: request → song
+      selection → checkout → confirmation, and DJ dashboard ↔ settings
+- [ ] Respect `prefers-reduced-motion` — motion should be a premium
+      touch, not something that fights users who've asked for less of it

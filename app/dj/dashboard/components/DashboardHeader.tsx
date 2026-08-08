@@ -92,6 +92,13 @@ export default function DashboardHeader({
 
           <Button
             variant="secondary"
+            onClick={() => router.push("/dj/earnings")}
+          >
+            Earnings
+          </Button>
+
+          <Button
+            variant="secondary"
             onClick={() => router.push("/dj/settings")}
           >
             Settings

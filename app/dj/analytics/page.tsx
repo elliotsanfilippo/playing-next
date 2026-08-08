@@ -26,6 +26,7 @@ type SongRequest = {
   request_status: string;
   song_title: string | null;
   request_type: string | null;
+  dj_earnings: number | null;
 };
 
 export default function AnalyticsPage() {
@@ -58,7 +59,7 @@ export default function AnalyticsPage() {
 
     const { data: profile, error: profileError } = await supabase
       .from("dj_profiles")
-      .select("id, request_price, shoutout_price")
+      .select("id")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -70,7 +71,7 @@ export default function AnalyticsPage() {
 
     const { data: requests, error: requestsError } = await supabase
       .from("song_requests")
-      .select("request_status, song_title, request_type")
+      .select("request_status, song_title, request_type, dj_earnings")
       .eq("dj_profile_id", profile.id);
 
     if (requestsError) {
@@ -96,15 +97,18 @@ export default function AnalyticsPage() {
       (request) => request.request_status === "declined"
     ).length;
 
+    /*
+     * Uses each request's actual stored dj_earnings snapshot (set at
+     * checkout time), not the DJ's current prices — otherwise this
+     * would silently misreport history for anyone who's ever changed
+     * their prices, and it wouldn't account for the platform fee at
+     * all. See /dj/earnings for the full breakdown.
+     */
     const totalRevenue =
-      completedRequests.reduce((total, request) => {
-        const price =
-          request.request_type === "song_message"
-            ? profile.shoutout_price || 800
-            : profile.request_price || 500;
-
-        return total + price;
-      }, 0) / 100;
+      completedRequests.reduce(
+        (total, request) => total + (request.dj_earnings ?? 0),
+        0
+      ) / 100;
 
     const songCounts: Record<string, number> = {};
 
@@ -210,8 +214,9 @@ export default function AnalyticsPage() {
           />
 
           <StatCard
-            label="Revenue"
+            label="Net Earnings"
             value={`£${analytics.totalRevenue.toFixed(2)}`}
+            subtitle="Full breakdown in Earnings"
             icon={<PoundSterling size={20} />}
             tone="accent"
           />
