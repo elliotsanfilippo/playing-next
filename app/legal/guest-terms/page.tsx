@@ -49,10 +49,15 @@ export default function GuestTermsPage() {
         </li>
       </Ul>
       <P>
-        There is currently no way to cancel a request yourself once
-        it&rsquo;s submitted and awaiting the DJ&rsquo;s response — if you
-        no longer want it actioned, speak to the DJ directly, or contact
-        us and we&rsquo;ll do what we can.
+        While a request is still awaiting the DJ&rsquo;s response, you can
+        cancel it yourself from the confirmation page or My Requests —
+        this releases the authorisation the same way a decline does, and
+        you&rsquo;re not charged. Once the DJ has accepted, you can no
+        longer cancel it yourself; see our{" "}
+        <a href="/legal/refund-policy" className="text-accent hover:underline">
+          Refund &amp; Cancellation Policy
+        </a>{" "}
+        for what happens after that.
       </P>
 
       <H2>3. No guarantee your song will be played</H2>

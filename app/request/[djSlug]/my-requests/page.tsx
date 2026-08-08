@@ -42,6 +42,7 @@ export default function MyRequestsPage() {
 
   const [requests, setRequests] = useState<SongRequest[]>([]);
   const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const previousStatusesRef = useRef<Map<string, string> | null>(null);
 
@@ -62,6 +63,35 @@ export default function MyRequestsPage() {
     setGuestNotificationsEnabled(true);
     setNotifyEnabled(true);
     toast.success("We'll let you know when any of these update.");
+  };
+
+  const cancelRequest = async (requestId: string) => {
+    if (cancellingId) return;
+
+    setCancellingId(requestId);
+
+    try {
+      const response = await fetch("/api/request/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to cancel this request.");
+      }
+
+      toast.success("Request cancelled. You have not been charged.");
+      fetchRequests();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to cancel this request."
+      );
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   const clearMyRequests = () => {
@@ -270,6 +300,19 @@ export default function MyRequestsPage() {
                       </p>
                     )}
                   </div>
+
+                  {request.request_status === "pending" && (
+                    <button
+                      type="button"
+                      onClick={() => cancelRequest(request.id)}
+                      disabled={cancellingId === request.id}
+                      className="shrink-0 rounded-control border border-red-500/20 bg-red-500/5 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {cancellingId === request.id
+                        ? "Cancelling..."
+                        : "Cancel"}
+                    </button>
+                  )}
                 </div>
               </Card>
             ))

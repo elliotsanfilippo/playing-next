@@ -8,11 +8,10 @@ export default function RefundPolicyPage() {
   return (
     <LegalDoc title="Refund & Cancellation Policy" lastUpdated="7 August 2026">
       <Note>
-        <strong>Draft — not yet legally reviewed.</strong>{" "}This describes
-        exactly what the product does today, including a real gap: there
-        is currently no in-app refund button for captured payments.
-        Requests raised through the contact route below are handled
-        manually by us until that&rsquo;s built.
+        <strong>Draft — not yet legally reviewed.</strong>{" "}Once a DJ
+        accepts a request, it&rsquo;s final: no refunds, for any reason.
+        Before that point, nothing has been charged and you can cancel
+        yourself at any time — see below.
       </Note>
 
       <H2>1. Before a DJ responds</H2>
@@ -44,27 +43,29 @@ export default function RefundPolicyPage() {
         purchase — the DJ has committed to add your song to their queue.
       </P>
       <P>
-        There&rsquo;s currently no self-service refund option in the app
-        for a request that&rsquo;s already been accepted and charged. If
-        something goes wrong — for example the DJ&rsquo;s set ends before
-        your song is played — contact us at{" "}
-        <strong>[support email — TBD]</strong>{" "}with your request details
-        and we&rsquo;ll review it manually.
+        <strong>Once a DJ has accepted your request, it&rsquo;s final and
+        non-refundable</strong>{" "}— including if the DJ&rsquo;s set ends
+        before your song is played, or for any other reason once
+        acceptance has happened. The DJ is paid the moment they accept,
+        precisely so they can rely on that being final; we don&rsquo;t
+        reverse it afterwards. This doesn&rsquo;t affect any statutory
+        rights you may have that can&rsquo;t be excluded by agreement, or
+        your right to raise a dispute with your card issuer (see section
+        5).
       </P>
       <P>
-        The 50p guest service fee is non-refundable once a request has
-        been accepted and charged, as it covers payment processing costs
-        already incurred.
+        The 50p guest service fee is likewise non-refundable once a
+        request has been accepted and charged, as it covers payment
+        processing costs already incurred.
       </P>
 
       <H2>3. Cancelling a request yourself</H2>
       <P>
-        There&rsquo;s no button in the app for a guest to cancel their own
-        pending request. If you want to withdraw a request before the DJ
-        responds, the most reliable option is to speak to the DJ directly
-        at the event. You can also contact us and we&rsquo;ll try to help,
-        but we can&rsquo;t guarantee a DJ won&rsquo;t accept it before we
-        do.
+        While a request is still pending, you can cancel it yourself from
+        the confirmation page or My Requests — this releases the card
+        authorisation immediately and you&rsquo;re not charged. This is
+        your last chance to change your mind: once the DJ accepts, it
+        can&rsquo;t be cancelled or refunded (see section 2).
       </P>
 
       <H2>4. Card declines or payment issues</H2>

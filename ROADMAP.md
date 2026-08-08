@@ -477,11 +477,30 @@ but worth closing out alongside 5–7 above.
       Spotify on every keystroke — fixed: wrapped in try/catch, caches
       the access token in memory, frontend shows a toast instead of
       silently doing nothing on failure
-- [ ] Guests have no self-serve way to cancel a pending request or
-      request a refund — currently manual-only (see
-      `/legal/refund-policy`). Needs a decision on scope: cancel-before-
-      DJ-responds is straightforward (mirrors the DJ's own decline path);
-      self-serve refund-after-capture is a bigger, more sensitive piece
+- [x] Guest self-serve cancel (before the DJ responds) — new
+      `/api/request/cancel` route, the guest-side mirror of the DJ's own
+      decline path. Only ever touches `pending` requests (card
+      authorised, not yet captured), so it can never claw money back
+      from a DJ — same trust model as `/api/my-requests` (unauthenticated
+      by design, since guests have no accounts; knowledge of the request
+      ID is the only "proof" there is, consistent with the rest of the
+      guest flow). "Cancel Request"/"Cancel" buttons added to both the
+      confirmation page and My Requests. `/legal/guest-terms` and
+      `/legal/refund-policy` updated to describe it.
+  - [x] **Refund after capture — decided: no refunds, full stop, once
+        a DJ accepts.** The alternative was either pulling money back
+        out of a DJ's Stripe balance after they'd already been paid
+        (`reverse_transfer: true`, risking a dispute with the DJ or a
+        negative balance) or Playing Next eating the cost itself —
+        rejected outright rather than half-built. `/legal/refund-policy`
+        §2 now states this plainly ("it's final and non-refundable"),
+        with the standard carve-out for statutory rights that can't be
+        excluded by agreement and the guest's own card-issuer dispute
+        rights (§5), which no policy wording can override anyway.
+        Nothing to build — the answer is simply "we don't do it."
+- [ ] Spotify search has no debounce — fires a request on every
+      keystroke rather than after a pause. Not broken, just more
+      requests than necessary; worth revisiting once the app has real
 - [ ] Spotify search has no debounce — fires a request on every
       keystroke rather than after a pause. Not broken, just more
       requests than necessary; worth revisiting once the app has real

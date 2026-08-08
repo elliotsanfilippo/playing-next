@@ -75,6 +75,7 @@ function ConfirmationPageContent() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const previousStatusRef = useRef<string | null>(null);
 
@@ -95,6 +96,35 @@ function ConfirmationPageContent() {
     setGuestNotificationsEnabled(true);
     setNotifyEnabled(true);
     toast.success("We'll let you know when this updates.");
+  };
+
+  const cancelRequest = async () => {
+    if (!requestId || cancelling) return;
+
+    setCancelling(true);
+
+    try {
+      const response = await fetch("/api/request/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to cancel this request.");
+      }
+
+      toast.success("Request cancelled. You have not been charged.");
+      fetchRequest(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to cancel this request."
+      );
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const fetchRequest = useCallback(
@@ -280,6 +310,17 @@ function ConfirmationPageContent() {
                 </div>
               </div>
             </div>
+
+            {status === "pending" && (
+              <button
+                type="button"
+                onClick={cancelRequest}
+                disabled={cancelling}
+                className="mt-4 w-full rounded-control border border-red-500/20 bg-red-500/5 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cancelling ? "Cancelling..." : "Cancel Request"}
+              </button>
+            )}
 
             {status === "accepted" && request.queue_position && (
               <div className="mt-4 flex items-center justify-between rounded-control border border-white/10 bg-white/[0.03] p-5">
