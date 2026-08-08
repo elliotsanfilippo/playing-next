@@ -19,6 +19,7 @@ type Props = {
   ) => Promise<void>;
   size: WidgetSize;
   onSizeChange: (size: WidgetSize) => void;
+  editable: boolean;
 };
 
 const listBySize: Record<WidgetSize, string> = {
@@ -46,6 +47,7 @@ export default function AcceptedQueue({
   updateRequestStatus,
   size,
   onSizeChange,
+  editable,
 }: Props) {
   return (
     <Card>
@@ -60,7 +62,7 @@ export default function AcceptedQueue({
           </div>
 
           <div className="flex items-center gap-3">
-            <SizeToggle value={size} onChange={onSizeChange} />
+            {editable && <SizeToggle value={size} onChange={onSizeChange} />}
 
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/15">
               <span className="text-xl font-bold text-sky-400">

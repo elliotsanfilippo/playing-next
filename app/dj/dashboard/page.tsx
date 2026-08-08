@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { toast } from "sonner";
+import { SlidersHorizontal, Check } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import {
   getNotificationPreferences,
@@ -51,6 +52,7 @@ export default function DJDashboardPage() {
     qr: "normal",
     history: "normal",
   });
+  const [customizing, setCustomizing] = useState(false);
 
   const updateWidgetSize = (key: DashboardWidgetKey, size: WidgetSize) => {
     const next = { ...widgetSizes, [key]: size };
@@ -616,6 +618,28 @@ export default function DJDashboardPage() {
           router={router}
         />
 
+        <div className="mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setCustomizing(!customizing)}
+            className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${
+              customizing
+                ? "bg-accent-strong text-black"
+                : "border border-white/10 bg-white/5 text-zinc-400 hover:text-white"
+            }`}
+          >
+            {customizing ? (
+              <>
+                <Check size={14} /> Done
+              </>
+            ) : (
+              <>
+                <SlidersHorizontal size={14} /> Customize Dashboard
+              </>
+            )}
+          </button>
+        </div>
+
         <StatsCards
           pendingCount={pendingRequests.length}
           queueCount={acceptedRequests.length}
@@ -623,6 +647,7 @@ export default function DJDashboardPage() {
           tonightRevenue={tonightRevenue}
           size={widgetSizes.stats}
           onSizeChange={(size) => updateWidgetSize("stats", size)}
+          editable={customizing}
         />
 
         <PlayingNextCard
@@ -637,6 +662,7 @@ export default function DJDashboardPage() {
             declineRequest={declineRequest}
             size={widgetSizes.pendingRequests}
             onSizeChange={(size) => updateWidgetSize("pendingRequests", size)}
+            editable={customizing}
           />
 
           <AcceptedQueue
@@ -646,6 +672,7 @@ export default function DJDashboardPage() {
             updateRequestStatus={updateRequestStatus}
             size={widgetSizes.queue}
             onSizeChange={(size) => updateWidgetSize("queue", size)}
+            editable={customizing}
           />
         </div>
 
@@ -661,6 +688,7 @@ export default function DJDashboardPage() {
           displayRequestLink={displayRequestLink}
           size={widgetSizes.qr}
           onSizeChange={(size) => updateWidgetSize("qr", size)}
+          editable={customizing}
         />
 
         <HistoryCard
@@ -670,6 +698,7 @@ export default function DJDashboardPage() {
           clearPlayedHistory={clearPlayedHistory}
           size={widgetSizes.history}
           onSizeChange={(size) => updateWidgetSize("history", size)}
+          editable={customizing}
         />
       </div>
     </main>

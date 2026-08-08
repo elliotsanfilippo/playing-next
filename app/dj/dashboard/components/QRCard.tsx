@@ -14,6 +14,7 @@ type Props = {
   displayRequestLink: string;
   size: WidgetSize;
   onSizeChange: (size: WidgetSize) => void;
+  editable: boolean;
 };
 
 const qrWidthBySize: Record<WidgetSize, string> = {
@@ -28,6 +29,7 @@ export default function QRCard({
   displayRequestLink,
   size,
   onSizeChange,
+  editable,
 }: Props) {
   return (
     <Card variant="elevated" className="mt-8 overflow-hidden">
@@ -36,7 +38,9 @@ export default function QRCard({
           <div className="max-w-lg">
             <div className="flex items-center justify-between gap-3">
               <Eyebrow tone="accent">Share</Eyebrow>
-              <SizeToggle value={size} onChange={onSizeChange} />
+              {editable && (
+                <SizeToggle value={size} onChange={onSizeChange} />
+              )}
             </div>
 
             <h2 className="mt-3 text-h2">Your Request Page</h2>

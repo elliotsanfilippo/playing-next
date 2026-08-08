@@ -17,6 +17,7 @@ type Props = {
   declineRequest: (request: SongRequest) => Promise<void>;
   size: WidgetSize;
   onSizeChange: (size: WidgetSize) => void;
+  editable: boolean;
 };
 
 const listBySize: Record<WidgetSize, string> = {
@@ -43,6 +44,7 @@ export default function PendingRequests({
   declineRequest,
   size,
   onSizeChange,
+  editable,
 }: Props) {
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -57,7 +59,7 @@ export default function PendingRequests({
           </div>
 
           <div className="flex items-center gap-3">
-            <SizeToggle value={size} onChange={onSizeChange} />
+            {editable && <SizeToggle value={size} onChange={onSizeChange} />}
 
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/15">
               <span className="text-xl font-bold text-amber-400">

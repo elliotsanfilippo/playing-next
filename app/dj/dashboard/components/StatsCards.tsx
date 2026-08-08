@@ -10,6 +10,7 @@ type Props = {
   tonightRevenue: number;
   size: WidgetSize;
   onSizeChange: (size: WidgetSize) => void;
+  editable: boolean;
 };
 
 export default function StatsCards({
@@ -19,12 +20,15 @@ export default function StatsCards({
   tonightRevenue,
   size,
   onSizeChange,
+  editable,
 }: Props) {
   return (
     <section className="mb-8">
-      <div className="mb-3 flex justify-end">
-        <SizeToggle value={size} onChange={onSizeChange} />
-      </div>
+      {editable && (
+        <div className="mb-3 flex justify-end">
+          <SizeToggle value={size} onChange={onSizeChange} />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard

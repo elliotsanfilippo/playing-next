@@ -14,6 +14,7 @@ type Props = {
   clearPlayedHistory: () => Promise<void>;
   size: WidgetSize;
   onSizeChange: (size: WidgetSize) => void;
+  editable: boolean;
 };
 
 const listBySize: Record<WidgetSize, string> = {
@@ -35,6 +36,7 @@ export default function HistoryCard({
   clearPlayedHistory,
   size,
   onSizeChange,
+  editable,
 }: Props) {
   return (
     <Card variant="elevated" className="mt-8 overflow-hidden">
@@ -53,7 +55,7 @@ export default function HistoryCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <SizeToggle value={size} onChange={onSizeChange} />
+            {editable && <SizeToggle value={size} onChange={onSizeChange} />}
 
             <Button
               variant="secondary"
