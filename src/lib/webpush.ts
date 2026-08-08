@@ -1,11 +1,36 @@
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+/*
+ * Configured lazily, on first send, rather than at module load. This
+ * file is imported from the Stripe success/webhook routes — if VAPID
+ * env vars were ever missing and setVapidDetails() threw at import
+ * time, it would take the whole payment flow down with it, not just
+ * push notifications.
+ */
+let vapidConfigured = false;
+
+function ensureVapidConfigured() {
+  if (vapidConfigured) return true;
+
+  const subject = process.env.VAPID_SUBJECT;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!subject || !publicKey || !privateKey) {
+    console.error("Push notifications are not configured (missing VAPID env vars).");
+    return false;
+  }
+
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+    vapidConfigured = true;
+    return true;
+  } catch (error) {
+    console.error("Invalid VAPID configuration:", error);
+    return false;
+  }
+}
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +55,8 @@ type PushPayload = {
  * so the table doesn't accumulate dead endpoints over time.
  */
 export async function sendPushToDJ(djProfileId: string, payload: PushPayload) {
+  if (!ensureVapidConfigured()) return;
+
   const { data: subscriptions, error } = await supabaseAdmin
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
