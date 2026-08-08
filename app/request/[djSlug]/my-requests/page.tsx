@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
+import { Bell, BellRing } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import { requestStatusTone } from "@/src/lib/requestStatus";
+import {
+  getGuestNotificationsEnabled,
+  requestNotificationPermission,
+  setGuestNotificationsEnabled,
+  showBrowserNotification,
+} from "@/src/lib/notifications";
 
 type SongRequest = {
   id: string;
@@ -33,6 +41,28 @@ export default function MyRequestsPage() {
   const djSlug = params.djSlug as string;
 
   const [requests, setRequests] = useState<SongRequest[]>([]);
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+
+  const previousStatusesRef = useRef<Map<string, string> | null>(null);
+
+  useEffect(() => {
+    setNotifyEnabled(getGuestNotificationsEnabled());
+  }, []);
+
+  const enableNotifications = async () => {
+    const granted = await requestNotificationPermission();
+
+    if (!granted) {
+      toast.error(
+        "Notifications are blocked. Enable them in your browser's site settings."
+      );
+      return;
+    }
+
+    setGuestNotificationsEnabled(true);
+    setNotifyEnabled(true);
+    toast.success("We'll let you know when any of these update.");
+  };
 
   const clearMyRequests = () => {
     localStorage.removeItem(`myRequestIds_${djSlug}`);
@@ -66,7 +96,37 @@ export default function MyRequestsPage() {
       return;
     }
 
-    setRequests(result.requests || []);
+    const freshRequests: SongRequest[] = result.requests || [];
+
+    if (previousStatusesRef.current === null) {
+      previousStatusesRef.current = new Map(
+        freshRequests.map((request) => [request.id, request.request_status])
+      );
+    } else {
+      const previous = previousStatusesRef.current;
+
+      freshRequests.forEach((request) => {
+        const previousStatus = previous.get(request.id);
+
+        if (previousStatus && previousStatus !== request.request_status) {
+          const label =
+            STATUS_LABEL[request.request_status] || request.request_status;
+
+          toast(request.song_title, { description: label });
+
+          if (
+            getGuestNotificationsEnabled() &&
+            document.visibilityState !== "visible"
+          ) {
+            showBrowserNotification(request.song_title, label);
+          }
+        }
+
+        previous.set(request.id, request.request_status);
+      });
+    }
+
+    setRequests(freshRequests);
   };
 
   useEffect(() => {
@@ -124,6 +184,17 @@ export default function MyRequestsPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
+            {!notifyEnabled && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={enableNotifications}
+              >
+                <Bell size={16} className="mr-2" />
+                Notify Me
+              </Button>
+            )}
+
             <Link
               href={`/request/${djSlug}`}
               className={buttonVariants({ size: "sm" })}
@@ -140,6 +211,13 @@ export default function MyRequestsPage() {
             </Button>
           </div>
         </div>
+
+        {notifyEnabled && (
+          <p className="-mt-4 mb-6 flex items-center gap-2 text-sm font-semibold text-accent">
+            <BellRing size={16} />
+            We&apos;ll notify you when any of these update
+          </p>
+        )}
 
         <div className="space-y-4">
           {requests.length === 0 ? (

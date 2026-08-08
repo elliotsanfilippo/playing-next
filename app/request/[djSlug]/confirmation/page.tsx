@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Check } from "lucide-react";
+import { toast } from "sonner";
+import { Check, Bell, BellRing } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import { buttonVariants } from "@/src/components/ui/Button";
 import { toneSurfaceClasses, toneDotClasses } from "@/src/components/ui/Badge";
 import { requestStatusTone } from "@/src/lib/requestStatus";
+import {
+  getGuestNotificationsEnabled,
+  requestNotificationPermission,
+  setGuestNotificationsEnabled,
+  showBrowserNotification,
+} from "@/src/lib/notifications";
 
 type SubmittedRequest = {
   id: string;
@@ -67,6 +74,28 @@ function ConfirmationPageContent() {
   const [request, setRequest] = useState<SubmittedRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+
+  const previousStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setNotifyEnabled(getGuestNotificationsEnabled());
+  }, []);
+
+  const enableNotifications = async () => {
+    const granted = await requestNotificationPermission();
+
+    if (!granted) {
+      toast.error(
+        "Notifications are blocked. Enable them in your browser's site settings."
+      );
+      return;
+    }
+
+    setGuestNotificationsEnabled(true);
+    setNotifyEnabled(true);
+    toast.success("We'll let you know when this updates.");
+  };
 
   const fetchRequest = useCallback(
     async (showLoading = false) => {
@@ -99,6 +128,29 @@ function ConfirmationPageContent() {
         setLoading(false);
         return;
       }
+
+      if (
+        previousStatusRef.current !== null &&
+        previousStatusRef.current !== data.request_status
+      ) {
+        const copy = STATUS_COPY[data.request_status];
+
+        if (copy) {
+          toast(copy.label, { description: copy.description });
+
+          if (
+            getGuestNotificationsEnabled() &&
+            document.visibilityState !== "visible"
+          ) {
+            showBrowserNotification(
+              `${data.song_title}: ${copy.label}`,
+              copy.description
+            );
+          }
+        }
+      }
+
+      previousStatusRef.current = data.request_status;
 
       setRequest(data);
       setLoadError("");
@@ -255,6 +307,22 @@ function ConfirmationPageContent() {
                     ? "No need to refresh. Your payment will not be captured."
                     : "No need to refresh. Your request status will update here automatically."}
               </p>
+
+              {notifyEnabled ? (
+                <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-accent">
+                  <BellRing size={16} />
+                  We&apos;ll notify you when this updates
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={enableNotifications}
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 underline decoration-zinc-600 underline-offset-4 transition hover:text-white"
+                >
+                  <Bell size={16} />
+                  Notify me when this updates
+                </button>
+              )}
             </div>
           </div>
         </Card>

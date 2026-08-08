@@ -114,3 +114,22 @@ export function triggerVibration() {
 
   navigator.vibrate([120, 60, 120]);
 }
+
+const GUEST_STORAGE_KEY = "playingNextGuestNotifications";
+
+/*
+ * Guests get a single on/off toggle rather than the DJ's separate
+ * sound/browser split — they're not staring at a mixing desk, just
+ * deciding whether they want a heads-up when their request updates.
+ */
+export function getGuestNotificationsEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+
+  return window.localStorage.getItem(GUEST_STORAGE_KEY) === "true";
+}
+
+export function setGuestNotificationsEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(GUEST_STORAGE_KEY, enabled ? "true" : "false");
+}

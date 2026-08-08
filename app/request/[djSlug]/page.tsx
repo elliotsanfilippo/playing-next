@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
+import {
+  getGuestNotificationsEnabled,
+  showBrowserNotification,
+} from "@/src/lib/notifications";
+import { requestStatusNotificationCopy } from "@/src/lib/requestStatus";
 import RequestHeader, {
   type DJProfile,
 } from "@/src/components/request/RequestHeader";
@@ -37,6 +42,10 @@ export default function RequestPage() {
   >("song_request");
 
   const [message, setMessage] = useState("");
+
+  const previousRequestStatusesRef = useRef<Map<string, string> | null>(
+    null
+  );
 
   const fetchDJProfile = async (showLoading = false) => {
   if (showLoading) {
@@ -189,6 +198,79 @@ document.addEventListener(
   supabase.removeChannel(channel);
 };
 }, [djSlug]);
+
+  /*
+   * A guest browsing here for a second song still has an earlier
+   * request out for a decision — without this, the request page is the
+   * one place in the guest flow with zero visibility into it. Reuses
+   * the same localStorage-tracked IDs as the confirmation/My Requests
+   * pages; the notification toggle itself is a single global
+   * preference, so nothing new to opt into here.
+   */
+  useEffect(() => {
+    const checkMyRequests = async () => {
+      let myRequestIds: string[] = [];
+
+      try {
+        myRequestIds = JSON.parse(
+          localStorage.getItem(`myRequestIds_${djSlug}`) || "[]"
+        );
+      } catch (error) {
+        console.log("localStorage parse error", error);
+        return;
+      }
+
+      if (myRequestIds.length === 0) return;
+
+      const response = await fetch("/api/my-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestIds: myRequestIds }),
+      });
+
+      if (!response.ok) return;
+
+      const result = await response.json();
+      const freshRequests: { id: string; song_title: string; request_status: string }[] =
+        result.requests || [];
+
+      if (previousRequestStatusesRef.current === null) {
+        previousRequestStatusesRef.current = new Map(
+          freshRequests.map((request) => [request.id, request.request_status])
+        );
+        return;
+      }
+
+      const previous = previousRequestStatusesRef.current;
+
+      freshRequests.forEach((request) => {
+        const previousStatus = previous.get(request.id);
+
+        if (previousStatus && previousStatus !== request.request_status) {
+          const copy = requestStatusNotificationCopy(request.request_status);
+
+          if (copy) {
+            toast(request.song_title, { description: copy });
+
+            if (
+              getGuestNotificationsEnabled() &&
+              document.visibilityState !== "visible"
+            ) {
+              showBrowserNotification(request.song_title, copy);
+            }
+          }
+        }
+
+        previous.set(request.id, request.request_status);
+      });
+    };
+
+    checkMyRequests();
+
+    const interval = setInterval(checkMyRequests, 4000);
+
+    return () => clearInterval(interval);
+  }, [djSlug]);
 
   const isTakingRequests = djProfile?.request_status === "taking_requests";
 

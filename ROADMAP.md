@@ -415,6 +415,59 @@ the browser-notification toggle correctly detects a blocked permission
 and shows an explanatory error rather than failing silently. Test rows
 cleaned up afterward.
 
+**Extended to guests too**, not originally scoped but a natural fit
+once DJ notifications existed — a guest closing the confirmation tab
+had no way to find out their song got accepted:
+
+- [x] Guest status-change notifications on both `/request/[djSlug]/confirmation`
+      and `/request/[djSlug]/my-requests` — both pages already polled
+      every 4s (no way to use realtime here, since guests aren't
+      authenticated); a toast now fires on any status change, plus a
+      real browser Notification if the guest opted in and the tab isn't
+      focused. Chose a single on/off toggle rather than the DJ's
+      sound/browser split — kept deliberately simpler for a one-off
+      guest action, not a recurring workflow. Deliberately **not** SMS —
+      see the reasoning below.
+- [x] My Requests tracks per-request status independently (a `Map` of
+      previous statuses, not just one), so it correctly notifies for
+      whichever specific request changed when a guest is tracking
+      several at once.
+
+Verified live on both pages: created a real pending request, loaded it
+in the browser, updated its status directly in the database from
+outside the app (mirroring a DJ accepting it), and confirmed the toast
+fired with the correct new status on the next poll — screenshotted on
+both pages. Also confirmed the "Notify me" button correctly surfaces
+the blocked-permission error.
+
+- [x] Also extended to the main request page (`/request/[djSlug]`)
+      itself — a guest who clicks "Request Another Song" and goes back
+      to browsing still has an earlier request out for a decision, and
+      that page previously had zero visibility into it. Reuses the same
+      localStorage-tracked IDs and the same global notification
+      preference — nothing new to opt into. Casual first-person copy
+      ("Your song was accepted!", "Your song wasn't accepted this
+      time.") lives in `requestStatusNotificationCopy()` in
+      `requestStatus.ts`, separate from the more formal per-page status
+      copy used elsewhere.
+
+Verified live: seeded a real pending request into a fresh browser
+tab's localStorage, confirmed via direct fetch-instrumentation (not
+just eyeballing the network log, which turned out to have a misleading
+display) that the poll runs at a clean, non-duplicated 4000ms cadence,
+then updated the request's status externally and confirmed the toast
+("Your song wasn't accepted this time.") fired correctly while
+"browsing" the request page.
+
+**Considered and deferred**: SMS/text notifications for guests. Would
+need collecting phone numbers (a new personal-data category we don't
+touch today), a paid SMS provider, and real PECR consent/opt-out
+handling for UK text messages — meaningful legal and cost surface for
+a need that isn't validated yet. Browser notifications solve the same
+"I closed the tab" problem for free, with the known weakness that
+they're flakier on iOS Safari specifically. Revisit if that turns out
+to be a real recurring complaint once there's actual usage.
+
 ## 8. 🧹 Smaller gaps
 
 Found in passing rather than planned from the start; not launch-blocking
