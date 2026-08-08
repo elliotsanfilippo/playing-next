@@ -83,55 +83,59 @@ export default function DashboardHeader({
           </div>
         </div>
 
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-          {djProfile?.slug && (
+        <div className="flex w-full flex-col items-end gap-3 sm:w-auto">
+          <div className="flex w-full flex-wrap items-center justify-end gap-3">
+            {djProfile?.slug && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  window.open(`/request/${djProfile.slug}/queue`, "_blank")
+                }
+              >
+                <MonitorPlay size={16} className="mr-2" />
+                Display Screen
+              </Button>
+            )}
+
             <Button
               variant="secondary"
-              onClick={() =>
-                window.open(`/request/${djProfile.slug}/queue`, "_blank")
-              }
+              onClick={() => router.push("/dj/analytics")}
             >
-              <MonitorPlay size={16} className="mr-2" />
-              Display Screen
+              Analytics
             </Button>
-          )}
 
-          <Button
-            variant="secondary"
-            onClick={() => router.push("/dj/analytics")}
-          >
-            Analytics
-          </Button>
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/dj/earnings")}
+            >
+              Earnings
+            </Button>
 
-          <Button
-            variant="secondary"
-            onClick={() => router.push("/dj/earnings")}
-          >
-            Earnings
-          </Button>
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/dj/settings")}
+            >
+              Settings
+            </Button>
+          </div>
 
-          <Button
-            variant="secondary"
-            onClick={() => router.push("/dj/settings")}
-          >
-            Settings
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Button
+              variant={isTakingRequests ? "accent" : "danger"}
+              className={
+                isTakingRequests
+                  ? ""
+                  : "border-transparent bg-red-500 text-white hover:bg-red-400"
+              }
+              onClick={toggleRequests}
+            >
+              {isTakingRequests ? "Pause Requests" : "Resume Requests"}
+            </Button>
 
-          <Button
-            variant={isTakingRequests ? "accent" : "danger"}
-            className={
-              isTakingRequests
-                ? ""
-                : "border-transparent bg-red-500 text-white hover:bg-red-400"
-            }
-            onClick={toggleRequests}
-          >
-            {isTakingRequests ? "Pause Requests" : "Resume Requests"}
-          </Button>
-
-          <Button variant="danger" onClick={logout}>
-            Log Out
-          </Button>
+            <Button variant="danger" onClick={logout}>
+              Log Out
+            </Button>
+          </div>
         </div>
       </div>
     </header>

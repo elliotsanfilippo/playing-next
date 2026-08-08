@@ -34,14 +34,15 @@ export default function QRCard({
   return (
     <Card variant="elevated" className="mt-8 overflow-hidden">
       <div className="p-8">
+        {editable && (
+          <div className="mb-6 flex justify-end">
+            <SizeToggle value={size} onChange={onSizeChange} />
+          </div>
+        )}
+
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg">
-            <div className="flex items-center justify-between gap-3">
-              <Eyebrow tone="accent">Share</Eyebrow>
-              {editable && (
-                <SizeToggle value={size} onChange={onSizeChange} />
-              )}
-            </div>
+            <Eyebrow tone="accent">Share</Eyebrow>
 
             <h2 className="mt-3 text-h2">Your Request Page</h2>
 
