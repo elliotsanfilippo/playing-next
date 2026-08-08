@@ -1,4 +1,5 @@
 import type { DJProfile } from "@/src/types/dashboard";
+import { MonitorPlay } from "lucide-react";
 import Button from "@/src/components/ui/Button";
 
 type Props = {
@@ -83,6 +84,18 @@ export default function DashboardHeader({
         </div>
 
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+          {djProfile?.slug && (
+            <Button
+              variant="secondary"
+              onClick={() =>
+                window.open(`/request/${djProfile.slug}/queue`, "_blank")
+              }
+            >
+              <MonitorPlay size={16} className="mr-2" />
+              Display Screen
+            </Button>
+          )}
+
           <Button
             variant="secondary"
             onClick={() => router.push("/dj/analytics")}

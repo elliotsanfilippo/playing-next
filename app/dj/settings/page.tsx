@@ -15,6 +15,12 @@ import {
   setNotificationPreferences,
   type NotificationPreferences,
 } from "@/src/lib/notifications";
+import {
+  getExistingPushSubscription,
+  isPushSupported,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/src/lib/push";
 
 type DJProfile = {
   profile_image_url: string | null;
@@ -53,6 +59,8 @@ function DJSettingsPageContent() {
   const [openingPortal, setOpeningPortal] = useState(false);
   const [notificationPrefs, setNotificationPrefsState] =
     useState<NotificationPreferences>({ sound: true, browser: false });
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [togglingPush, setTogglingPush] = useState(false);
 
   const fetchProfile = async () => {
     setLoadingProfile(true);
@@ -276,6 +284,10 @@ function DJSettingsPageContent() {
     fetchProfile();
     setNotificationPrefsState(getNotificationPreferences());
 
+    getExistingPushSubscription().then((subscription) => {
+      setPushEnabled(!!subscription);
+    });
+
     if (searchParams.get("pro") === "success") {
       toast.success("Welcome to Pro! This can take a few seconds to appear below.");
     }
@@ -312,6 +324,32 @@ function DJSettingsPageContent() {
     const next = { ...notificationPrefs, browser: true };
     setNotificationPrefsState(next);
     setNotificationPreferences(next);
+  };
+
+  const togglePushNotifications = async () => {
+    if (!isPushSupported()) {
+      toast.error("Push notifications aren't supported on this device.");
+      return;
+    }
+
+    setTogglingPush(true);
+
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush();
+        setPushEnabled(false);
+      } else {
+        await subscribeToPush();
+        setPushEnabled(true);
+        toast.success("Push notifications enabled.");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Something went wrong."
+      );
+    } finally {
+      setTogglingPush(false);
+    }
   };
 
   if (loadingProfile) {
@@ -577,6 +615,28 @@ function DJSettingsPageContent() {
                     }`}
                   >
                     {notificationPrefs.browser ? "On" : "Off"}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between rounded-control border border-white/10 bg-zinc-900 p-4">
+                  <div>
+                    <p className="font-semibold">Push notifications</p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Alerts you even if this tab or browser is closed.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={togglePushNotifications}
+                    disabled={togglingPush}
+                    className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:opacity-50 ${
+                      pushEnabled
+                        ? "bg-accent-strong text-black"
+                        : "border border-white/10 bg-white/5 text-zinc-400"
+                    }`}
+                  >
+                    {pushEnabled ? "On" : "Off"}
                   </button>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToDJ } from "@/src/lib/webpush";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     const { data: songRequest, error: requestError } =
       await supabaseAdmin
         .from("song_requests")
-        .select("id, dj_profile_id")
+        .select("id, dj_profile_id, song_title, artist, request_type")
         .eq("id", requestId)
         .maybeSingle();
 
@@ -100,6 +101,17 @@ export async function GET(request: NextRequest) {
         new URL("/?payment_error=request_update_failed", origin)
       );
     }
+
+    sendPushToDJ(songRequest.dj_profile_id, {
+      title:
+        songRequest.request_type === "song_message"
+          ? "New Song + Message request"
+          : "New song request",
+      body: `${songRequest.song_title} — ${songRequest.artist}`,
+      url: "/dj/dashboard",
+    }).catch((pushError) => {
+      console.error("Push notification error:", pushError);
+    });
 
     const confirmationUrl = new URL(
       `/request/${djProfile.slug}/confirmation`,
