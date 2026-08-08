@@ -508,18 +508,60 @@ but worth closing out alongside 5–7 above.
       intermediate partial string — and real results still rendered
       correctly.
 
-## 9. 🎬 Motion & page transitions
+## 9. 🎬 Motion & smooth in-page scrolling — done
 
-Explicitly requested, not found in passing: navigation currently just
-jump-cuts from page to page. Should feel like a considered, premium
-product instead — slide/fade transitions between views rather than a
-hard cut, in the same spirit as the earlier icon/primitive/atmosphere
-polish pass.
+What shipped is narrower than what this section originally scoped, and
+that's a direct result of clarifying the actual ask partway through
+rather than continuing to build the wrong thing:
 
-- [ ] Decide the transition mechanism (Next.js View Transitions API vs.
-      a library like Framer Motion/motion — trade-off between how much
-      control we get and how much complexity/bundle size it adds)
-- [ ] Apply consistently across the primary flows: request → song
-      selection → checkout → confirmation, and DJ dashboard ↔ settings
-- [ ] Respect `prefers-reduced-motion` — motion should be a premium
-      touch, not something that fights users who've asked for less of it
+- [x] **What was actually wanted**: clicking a header/footer/hero link
+      to a section already on the same page (Find a DJ, Features, How
+      it Works) should glide there, not jump-cut. Solved with one CSS
+      rule — `scroll-behavior: smooth` on `html` in `globals.css`, with
+      `prefers-reduced-motion: reduce` falling back to instant `auto`
+      scrolling. Applies globally by nature of being a single global
+      rule, though right now only the homepage actually has any
+      same-page anchor links (`#find-dj`, `#features`, `#how-it-works`)
+      for it to act on — checked the whole app to confirm. Verified
+      live after the pivot.
+- [x] Respect `prefers-reduced-motion` — same `@media` block, covers
+      the actual shipped feature now.
+
+**What was built first, then reverted, and why** (kept for the record
+since real time went into root-causing it, not because any of it
+shipped):
+
+- React's native `<ViewTransition>` (what the bundled Next.js 16 docs
+  describe) needs a React canary build. Checked directly against what's
+  actually installed (`react@19.2.4`, stable) rather than trusting the
+  docs' "you don't need to install canary yourself" claim — confirmed
+  `ViewTransition` genuinely isn't exported. Rejected upgrading to
+  canary React for a decorative feature.
+- Framer Motion's `AnimatePresence` wrapping `{children}` in the root
+  layout looked correct (clean build, styles visibly applied) but a
+  `MutationObserver` proved it was a silent no-op: old and new page
+  swapped in the same tick, zero style-interpolation ever ran.
+  `AnimatePresence`'s exit-hold doesn't reliably survive how the App
+  Router swaps `{children}` — a real, documented friction point.
+- Pivoted to `next-view-transitions` (a small wrapper around the real
+  `document.startViewTransition`, not React's canary component — works
+  on stable React), then to a hand-rolled replacement when that also
+  failed. Every navigation threw `InvalidStateError: Transition was
+  aborted`. Root-caused with the most minimal possible test — a bare
+  `document.startViewTransition()` changing one `<div>`'s text, zero
+  React/Next involved — which **also** failed identically, proving the
+  problem was the automated test browser itself, not any of the actual
+  implementations. Had the user confirm directly in their own browser
+  console (`ready: OK`, `finished: OK`) — the real API works fine there.
+- Even once technically working, the user testing it directly said
+  plainly they didn't want it: the actual ask, restated, was in-page
+  anchor scrolling, not page-to-page transitions at all. Reverted
+  cleanly — `next-view-transitions` and `motion` both uninstalled, all
+  17 files' `Link`/`useRouter` imports back to plain `next/link` /
+  `next/navigation`, hand-rolled module deleted, custom
+  `::view-transition-*` CSS removed. Confirmed zero leftover references
+  anywhere before moving on.
+
+The honest lesson: should have confirmed the specific in-page-vs-
+page-to-page reading of "slide/fade transitions between views" before
+building three different technical approaches to it.
