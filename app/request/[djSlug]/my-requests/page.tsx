@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Bell, BellRing } from "lucide-react";
+import { Bell, BellRing, Crown } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
@@ -25,6 +25,7 @@ type SongRequest = {
   request_type: string | null;
   request_status: string;
   queue_position: number | null;
+  is_vip: boolean;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -263,10 +264,18 @@ export default function MyRequestsPage() {
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <Badge tone={requestStatusTone(request.request_status)} dot>
-                      {STATUS_LABEL[request.request_status] ||
-                        request.request_status}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={requestStatusTone(request.request_status)} dot>
+                        {STATUS_LABEL[request.request_status] ||
+                          request.request_status}
+                      </Badge>
+
+                      {request.is_vip && (
+                        <Badge tone="warning">
+                          <Crown size={12} /> VIP
+                        </Badge>
+                      )}
+                    </div>
 
                     <h2 className="mt-4 text-h3">{request.song_title}</h2>
 

@@ -15,6 +15,12 @@ import {
   showBrowserNotification,
   triggerVibration,
 } from "../../../src/lib/notifications";
+import {
+  getDashboardLayoutPrefs,
+  setDashboardLayoutPrefs,
+  type DashboardWidgetKey,
+  type WidgetSize,
+} from "../../../src/lib/dashboardLayout";
 import DashboardHeader from "./components/DashboardHeader";
 import StatsCards from "./components/StatsCards";
 import PlayingNextCard from "./components/PlayingNextCard";
@@ -36,6 +42,21 @@ export default function DJDashboardPage() {
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [widgetSizes, setWidgetSizes] = useState<
+    ReturnType<typeof getDashboardLayoutPrefs>
+  >({
+    stats: "normal",
+    pendingRequests: "normal",
+    queue: "normal",
+    qr: "normal",
+    history: "normal",
+  });
+
+  const updateWidgetSize = (key: DashboardWidgetKey, size: WidgetSize) => {
+    const next = { ...widgetSizes, [key]: size };
+    setWidgetSizes(next);
+    setDashboardLayoutPrefs(next);
+  };
 
   /*
    * Tracks which pending request IDs we've already notified for. null
@@ -207,6 +228,12 @@ export default function DJDashboardPage() {
     await fetchRequests();
   };
 
+  /*
+   * VIP-accepted requests always sort ahead of non-VIP ones (FIFO
+   * within each tier, by acceptance time) — a hard guarantee that a
+   * guest who paid for VIP priority actually gets it, not something
+   * the DJ's manual reorder controls can undo.
+   */
   const reorderQueue = async () => {
     if (!djProfile) return;
 
@@ -215,6 +242,7 @@ export default function DJDashboardPage() {
       .select("id")
       .eq("dj_profile_id", djProfile.id)
       .eq("request_status", "accepted")
+      .order("is_vip", { ascending: false })
       .order("accepted_at", { ascending: true });
 
     if (error || !data) {
@@ -342,6 +370,12 @@ export default function DJDashboardPage() {
     toast.success("Request declined");
   };
 
+  /*
+   * Reordering is scoped to the request's own VIP tier — a non-VIP
+   * request can be dragged around other non-VIP requests, but never
+   * above a VIP one, and vice versa. VIP priority is a promise made to
+   * the guest who paid for it, not a suggestion.
+   */
   const moveAcceptedRequest = async (
     requestId: string,
     direction: "up" | "down" | "top"
@@ -350,28 +384,43 @@ export default function DJDashboardPage() {
       (a, b) => (a.queue_position || 999) - (b.queue_position || 999)
     );
 
-    const currentIndex = sortedAccepted.findIndex(
+    const selectedRequest = sortedAccepted.find(
       (request) => request.id === requestId
     );
 
-    if (currentIndex === -1) return;
+    if (!selectedRequest) return;
 
-    const newOrder = [...sortedAccepted];
-    const [selectedRequest] = newOrder.splice(currentIndex, 1);
+    const tier = sortedAccepted.filter(
+      (request) => request.is_vip === selectedRequest.is_vip
+    );
+    const otherTier = sortedAccepted.filter(
+      (request) => request.is_vip !== selectedRequest.is_vip
+    );
+
+    const currentIndex = tier.findIndex(
+      (request) => request.id === requestId
+    );
+
+    const newTier = [...tier];
+    const [moved] = newTier.splice(currentIndex, 1);
 
     if (direction === "top") {
-      newOrder.unshift(selectedRequest);
+      newTier.unshift(moved);
     }
 
     if (direction === "up") {
       const targetIndex = Math.max(currentIndex - 1, 0);
-      newOrder.splice(targetIndex, 0, selectedRequest);
+      newTier.splice(targetIndex, 0, moved);
     }
 
     if (direction === "down") {
-      const targetIndex = Math.min(currentIndex + 1, newOrder.length);
-      newOrder.splice(targetIndex, 0, selectedRequest);
+      const targetIndex = Math.min(currentIndex + 1, newTier.length);
+      newTier.splice(targetIndex, 0, moved);
     }
+
+    const newOrder = selectedRequest.is_vip
+      ? [...newTier, ...otherTier]
+      : [...otherTier, ...newTier];
 
     await Promise.all(
       newOrder.map((request, index) =>
@@ -418,6 +467,7 @@ export default function DJDashboardPage() {
     };
 
     checkAuth();
+    setWidgetSizes(getDashboardLayoutPrefs());
 
     const channel = supabase
       .channel("dashboard_changes")
@@ -482,14 +532,8 @@ export default function DJDashboardPage() {
             request.request_status
           ) && new Date(request.created_at).toDateString() === todayString
       )
-      .reduce((total, request) => {
-        const price =
-          request.request_type === "song_message"
-            ? djProfile?.shoutout_price || 800
-            : djProfile?.request_price || 500;
-
-        return total + price;
-      }, 0) / 100;
+      .reduce((total, request) => total + (request.dj_earnings ?? 0), 0) /
+    100;
 
   const onboardingComplete =
     Boolean(djProfile) &&
@@ -577,6 +621,8 @@ export default function DJDashboardPage() {
           queueCount={acceptedRequests.length}
           playedCount={playedRequests.length}
           tonightRevenue={tonightRevenue}
+          size={widgetSizes.stats}
+          onSizeChange={(size) => updateWidgetSize("stats", size)}
         />
 
         <PlayingNextCard
@@ -589,6 +635,8 @@ export default function DJDashboardPage() {
             pendingRequests={pendingRequests}
             acceptRequest={acceptRequest}
             declineRequest={declineRequest}
+            size={widgetSizes.pendingRequests}
+            onSizeChange={(size) => updateWidgetSize("pendingRequests", size)}
           />
 
           <AcceptedQueue
@@ -596,10 +644,14 @@ export default function DJDashboardPage() {
             currentPlayingNext={currentPlayingNext}
             moveAcceptedRequest={moveAcceptedRequest}
             updateRequestStatus={updateRequestStatus}
+            size={widgetSizes.queue}
+            onSizeChange={(size) => updateWidgetSize("queue", size)}
           />
         </div>
 
-        <SetupChecklist djProfile={djProfile} qrCodeUrl={qrCodeUrl} />
+        {!onboardingComplete && (
+          <SetupChecklist djProfile={djProfile} qrCodeUrl={qrCodeUrl} />
+        )}
 
         <QRCard
           showQr={showQr}
@@ -607,6 +659,8 @@ export default function DJDashboardPage() {
           qrCodeUrl={qrCodeUrl}
           requestLink={requestLink}
           displayRequestLink={displayRequestLink}
+          size={widgetSizes.qr}
+          onSizeChange={(size) => updateWidgetSize("qr", size)}
         />
 
         <HistoryCard
@@ -614,6 +668,8 @@ export default function DJDashboardPage() {
           setShowHistory={setShowHistory}
           playedRequests={playedRequests}
           clearPlayedHistory={clearPlayedHistory}
+          size={widgetSizes.history}
+          onSizeChange={(size) => updateWidgetSize("history", size)}
         />
       </div>
     </main>

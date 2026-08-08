@@ -2,6 +2,9 @@ import { Copy, Download } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
+import SizeToggle from "@/src/components/ui/SizeToggle";
+import type { WidgetSize } from "@/src/lib/dashboardLayout";
+import { cn } from "@/src/lib/cn";
 
 type Props = {
   showQr: boolean;
@@ -9,19 +12,32 @@ type Props = {
   qrCodeUrl: string;
   requestLink: string;
   displayRequestLink: string;
+  size: WidgetSize;
+  onSizeChange: (size: WidgetSize) => void;
+};
+
+const qrWidthBySize: Record<WidgetSize, string> = {
+  compact: "w-36",
+  normal: "w-56",
+  large: "w-72",
 };
 
 export default function QRCard({
   qrCodeUrl,
   requestLink,
   displayRequestLink,
+  size,
+  onSizeChange,
 }: Props) {
   return (
     <Card variant="elevated" className="mt-8 overflow-hidden">
       <div className="p-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg">
-            <Eyebrow tone="accent">Share</Eyebrow>
+            <div className="flex items-center justify-between gap-3">
+              <Eyebrow tone="accent">Share</Eyebrow>
+              <SizeToggle value={size} onChange={onSizeChange} />
+            </div>
 
             <h2 className="mt-3 text-h2">Your Request Page</h2>
 
@@ -56,7 +72,11 @@ export default function QRCard({
           <div className="flex justify-center">
             {qrCodeUrl && (
               <div className="rounded-card bg-white p-5 shadow-2xl">
-                <img src={qrCodeUrl} alt="QR Code" className="w-56" />
+                <img
+                  src={qrCodeUrl}
+                  alt="QR Code"
+                  className={cn(qrWidthBySize[size])}
+                />
               </div>
             )}
           </div>

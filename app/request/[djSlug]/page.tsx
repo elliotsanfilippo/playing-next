@@ -42,6 +42,8 @@ export default function RequestPage() {
   >("song_request");
 
   const [message, setMessage] = useState("");
+  const [isVip, setIsVip] = useState(false);
+  const [vipAvailable, setVipAvailable] = useState(true);
 
   const previousRequestStatusesRef = useRef<Map<string, string> | null>(
     null
@@ -123,6 +125,18 @@ export default function RequestPage() {
   useEffect(() => {
   let isMounted = true;
 
+  const fetchVipStatus = async () => {
+    try {
+      const response = await fetch(`/api/vip-status/${djSlug}`);
+      const data = await response.json();
+
+      if (!isMounted) return;
+      if (response.ok) setVipAvailable(data.vipAvailable !== false);
+    } catch (error) {
+      console.log("VIP status fetch error:", error);
+    }
+  };
+
   const loadDJ = async () => {
     setIsLoadingDJ(true);
     setDjProfile(null);
@@ -152,6 +166,7 @@ export default function RequestPage() {
   setSelectedSong(null);
   setMessage("");
   setRequestType("song_request");
+  setIsVip(false);
 }
     setDjNotFound(false);
     setIsLoadingDJ(false);
@@ -175,12 +190,15 @@ export default function RequestPage() {
   setSelectedSong(null);
   setMessage("");
   setRequestType("song_request");
+  setIsVip(false);
 }
   };
 
   loadDJ();
+  fetchVipStatus();
 const interval = setInterval(() => {
   refreshDJ();
+  fetchVipStatus();
 }, 5000);
   const channel = supabase
     .channel(`request_page_${djSlug}`)
@@ -198,6 +216,7 @@ const interval = setInterval(() => {
 const handleVisibilityChange = () => {
   if (document.visibilityState === "visible") {
     refreshDJ();
+    fetchVipStatus();
   }
 };
 
@@ -316,6 +335,7 @@ document.addEventListener(
         artist: selectedSong.artist,
         requestType,
         message: requestType === "song_message" ? message.trim() : undefined,
+        isVip,
       }),
     });
 
@@ -448,6 +468,7 @@ localStorage.setItem(
           setTracks([]);
           setMessage("");
           setRequestType("song_request");
+          setIsVip(false);
         }}
       />
     </Card>
@@ -461,6 +482,9 @@ localStorage.setItem(
         message={message}
         setMessage={setMessage}
         isTakingRequests={isTakingRequests}
+        isVip={isVip}
+        setIsVip={setIsVip}
+        vipAvailable={vipAvailable}
       />
     </Card>
 
@@ -471,6 +495,7 @@ localStorage.setItem(
         requestType={requestType}
         requestPrice={requestPrice}
         shoutoutPrice={shoutoutPrice}
+        isVip={isVip}
         onCheckout={submitRequest}
       />
     </Card>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Bell, BellRing } from "lucide-react";
+import { Check, Bell, BellRing, Crown } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import { buttonVariants } from "@/src/components/ui/Button";
@@ -25,6 +25,7 @@ type SubmittedRequest = {
   message: string | null;
   request_status: string;
   queue_position: number | null;
+  is_vip: boolean;
 };
 
 const STATUS_COPY: Record<string, { label: string; description: string }> = {
@@ -271,11 +272,19 @@ function ConfirmationPageContent() {
 
         <Card variant="elevated" className="mt-10 overflow-hidden">
           <div className="p-6 sm:p-8">
-            <Eyebrow>
-              {request.request_type === "song_message"
-                ? "Song + Message"
-                : "Song Request"}
-            </Eyebrow>
+            <div className="flex flex-wrap items-center gap-2">
+              <Eyebrow>
+                {request.request_type === "song_message"
+                  ? "Song + Message"
+                  : "Song Request"}
+              </Eyebrow>
+
+              {request.is_vip && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">
+                  <Crown size={12} /> VIP
+                </span>
+              )}
+            </div>
 
             <h2 className="mt-3 text-h2">{request.song_title}</h2>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
+import { VIP_SLOT_LIMIT } from "@/src/lib/pricing";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,7 @@ type CreateRequestBody = {
   artist?: string;
   requestType?: "song_request" | "song_message";
   message?: string;
+  isVip?: boolean;
 };
 
 /*
@@ -56,6 +58,7 @@ export async function POST(request: NextRequest) {
     const requestType =
       body.requestType === "song_message" ? "song_message" : "song_request";
     const message = body.message?.trim().slice(0, 500) || null;
+    const isVip = body.isVip === true;
 
     if (!djSlug || !songTitle || !artist) {
       return NextResponse.json(
@@ -91,6 +94,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (isVip) {
+      const { count: vipCount, error: vipCountError } = await supabaseAdmin
+        .from("song_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("dj_profile_id", djProfile.id)
+        .eq("is_vip", true)
+        .in("request_status", [
+          "checkout_pending",
+          "pending",
+          "accepted",
+          "playing_next",
+        ]);
+
+      if (vipCountError) {
+        console.error("VIP count error:", vipCountError);
+
+        return NextResponse.json(
+          { error: "Unable to create your request." },
+          { status: 500 }
+        );
+      }
+
+      if ((vipCount ?? 0) >= VIP_SLOT_LIMIT) {
+        return NextResponse.json(
+          { error: "VIP booths are full right now." },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data: existingRequests, error: countError } = await supabaseAdmin
       .from("song_requests")
       .select("id")
@@ -118,6 +151,7 @@ export async function POST(request: NextRequest) {
         queue_position: nextQueuePosition,
         request_type: requestType,
         message: requestType === "song_message" ? message : null,
+        is_vip: isVip,
       })
       .select("id")
       .single();

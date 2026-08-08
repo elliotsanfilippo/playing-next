@@ -8,6 +8,8 @@ export type SongRequest = {
   stripe_payment_intent_id: string | null;
   queue_position: number | null;
   created_at: string;
+  dj_earnings: number | null;
+  is_vip: boolean;
 };
 
 export type DJProfile = {

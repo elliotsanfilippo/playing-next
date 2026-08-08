@@ -1,5 +1,6 @@
-import { Music2, Mic } from "lucide-react";
+import { Music2, Mic, Crown } from "lucide-react";
 import { Textarea } from "@/src/components/ui/Input";
+import { VIP_PRICE } from "@/src/lib/pricing";
 
 type Props = {
   requestType: "song_request" | "song_message";
@@ -11,6 +12,9 @@ type Props = {
   message: string;
   setMessage: (value: string) => void;
   isTakingRequests: boolean;
+  isVip: boolean;
+  setIsVip: (value: boolean) => void;
+  vipAvailable: boolean;
 };
 
 export default function RequestOptions({
@@ -21,6 +25,9 @@ export default function RequestOptions({
   message,
   setMessage,
   isTakingRequests,
+  isVip,
+  setIsVip,
+  vipAvailable,
 }: Props) {
   return (
     <div className="mt-8">
@@ -95,6 +102,43 @@ export default function RequestOptions({
               {requestType === "song_message" && (
                 <p className="mt-2 text-sm font-semibold text-accent">
                   Selected
+                </p>
+              )}
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          disabled={!isTakingRequests || (!isVip && !vipAvailable)}
+          onClick={() => setIsVip(!isVip)}
+          className={`w-full rounded-card border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+            isVip
+              ? "border-amber-400/40 bg-amber-400/10"
+              : "border-white/10 bg-white/[0.03] hover:border-amber-400/20"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h4 className="flex items-center gap-2 text-lg font-bold">
+                <Crown size={18} className="text-amber-400" /> VIP Priority
+              </h4>
+
+              <p className="mt-2 text-sm text-zinc-400">
+                {vipAvailable
+                  ? "Jump the queue instantly once the DJ accepts. Only 3 VIP booths at a time."
+                  : "VIP booths are full right now."}
+              </p>
+            </div>
+
+            <div className="text-right">
+              <p className="text-2xl font-bold">
+                +£{(VIP_PRICE / 100).toFixed(2)}
+              </p>
+
+              {isVip && (
+                <p className="mt-2 text-sm font-semibold text-amber-400">
+                  Added
                 </p>
               )}
             </div>

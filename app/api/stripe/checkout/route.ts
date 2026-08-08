@@ -5,6 +5,7 @@ import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 
 import {
   SERVICE_FEE,
+  VIP_PRICE,
   FREE_PLATFORM_FEE_BPS,
   PRO_PLATFORM_FEE_BPS,
   PRICING_VERSION,
@@ -74,7 +75,8 @@ export async function POST(request: NextRequest) {
           artist,
           request_type,
           request_status,
-          dj_profile_id
+          dj_profile_id,
+          is_vip
         `
       )
       .eq("id", requestId)
@@ -166,16 +168,19 @@ export async function POST(request: NextRequest) {
         ? djProfile.shoutout_price
         : djProfile.request_price;
 
-    const requestAmount =
+    const baseAmount =
       typeof rawRequestAmount === "number"
         ? rawRequestAmount
         : requestType === "song_message"
           ? 800
           : 500;
 
+    const isVip = songRequest.is_vip === true;
+    const requestAmount = baseAmount + (isVip ? VIP_PRICE : 0);
+
     if (
-      !Number.isInteger(requestAmount) ||
-      requestAmount <= 0
+      !Number.isInteger(baseAmount) ||
+      baseAmount <= 0
     ) {
       console.error(
         "Invalid DJ request price:",
@@ -265,6 +270,7 @@ export async function POST(request: NextRequest) {
       artist: songRequest.artist,
       djSlug: safeDjSlug,
       requestType,
+      isVip: isVip.toString(),
 
       requestAmount: requestAmount.toString(),
       guestServiceFee: SERVICE_FEE.toString(),
@@ -311,10 +317,26 @@ export async function POST(request: NextRequest) {
                     : `Song Request: ${songRequest.song_title}`,
                 description: songRequest.artist,
               },
-              unit_amount: requestAmount,
+              unit_amount: baseAmount,
             },
             quantity: 1,
           },
+          ...(isVip
+            ? [
+                {
+                  price_data: {
+                    currency: "gbp" as const,
+                    product_data: {
+                      name: "VIP Priority",
+                      description:
+                        "Jumps to the front of the queue once accepted.",
+                    },
+                    unit_amount: VIP_PRICE,
+                  },
+                  quantity: 1,
+                },
+              ]
+            : []),
           {
             price_data: {
               currency: "gbp",

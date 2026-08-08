@@ -1,5 +1,6 @@
 import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
+import { VIP_PRICE } from "@/src/lib/pricing";
 
 type Props = {
   selectedSong: boolean;
@@ -7,6 +8,7 @@ type Props = {
   requestType: "song_request" | "song_message";
   requestPrice: number;
   shoutoutPrice: number;
+  isVip: boolean;
   onCheckout: () => void;
 };
 
@@ -18,12 +20,13 @@ export default function CheckoutButton({
   requestType,
   requestPrice,
   shoutoutPrice,
+  isVip,
   onCheckout,
 }: Props) {
   const requestAmount =
     requestType === "song_message" ? shoutoutPrice : requestPrice;
 
-  const totalAmount = requestAmount + SERVICE_FEE;
+  const totalAmount = requestAmount + (isVip ? VIP_PRICE : 0) + SERVICE_FEE;
 
   const requestLabel =
     requestType === "song_message" ? "Song + Message" : "Song Request";
@@ -41,6 +44,16 @@ export default function CheckoutButton({
               £{(requestAmount / 100).toFixed(2)}
             </span>
           </div>
+
+          {isVip && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-zinc-400">VIP Priority</span>
+
+              <span className="font-semibold text-amber-400">
+                £{(VIP_PRICE / 100).toFixed(2)}
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-4">
             <div>
