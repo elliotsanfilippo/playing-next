@@ -4,11 +4,17 @@ import type {
   SongRequest,
   DJProfile,
 } from "@/src/types/dashboard";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
+import {
+  getNotificationPreferences,
+  playNotificationSound,
+  showBrowserNotification,
+  triggerVibration,
+} from "../../../src/lib/notifications";
 import DashboardHeader from "./components/DashboardHeader";
 import StatsCards from "./components/StatsCards";
 import PlayingNextCard from "./components/PlayingNextCard";
@@ -30,6 +36,14 @@ export default function DJDashboardPage() {
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+
+  /*
+   * Tracks which pending request IDs we've already notified for. null
+   * means "haven't done the first fetch yet" — requests already
+   * pending when the dashboard loads shouldn't trigger a notification,
+   * only ones that show up afterwards.
+   */
+  const knownPendingIds = useRef<Set<string> | null>(null);
 
   const fetchDJProfile = async () => {
     const {
@@ -103,7 +117,63 @@ export default function DJDashboardPage() {
       return;
     }
 
-    setRequests(data || []);
+    const freshRequests = data || [];
+    const currentPendingIds = new Set(
+      freshRequests
+        .filter((request) => request.request_status === "pending")
+        .map((request) => request.id)
+    );
+
+    if (knownPendingIds.current === null) {
+      knownPendingIds.current = currentPendingIds;
+    } else {
+      const newlyPending = freshRequests.filter(
+        (request) =>
+          request.request_status === "pending" &&
+          !knownPendingIds.current!.has(request.id)
+      );
+
+      if (newlyPending.length > 0) {
+        notifyNewRequests(newlyPending);
+      }
+
+      knownPendingIds.current = currentPendingIds;
+    }
+
+    setRequests(freshRequests);
+  };
+
+  const notifyNewRequests = (newRequests: SongRequest[]) => {
+    const prefs = getNotificationPreferences();
+
+    newRequests.forEach((request) => {
+      const isMessage = request.request_type === "song_message";
+
+      toast(isMessage ? "New Song + Message request" : "New song request", {
+        description: `${request.song_title} — ${request.artist}`,
+      });
+    });
+
+    if (prefs.sound) {
+      playNotificationSound();
+      triggerVibration();
+    }
+
+    if (prefs.browser && document.visibilityState !== "visible") {
+      const title =
+        newRequests.length === 1
+          ? newRequests[0].request_type === "song_message"
+            ? "New Song + Message request"
+            : "New song request"
+          : `${newRequests.length} new requests`;
+
+      const body =
+        newRequests.length === 1
+          ? `${newRequests[0].song_title} — ${newRequests[0].artist}`
+          : newRequests.map((request) => request.song_title).join(", ");
+
+      showBrowserNotification(title, body);
+    }
   };
 
   const toggleRequests = async () => {

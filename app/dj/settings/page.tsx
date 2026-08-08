@@ -8,6 +8,13 @@ import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { Input, Textarea } from "@/src/components/ui/Input";
 import Eyebrow from "@/src/components/ui/Eyebrow";
+import {
+  getNotificationPreferences,
+  isBrowserNotificationSupported,
+  requestNotificationPermission,
+  setNotificationPreferences,
+  type NotificationPreferences,
+} from "@/src/lib/notifications";
 
 type DJProfile = {
   profile_image_url: string | null;
@@ -44,6 +51,8 @@ function DJSettingsPageContent() {
   const [saving, setSaving] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [notificationPrefs, setNotificationPrefsState] =
+    useState<NotificationPreferences>({ sound: true, browser: false });
 
   const fetchProfile = async () => {
     setLoadingProfile(true);
@@ -265,11 +274,45 @@ function DJSettingsPageContent() {
 
   useEffect(() => {
     fetchProfile();
+    setNotificationPrefsState(getNotificationPreferences());
 
     if (searchParams.get("pro") === "success") {
       toast.success("Welcome to Pro! This can take a few seconds to appear below.");
     }
   }, []);
+
+  const toggleSound = () => {
+    const next = { ...notificationPrefs, sound: !notificationPrefs.sound };
+    setNotificationPrefsState(next);
+    setNotificationPreferences(next);
+  };
+
+  const toggleBrowserNotifications = async () => {
+    if (notificationPrefs.browser) {
+      const next = { ...notificationPrefs, browser: false };
+      setNotificationPrefsState(next);
+      setNotificationPreferences(next);
+      return;
+    }
+
+    if (!isBrowserNotificationSupported()) {
+      toast.error("Your browser doesn't support notifications.");
+      return;
+    }
+
+    const granted = await requestNotificationPermission();
+
+    if (!granted) {
+      toast.error(
+        "Notifications are blocked. Enable them in your browser's site settings."
+      );
+      return;
+    }
+
+    const next = { ...notificationPrefs, browser: true };
+    setNotificationPrefsState(next);
+    setNotificationPreferences(next);
+  };
 
   if (loadingProfile) {
     return (
@@ -483,6 +526,61 @@ function DJSettingsPageContent() {
                 </div>
               );
             })()}
+
+            <div className="rounded-card border border-white/10 bg-black/20 p-5 sm:p-6">
+              <p className="text-sm text-zinc-400">Notifications</p>
+              <h3 className="mt-1 text-lg font-semibold">
+                New request alerts
+              </h3>
+              <p className="mt-2 text-sm text-zinc-500">
+                These are per-device — set them up on whatever you're
+                running the dashboard on tonight.
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <div className="flex items-center justify-between rounded-control border border-white/10 bg-zinc-900 p-4">
+                  <div>
+                    <p className="font-semibold">Sound</p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Plays a short chime when a new request comes in.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleSound}
+                    className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+                      notificationPrefs.sound
+                        ? "bg-accent-strong text-black"
+                        : "border border-white/10 bg-white/5 text-zinc-400"
+                    }`}
+                  >
+                    {notificationPrefs.sound ? "On" : "Off"}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between rounded-control border border-white/10 bg-zinc-900 p-4">
+                  <div>
+                    <p className="font-semibold">Browser notifications</p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Alerts you even if this tab isn&apos;t focused.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleBrowserNotifications}
+                    className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+                      notificationPrefs.browser
+                        ? "bg-accent-strong text-black"
+                        : "border border-white/10 bg-white/5 text-zinc-400"
+                    }`}
+                  >
+                    {notificationPrefs.browser ? "On" : "Off"}
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <Button
               type="button"

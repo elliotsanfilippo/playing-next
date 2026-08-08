@@ -381,15 +381,39 @@ checking the raw DB directly — then proved the summing logic itself
 works by inserting one disposable `played` row with known figures and
 confirming the totals updated to exactly match before cleaning it up.
 
-## 7. 🔔 Notifications
+## 7. 🔔 Notifications — done
 
 A working DJ shouldn't have to stare at Playing Next.
 
-- [ ] New request notification
-- [ ] New Song + Message notification
-- [ ] Browser/mobile notification approach
-- [ ] Sound/vibration where appropriate
-- [ ] Notification preferences
+- [x] New request notification — hooks into the dashboard's existing
+      Supabase Realtime subscription (it was already there for live
+      dashboard updates, just not used for alerting); a toast fires for
+      any newly-appeared *pending* request. Requests already pending
+      when the dashboard loads don't trigger anything — only ones that
+      show up afterwards.
+- [x] New Song + Message notification — same mechanism, distinct copy
+      ("New Song + Message request" vs "New song request")
+- [x] Browser/mobile notification approach — real OS-level
+      `Notification` API, gated on the tab not being focused
+      (`document.visibilityState`) so you don't get a redundant popup
+      on top of a toast you're already looking at
+- [x] Sound/vibration where appropriate — a short two-tone chime
+      synthesised with the Web Audio API (no audio asset needed) plus
+      `navigator.vibrate` on supporting devices
+- [x] Notification preferences — two toggles on DJ Settings (Sound,
+      Browser notifications), stored in `localStorage` rather than the
+      database since they're a property of the device you're running
+      the dashboard on, not the account. Enabling browser notifications
+      requests permission on the spot; if it's blocked at the browser
+      level, shows a clear error instead of silently doing nothing.
+
+Verified live: opened the dashboard as a real logged-in DJ, inserted a
+real pending request directly into the database from outside the app,
+and confirmed the realtime subscription picked it up and fired the
+toast within about a second — screenshotted mid-toast. Also confirmed
+the browser-notification toggle correctly detects a blocked permission
+and shows an explanatory error rather than failing silently. Test rows
+cleaned up afterward.
 
 ## 8. 🧹 Smaller gaps
 
