@@ -8,7 +8,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { toast } from "sonner";
-import { SlidersHorizontal, Check } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import {
   getNotificationPreferences,
@@ -16,12 +15,6 @@ import {
   showBrowserNotification,
   triggerVibration,
 } from "../../../src/lib/notifications";
-import {
-  getDashboardLayoutPrefs,
-  setDashboardLayoutPrefs,
-  type DashboardWidgetKey,
-  type WidgetSize,
-} from "../../../src/lib/dashboardLayout";
 import DashboardHeader from "./components/DashboardHeader";
 import StatsCards from "./components/StatsCards";
 import PlayingNextCard from "./components/PlayingNextCard";
@@ -43,22 +36,6 @@ export default function DJDashboardPage() {
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
-  const [widgetSizes, setWidgetSizes] = useState<
-    ReturnType<typeof getDashboardLayoutPrefs>
-  >({
-    stats: "normal",
-    pendingRequests: "normal",
-    queue: "normal",
-    qr: "normal",
-    history: "normal",
-  });
-  const [customizing, setCustomizing] = useState(false);
-
-  const updateWidgetSize = (key: DashboardWidgetKey, size: WidgetSize) => {
-    const next = { ...widgetSizes, [key]: size };
-    setWidgetSizes(next);
-    setDashboardLayoutPrefs(next);
-  };
 
   /*
    * Tracks which pending request IDs we've already notified for. null
@@ -469,7 +446,6 @@ export default function DJDashboardPage() {
     };
 
     checkAuth();
-    setWidgetSizes(getDashboardLayoutPrefs());
 
     const channel = supabase
       .channel("dashboard_changes")
@@ -618,36 +594,11 @@ export default function DJDashboardPage() {
           router={router}
         />
 
-        <div className="mb-4 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setCustomizing(!customizing)}
-            className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${
-              customizing
-                ? "bg-accent-strong text-black"
-                : "border border-white/10 bg-white/5 text-zinc-400 hover:text-white"
-            }`}
-          >
-            {customizing ? (
-              <>
-                <Check size={14} /> Done
-              </>
-            ) : (
-              <>
-                <SlidersHorizontal size={14} /> Customize Dashboard
-              </>
-            )}
-          </button>
-        </div>
-
         <StatsCards
           pendingCount={pendingRequests.length}
           queueCount={acceptedRequests.length}
           playedCount={playedRequests.length}
           tonightRevenue={tonightRevenue}
-          size={widgetSizes.stats}
-          onSizeChange={(size) => updateWidgetSize("stats", size)}
-          editable={customizing}
         />
 
         <PlayingNextCard
@@ -660,9 +611,6 @@ export default function DJDashboardPage() {
             pendingRequests={pendingRequests}
             acceptRequest={acceptRequest}
             declineRequest={declineRequest}
-            size={widgetSizes.pendingRequests}
-            onSizeChange={(size) => updateWidgetSize("pendingRequests", size)}
-            editable={customizing}
           />
 
           <AcceptedQueue
@@ -670,9 +618,6 @@ export default function DJDashboardPage() {
             currentPlayingNext={currentPlayingNext}
             moveAcceptedRequest={moveAcceptedRequest}
             updateRequestStatus={updateRequestStatus}
-            size={widgetSizes.queue}
-            onSizeChange={(size) => updateWidgetSize("queue", size)}
-            editable={customizing}
           />
         </div>
 
@@ -686,9 +631,6 @@ export default function DJDashboardPage() {
           qrCodeUrl={qrCodeUrl}
           requestLink={requestLink}
           displayRequestLink={displayRequestLink}
-          size={widgetSizes.qr}
-          onSizeChange={(size) => updateWidgetSize("qr", size)}
-          editable={customizing}
         />
 
         <HistoryCard
@@ -696,9 +638,6 @@ export default function DJDashboardPage() {
           setShowHistory={setShowHistory}
           playedRequests={playedRequests}
           clearPlayedHistory={clearPlayedHistory}
-          size={widgetSizes.history}
-          onSizeChange={(size) => updateWidgetSize("history", size)}
-          editable={customizing}
         />
       </div>
     </main>

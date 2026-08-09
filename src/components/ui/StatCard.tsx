@@ -1,26 +1,7 @@
 import { ReactNode } from "react";
 import { cn } from "@/src/lib/cn";
-import type { WidgetSize } from "@/src/lib/dashboardLayout";
 
 type Tone = "accent" | "danger" | "warning" | "info" | "neutral";
-
-const paddingBySize: Record<WidgetSize, string> = {
-  compact: "p-4",
-  normal: "p-6",
-  large: "p-7",
-};
-
-const valueTextBySize: Record<WidgetSize, string> = {
-  compact: "text-2xl",
-  normal: "text-4xl",
-  large: "text-5xl",
-};
-
-const iconSizeBySize: Record<WidgetSize, string> = {
-  compact: "h-9 w-9",
-  normal: "h-12 w-12",
-  large: "h-14 w-14",
-};
 
 const iconBg: Record<Tone, string> = {
   accent: "bg-accent/10",
@@ -44,45 +25,26 @@ type Props = {
   subtitle?: string;
   icon?: ReactNode;
   tone?: Tone;
-  size?: WidgetSize;
 };
 
 export default function StatCard({
   label,
   value,
-  subtitle,
   icon,
   tone = "neutral",
-  size = "normal",
 }: Props) {
   return (
-    <div
-      className={cn(
-        "group rounded-card border border-white/5 bg-zinc-900/70 transition duration-300 hover:-translate-y-1 hover:border-white/10 hover:bg-zinc-900",
-        paddingBySize[size]
-      )}
-    >
+    <div className="group rounded-card border border-white/5 bg-zinc-900/70 p-4 transition duration-300 hover:-translate-y-1 hover:border-white/10 hover:bg-zinc-900">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-zinc-500">{label}</p>
-          <h2
-            className={cn(
-              "mt-3 font-bold tracking-tight",
-              valueTextBySize[size]
-            )}
-          >
-            {value}
-          </h2>
-          {subtitle && size !== "compact" && (
-            <p className="mt-2 text-xs text-zinc-500">{subtitle}</p>
-          )}
+          <h2 className="mt-3 text-2xl font-bold tracking-tight">{value}</h2>
         </div>
 
         {icon && (
           <div
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-2xl",
-              iconSizeBySize[size],
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl",
               iconBg[tone]
             )}
           >

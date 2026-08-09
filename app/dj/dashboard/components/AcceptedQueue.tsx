@@ -1,11 +1,8 @@
 import { useState } from "react";
 import { Headphones, ChevronsUp, ChevronUp, ChevronDown, Play, Mic2, Crown } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
-import type { WidgetSize } from "@/src/lib/dashboardLayout";
-import { cn } from "@/src/lib/cn";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
-import SizeToggle from "@/src/components/ui/SizeToggle";
 
 type Props = {
   acceptedRequests: SongRequest[];
@@ -18,27 +15,6 @@ type Props = {
     requestId: string,
     status: string
   ) => Promise<void>;
-  size: WidgetSize;
-  onSizeChange: (size: WidgetSize) => void;
-  editable: boolean;
-};
-
-const listBySize: Record<WidgetSize, string> = {
-  compact: "space-y-2 p-4 max-h-80 overflow-y-auto",
-  normal: "space-y-4 p-6",
-  large: "space-y-5 p-6",
-};
-
-const itemBySize: Record<WidgetSize, string> = {
-  compact: "p-3",
-  normal: "p-5",
-  large: "p-6",
-};
-
-const titleBySize: Record<WidgetSize, string> = {
-  compact: "text-lg",
-  normal: "text-xl",
-  large: "text-2xl",
 };
 
 export default function AcceptedQueue({
@@ -46,9 +22,6 @@ export default function AcceptedQueue({
   currentPlayingNext,
   moveAcceptedRequest,
   updateRequestStatus,
-  size,
-  onSizeChange,
-  editable,
 }: Props) {
   const [processing, setProcessing] = useState<{
     id: string;
@@ -94,19 +67,15 @@ export default function AcceptedQueue({
             <h2 className="mt-2 text-3xl font-bold">Queue</h2>
           </div>
 
-          <div className="flex items-center gap-3">
-            {editable && <SizeToggle value={size} onChange={onSizeChange} />}
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/15">
-              <span className="text-xl font-bold text-sky-400">
-                {acceptedRequests.length}
-              </span>
-            </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/15">
+            <span className="text-xl font-bold text-sky-400">
+              {acceptedRequests.length}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className={listBySize[size]}>
+      <div className="max-h-80 space-y-2 overflow-y-auto p-4">
         {acceptedRequests.length === 0 ? (
           <div className="rounded-card border border-dashed border-white/10 p-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-zinc-400">
@@ -124,10 +93,7 @@ export default function AcceptedQueue({
             {acceptedRequests.map((request, index) => (
               <div
                 key={request.id}
-                className={cn(
-                  "group rounded-control border border-transparent bg-zinc-950/50 transition hover:border-white/10 hover:bg-zinc-950",
-                  itemBySize[size]
-                )}
+                className="group rounded-control border border-transparent bg-zinc-950/50 p-3 transition hover:border-white/10 hover:bg-zinc-950"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                   <div className="flex flex-1 items-center gap-4">
@@ -142,12 +108,7 @@ export default function AcceptedQueue({
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <h3
-                        className={cn(
-                          "flex items-center gap-2 truncate font-semibold",
-                          titleBySize[size]
-                        )}
-                      >
+                      <h3 className="flex items-center gap-2 truncate text-lg font-semibold">
                         {request.is_vip && (
                           <Crown
                             size={16}

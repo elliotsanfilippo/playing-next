@@ -1,33 +1,15 @@
 import { useState } from "react";
 import { Music2, Check } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
-import type { WidgetSize } from "@/src/lib/dashboardLayout";
-import { cn } from "@/src/lib/cn";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
-import SizeToggle from "@/src/components/ui/SizeToggle";
 
 type Props = {
   showHistory: boolean;
   setShowHistory: (value: boolean) => void;
   playedRequests: SongRequest[];
   clearPlayedHistory: () => Promise<void>;
-  size: WidgetSize;
-  onSizeChange: (size: WidgetSize) => void;
-  editable: boolean;
-};
-
-const listBySize: Record<WidgetSize, string> = {
-  compact: "space-y-2 p-4 max-h-80 overflow-y-auto",
-  normal: "space-y-3 p-6",
-  large: "space-y-4 p-6",
-};
-
-const itemBySize: Record<WidgetSize, string> = {
-  compact: "p-3",
-  normal: "p-5",
-  large: "p-6",
 };
 
 export default function HistoryCard({
@@ -35,9 +17,6 @@ export default function HistoryCard({
   setShowHistory,
   playedRequests,
   clearPlayedHistory,
-  size,
-  onSizeChange,
-  editable,
 }: Props) {
   const [clearing, setClearing] = useState(false);
 
@@ -70,8 +49,6 @@ export default function HistoryCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {editable && <SizeToggle value={size} onChange={onSizeChange} />}
-
             <Button
               variant="secondary"
               onClick={() => setShowHistory(!showHistory)}
@@ -89,7 +66,7 @@ export default function HistoryCard({
       </div>
 
       {showHistory && (
-        <div className={listBySize[size]}>
+        <div className="max-h-80 space-y-2 overflow-y-auto p-4">
           {playedRequests.length === 0 ? (
             <div className="rounded-card border border-dashed border-white/10 p-10 text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-zinc-400">
@@ -103,14 +80,11 @@ export default function HistoryCard({
               </p>
             </div>
           ) : (
-            <div className={cn(size === "compact" ? "space-y-2" : "space-y-3")}>
+            <div className="space-y-2">
               {playedRequests.map((request) => (
                 <div
                   key={request.id}
-                  className={cn(
-                    "flex flex-col gap-4 rounded-control border border-white/5 bg-zinc-950/50 transition hover:border-white/10 hover:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between",
-                    itemBySize[size]
-                  )}
+                  className="flex flex-col gap-4 rounded-control border border-white/5 bg-zinc-950/50 p-3 transition hover:border-white/10 hover:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-strong text-black">

@@ -122,11 +122,6 @@ export default function DashboardHeader({
       onClick: () => router.push("/dj/settings"),
     },
     {
-      label: isTakingRequests ? "Pause Requests" : "Resume Requests",
-      icon: isTakingRequests ? Pause : Play,
-      onClick: handleToggle,
-    },
-    {
       label: "Log Out",
       icon: LogOut,
       onClick: handleLogout,
@@ -154,7 +149,7 @@ export default function DashboardHeader({
       onClick={handleToggle}
       disabled={pending === "toggle"}
       className={cn(
-        "mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
         isTakingRequests
           ? "border border-accent/20 bg-accent/15 text-accent hover:bg-accent/20"
           : "border border-red-500/20 bg-red-500/15 text-red-400 hover:bg-red-500/20"
@@ -173,6 +168,31 @@ export default function DashboardHeader({
           ? "Taking Requests"
           : "Requests Paused"}
     </button>
+  );
+
+  const pauseResumeButton = (
+    <Button
+      size="sm"
+      variant={isTakingRequests ? "accent" : "danger"}
+      className={
+        isTakingRequests
+          ? ""
+          : "border-transparent bg-red-500 text-white hover:bg-red-400"
+      }
+      onClick={handleToggle}
+      disabled={pending === "toggle"}
+    >
+      {isTakingRequests ? (
+        <Pause size={14} className="mr-1.5" />
+      ) : (
+        <Play size={14} className="mr-1.5" />
+      )}
+      {pending === "toggle"
+        ? "Updating..."
+        : isTakingRequests
+          ? "Pause Requests"
+          : "Resume Requests"}
+    </Button>
   );
 
   return (
@@ -195,7 +215,10 @@ export default function DashboardHeader({
               </p>
             )}
 
-            {statusBadge}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {statusBadge}
+              {pauseResumeButton}
+            </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
@@ -264,7 +287,7 @@ export default function DashboardHeader({
               </p>
             )}
 
-            {statusBadge}
+            <div className="mt-4">{statusBadge}</div>
           </div>
         </div>
 
