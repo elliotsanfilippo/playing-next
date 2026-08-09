@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   PoundSterling,
   Percent,
   Wallet,
   Download,
+  Banknote,
 } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
+import { Input } from "@/src/components/ui/Input";
 import StatCard from "@/src/components/ui/StatCard";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import Badge from "@/src/components/ui/Badge";
@@ -55,6 +58,8 @@ export default function EarningsPage() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<SongRequestFinancials[]>([]);
   const [payoutInfo, setPayoutInfo] = useState<PayoutsResponse | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const fetchEarnings = async () => {
     setLoading(true);
@@ -122,6 +127,55 @@ export default function EarningsPage() {
     }
 
     setLoading(false);
+  };
+
+  const handleWithdraw = async () => {
+    if (withdrawing) return;
+
+    const amountInPence = Math.round(Number(withdrawAmount) * 100);
+
+    if (!Number.isFinite(amountInPence) || amountInPence <= 0) {
+      toast.error("Enter a valid amount to withdraw.");
+      return;
+    }
+
+    setWithdrawing(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("/api/stripe/connect/withdraw", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ amount: amountInPence }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to withdraw right now.");
+      }
+
+      toast.success(`Withdrawal of ${formatPence(amountInPence)} started.`);
+      setWithdrawAmount("");
+      await fetchEarnings();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to withdraw right now."
+      );
+    } finally {
+      setWithdrawing(false);
+    }
   };
 
   useEffect(() => {
@@ -263,6 +317,55 @@ export default function EarningsPage() {
             tone="accent"
           />
         </div>
+
+        {payoutInfo?.connected && payoutInfo.balance && (
+          <Card variant="flat" className="mt-8 p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                <Banknote size={20} />
+              </div>
+
+              <div>
+                <h2 className="text-h3">Withdraw</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  {formatPence(payoutInfo.balance.available)} available to
+                  withdraw now.
+                  {payoutInfo.balance.pending > 0 &&
+                    ` ${formatPence(
+                      payoutInfo.balance.pending
+                    )} more still clearing.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label className="text-sm text-zinc-400">Amount (£)</label>
+                <Input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={withdrawAmount}
+                  onChange={(event) => setWithdrawAmount(event.target.value)}
+                  disabled={withdrawing || payoutInfo.balance.available === 0}
+                  className="mt-2"
+                />
+              </div>
+
+              <Button
+                onClick={handleWithdraw}
+                disabled={
+                  withdrawing ||
+                  payoutInfo.balance.available === 0 ||
+                  !withdrawAmount
+                }
+              >
+                {withdrawing ? "Withdrawing..." : "Withdraw"}
+              </Button>
+            </div>
+          </Card>
+        )}
 
         <Card variant="flat" className="mt-8 p-5 sm:p-6">
           <h2 className="text-h3">Free vs Pro Fee Breakdown</h2>

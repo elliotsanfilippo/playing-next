@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -47,14 +48,44 @@ async function authenticate(request: NextRequest) {
   return user;
 }
 
-export async function GET(request: NextRequest) {
+type WithdrawBody = {
+  amount?: number;
+};
+
+export async function POST(request: NextRequest) {
   try {
+    const { allowed, retryAfterSeconds } = rateLimit(
+      `stripe-withdraw:${getClientIp(request)}`,
+      5,
+      60_000
+    );
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        {
+          status: 429,
+          headers: { "Retry-After": retryAfterSeconds.toString() },
+        }
+      );
+    }
+
     const user = await authenticate(request);
 
     if (!user) {
       return NextResponse.json(
         { error: "Your session is invalid or has expired." },
         { status: 401 }
+      );
+    }
+
+    const body = (await request.json()) as WithdrawBody;
+    const amount = body.amount;
+
+    if (!Number.isInteger(amount) || !amount || amount <= 0) {
+      return NextResponse.json(
+        { error: "Enter a valid amount to withdraw." },
+        { status: 400 }
       );
     }
 
@@ -74,68 +105,53 @@ export async function GET(request: NextRequest) {
     }
 
     if (!djProfile?.stripe_account_id || !djProfile.stripe_connected) {
-      return NextResponse.json({
-        connected: false,
-        balance: null,
-        payouts: [],
-      });
+      return NextResponse.json(
+        { error: "Connect Stripe before withdrawing." },
+        { status: 409 }
+      );
     }
 
     const stripeAccount = djProfile.stripe_account_id;
 
     /*
-     * Migrates DJs whose Connect account was created before manual
-     * payouts became the default. Best-effort: a failure here shouldn't
-     * block loading the DJ's own balance and payout history.
+     * Re-check the live balance server-side rather than trusting the
+     * client-supplied amount against a figure it fetched separately —
+     * the balance can move between the DJ loading the page and clicking
+     * Withdraw.
      */
-    try {
-      const account = await stripe.accounts.retrieve(stripeAccount);
+    const balance = await stripe.balance.retrieve({}, { stripeAccount });
+    const available =
+      balance.available.find((b) => b.currency === "gbp")?.amount ?? 0;
 
-      if (account.settings?.payouts?.schedule?.interval !== "manual") {
-        await stripe.accounts.update(stripeAccount, {
-          settings: {
-            payouts: {
-              schedule: {
-                interval: "manual",
-              },
-            },
-          },
-        });
-      }
-    } catch (scheduleError) {
-      console.error("Payout schedule migration error:", scheduleError);
+    if (amount > available) {
+      return NextResponse.json(
+        {
+          error: `You only have £${(available / 100).toFixed(
+            2
+          )} available to withdraw.`,
+        },
+        { status: 409 }
+      );
     }
 
-    const [balance, payouts] = await Promise.all([
-      stripe.balance.retrieve({}, { stripeAccount }),
-      stripe.payouts.list({ limit: 10 }, { stripeAccount }),
-    ]);
-
-    const gbpAvailable = balance.available.find((b) => b.currency === "gbp");
-    const gbpPending = balance.pending.find((b) => b.currency === "gbp");
+    const payout = await stripe.payouts.create(
+      {
+        amount,
+        currency: "gbp",
+      },
+      { stripeAccount }
+    );
 
     return NextResponse.json({
-      connected: true,
-      balance: {
-        available: gbpAvailable?.amount ?? 0,
-        pending: gbpPending?.amount ?? 0,
-      },
-      payouts: payouts.data.map((payout) => ({
-        id: payout.id,
-        amount: payout.amount,
-        currency: payout.currency,
-        status: payout.status,
-        arrivalDate: payout.arrival_date,
-        created: payout.created,
-      })),
+      id: payout.id,
+      amount: payout.amount,
+      status: payout.status,
     });
   } catch (error) {
-    console.error("Stripe payouts fetch error:", error);
+    console.error("Stripe withdraw error:", error);
 
     const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to load payout information.";
+      error instanceof Error ? error.message : "Unable to withdraw right now.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -116,6 +116,19 @@ export async function POST(request: NextRequest) {
           },
         },
 
+        /*
+         * Manual payout schedule — DJs withdraw on their own terms via the
+         * earnings page rather than having Stripe sweep their balance out
+         * automatically on its own timing.
+         */
+        settings: {
+          payouts: {
+            schedule: {
+              interval: "manual",
+            },
+          },
+        },
+
         metadata: {
           supabase_user_id: user.id,
           dj_profile_id: djProfile.id,
