@@ -44,6 +44,7 @@ export default function RequestPage() {
   const [message, setMessage] = useState("");
   const [isVip, setIsVip] = useState(false);
   const [vipAvailable, setVipAvailable] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const previousRequestStatusesRef = useRef<Map<string, string> | null>(
     null
@@ -317,12 +318,24 @@ document.addEventListener(
   const shoutoutPrice = djProfile?.shoutout_price || 800;
 
   const submitRequest = async () => {
-    if (!selectedSong || !djProfile || !isTakingRequests) return;
+    if (!selectedSong || !djProfile || !isTakingRequests || submitting) return;
 
     if (requestType === "song_message" && message.trim().length === 0) {
       toast.error("Please add a message for your Song + Message request.");
       return;
     }
+
+    setSubmitting(true);
+
+    try {
+      await createAndCheckout();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const createAndCheckout = async () => {
+    if (!selectedSong) return;
 
     const createResponse = await fetch("/api/request/create", {
       method: "POST",
@@ -389,6 +402,14 @@ localStorage.setItem(
     });
 
     const checkoutData = await checkoutResponse.json();
+
+    if (!checkoutResponse.ok || !checkoutData.url) {
+      console.log("Checkout create error:", checkoutData.error);
+      toast.error(
+        checkoutData.error || "Something went wrong starting checkout."
+      );
+      return;
+    }
 
     window.location.href = checkoutData.url;
   };
@@ -496,6 +517,7 @@ localStorage.setItem(
         requestPrice={requestPrice}
         shoutoutPrice={shoutoutPrice}
         isVip={isVip}
+        submitting={submitting}
         onCheckout={submitRequest}
       />
     </Card>

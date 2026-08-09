@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Headphones, Check } from "lucide-react";
 import type { DJProfile } from "@/src/types/dashboard";
 import Button from "@/src/components/ui/Button";
@@ -20,6 +21,20 @@ export default function Onboarding({
   router,
   onContinue,
 }: Props) {
+  const [continuing, setContinuing] = useState(false);
+
+  const handleContinue = async () => {
+    if (continuing) return;
+
+    setContinuing(true);
+
+    try {
+      await onContinue();
+    } finally {
+      setContinuing(false);
+    }
+  };
+
   const steps = [
     {
       title: "Complete your profile",
@@ -162,10 +177,10 @@ export default function Onboarding({
             <Button
               size="lg"
               className="w-full"
-              onClick={onContinue}
-              disabled={!onboardingComplete}
+              onClick={handleContinue}
+              disabled={!onboardingComplete || continuing}
             >
-              Continue to Dashboard
+              {continuing ? "Loading..." : "Continue to Dashboard"}
             </Button>
 
             {!onboardingComplete && (

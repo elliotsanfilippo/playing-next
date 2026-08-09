@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PartyPopper } from "lucide-react";
 import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
@@ -5,7 +6,7 @@ import Eyebrow from "@/src/components/ui/Eyebrow";
 type Props = {
   qrCodeUrl: string;
   requestLink: string;
-  onContinue: () => void;
+  onContinue: () => Promise<void>;
 };
 
 export default function LaunchComplete({
@@ -13,6 +14,20 @@ export default function LaunchComplete({
   requestLink,
   onContinue,
 }: Props) {
+  const [continuing, setContinuing] = useState(false);
+
+  const handleContinue = async () => {
+    if (continuing) return;
+
+    setContinuing(true);
+
+    try {
+      await onContinue();
+    } finally {
+      setContinuing(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-canvas px-5 py-8 text-white sm:px-6 sm:py-12">
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-3xl items-center">
@@ -49,8 +64,13 @@ export default function LaunchComplete({
           </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button variant="accent" className="flex-1" onClick={onContinue}>
-              View Dashboard
+            <Button
+              variant="accent"
+              className="flex-1"
+              onClick={handleContinue}
+              disabled={continuing}
+            >
+              {continuing ? "Loading..." : "View Dashboard"}
             </Button>
 
             <a

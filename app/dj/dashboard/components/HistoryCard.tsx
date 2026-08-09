@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Music2, Check } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
 import type { WidgetSize } from "@/src/lib/dashboardLayout";
@@ -38,6 +39,20 @@ export default function HistoryCard({
   onSizeChange,
   editable,
 }: Props) {
+  const [clearing, setClearing] = useState(false);
+
+  const handleClear = async () => {
+    if (clearing) return;
+
+    setClearing(true);
+
+    try {
+      await clearPlayedHistory();
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <Card variant="elevated" className="mt-8 overflow-hidden">
       <div className="border-b border-white/5 p-6">
@@ -65,7 +80,9 @@ export default function HistoryCard({
             </Button>
 
             {playedRequests.length > 0 && (
-              <Button onClick={clearPlayedHistory}>Clear</Button>
+              <Button onClick={handleClear} disabled={clearing}>
+                {clearing ? "Clearing..." : "Clear"}
+              </Button>
             )}
           </div>
         </div>

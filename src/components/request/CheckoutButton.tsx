@@ -9,6 +9,7 @@ type Props = {
   requestPrice: number;
   shoutoutPrice: number;
   isVip: boolean;
+  submitting: boolean;
   onCheckout: () => void;
 };
 
@@ -21,6 +22,7 @@ export default function CheckoutButton({
   requestPrice,
   shoutoutPrice,
   isVip,
+  submitting,
   onCheckout,
 }: Props) {
   const requestAmount =
@@ -89,14 +91,16 @@ export default function CheckoutButton({
         <Button
           size="lg"
           className="mt-5 w-full"
-          disabled={!selectedSong || !isTakingRequests}
+          disabled={!selectedSong || !isTakingRequests || submitting}
           onClick={onCheckout}
         >
-          {!isTakingRequests
-            ? "Requests Paused"
-            : selectedSong
-              ? `Continue to Payment · £${(totalAmount / 100).toFixed(2)}`
-              : "Select a Song First"}
+          {submitting
+            ? "Redirecting to payment..."
+            : !isTakingRequests
+              ? "Requests Paused"
+              : selectedSong
+                ? `Continue to Payment · £${(totalAmount / 100).toFixed(2)}`
+                : "Select a Song First"}
         </Button>
 
         <p className="mt-4 text-center text-xs text-zinc-600">

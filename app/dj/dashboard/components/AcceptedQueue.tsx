@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Headphones, ChevronsUp, ChevronUp, ChevronDown, Play, Mic2, Crown } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
 import type { WidgetSize } from "@/src/lib/dashboardLayout";
@@ -23,21 +24,21 @@ type Props = {
 };
 
 const listBySize: Record<WidgetSize, string> = {
-  compact: "space-y-1.5 p-3 max-h-80 overflow-y-auto",
-  normal: "space-y-2 p-4",
-  large: "space-y-3 p-4",
+  compact: "space-y-2 p-4 max-h-80 overflow-y-auto",
+  normal: "space-y-4 p-6",
+  large: "space-y-5 p-6",
 };
 
 const itemBySize: Record<WidgetSize, string> = {
-  compact: "p-2.5",
-  normal: "p-4",
-  large: "p-5",
+  compact: "p-3",
+  normal: "p-5",
+  large: "p-6",
 };
 
 const titleBySize: Record<WidgetSize, string> = {
-  compact: "text-base",
-  normal: "text-lg",
-  large: "text-xl",
+  compact: "text-lg",
+  normal: "text-xl",
+  large: "text-2xl",
 };
 
 export default function AcceptedQueue({
@@ -49,6 +50,38 @@ export default function AcceptedQueue({
   onSizeChange,
   editable,
 }: Props) {
+  const [processing, setProcessing] = useState<{
+    id: string;
+    action: "top" | "up" | "down" | "play";
+  } | null>(null);
+
+  const handleMove = async (
+    requestId: string,
+    direction: "up" | "down" | "top"
+  ) => {
+    if (processing) return;
+
+    setProcessing({ id: requestId, action: direction });
+
+    try {
+      await moveAcceptedRequest(requestId, direction);
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handlePlayNext = async (requestId: string) => {
+    if (processing) return;
+
+    setProcessing({ id: requestId, action: "play" });
+
+    try {
+      await updateRequestStatus(requestId, "playing_next");
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   return (
     <Card>
       <div className="border-b border-white/5 p-6">
@@ -142,27 +175,42 @@ export default function AcceptedQueue({
                       variant="secondary"
                       size="sm"
                       className="h-9 px-3"
-                      onClick={() => moveAcceptedRequest(request.id, "top")}
+                      disabled={processing !== null}
+                      onClick={() => handleMove(request.id, "top")}
                     >
-                      <ChevronsUp size={14} /> Top
+                      <ChevronsUp size={14} />
+                      {processing?.id === request.id &&
+                      processing.action === "top"
+                        ? "Moving..."
+                        : "Top"}
                     </Button>
 
                     <Button
                       variant="secondary"
                       size="sm"
                       className="h-9 px-3"
-                      onClick={() => moveAcceptedRequest(request.id, "up")}
+                      disabled={processing !== null}
+                      onClick={() => handleMove(request.id, "up")}
                     >
-                      <ChevronUp size={14} /> Up
+                      <ChevronUp size={14} />
+                      {processing?.id === request.id &&
+                      processing.action === "up"
+                        ? "Moving..."
+                        : "Up"}
                     </Button>
 
                     <Button
                       variant="secondary"
                       size="sm"
                       className="h-9 px-3"
-                      onClick={() => moveAcceptedRequest(request.id, "down")}
+                      disabled={processing !== null}
+                      onClick={() => handleMove(request.id, "down")}
                     >
-                      <ChevronDown size={14} /> Down
+                      <ChevronDown size={14} />
+                      {processing?.id === request.id &&
+                      processing.action === "down"
+                        ? "Moving..."
+                        : "Down"}
                     </Button>
 
                     {currentPlayingNext ? (
@@ -178,11 +226,14 @@ export default function AcceptedQueue({
                       <Button
                         size="sm"
                         className="h-9 px-3"
-                        onClick={() =>
-                          updateRequestStatus(request.id, "playing_next")
-                        }
+                        disabled={processing !== null}
+                        onClick={() => handlePlayNext(request.id)}
                       >
-                        <Play size={14} /> Play Next
+                        <Play size={14} />
+                        {processing?.id === request.id &&
+                        processing.action === "play"
+                          ? "Starting..."
+                          : "Play Next"}
                       </Button>
                     )}
                   </div>

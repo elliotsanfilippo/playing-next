@@ -31,13 +31,13 @@ export default function Navbar() {
           </a>
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <Link
             href="/login"
             className={buttonVariants({
               variant: "ghost",
               size: "sm",
-              className: "hidden rounded-full sm:inline-flex",
+              className: "rounded-full px-3 sm:px-4",
             })}
           >
             Log in
@@ -45,7 +45,10 @@ export default function Navbar() {
 
           <Link
             href="/signup"
-            className={buttonVariants({ size: "sm", className: "rounded-full" })}
+            className={buttonVariants({
+              size: "sm",
+              className: "rounded-full px-4 sm:px-5",
+            })}
           >
             Start free
           </Link>

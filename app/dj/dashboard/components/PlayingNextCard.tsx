@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Check } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
 import Card from "@/src/components/ui/Card";
@@ -13,7 +14,21 @@ export default function PlayingNextCard({
   currentPlayingNext,
   updateRequestStatus,
 }: Props) {
+  const [marking, setMarking] = useState(false);
+
   if (!currentPlayingNext) return null;
+
+  const handleMarkPlayed = async () => {
+    if (marking) return;
+
+    setMarking(true);
+
+    try {
+      await updateRequestStatus(currentPlayingNext.id, "played");
+    } finally {
+      setMarking(false);
+    }
+  };
 
   return (
     <Card
@@ -50,13 +65,9 @@ export default function PlayingNextCard({
           </div>
 
           <div className="flex flex-col items-stretch gap-4 lg:w-72">
-            <Button
-              size="lg"
-              onClick={() =>
-                updateRequestStatus(currentPlayingNext.id, "played")
-              }
-            >
-              <Check size={18} strokeWidth={3} /> Mark as Played
+            <Button size="lg" onClick={handleMarkPlayed} disabled={marking}>
+              <Check size={18} strokeWidth={3} />
+              {marking ? "Marking as Played..." : "Mark as Played"}
             </Button>
 
             <div className="rounded-card border border-white/10 bg-white/5 p-5">

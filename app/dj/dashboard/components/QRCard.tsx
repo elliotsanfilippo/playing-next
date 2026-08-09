@@ -1,4 +1,5 @@
-import { Copy, Download } from "lucide-react";
+import { useState } from "react";
+import { Copy, Check, Download } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
@@ -31,6 +32,14 @@ export default function QRCard({
   onSizeChange,
   editable,
 }: Props) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(requestLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <Card variant="elevated" className="mt-8 overflow-hidden">
       <div className="p-8">
@@ -57,20 +66,29 @@ export default function QRCard({
               </p>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button
-                onClick={() => navigator.clipboard.writeText(requestLink)}
-              >
-                <Copy size={16} /> Copy Link
-              </Button>
-
+            <div className="mt-6 grid grid-cols-2 gap-3">
               <a
                 href={qrCodeUrl}
                 download="playing-next-qr-code.png"
-                className={buttonVariants({ variant: "secondary" })}
+                className={buttonVariants({
+                  variant: "secondary",
+                  className: "w-full",
+                })}
               >
                 <Download size={16} /> Download QR
               </a>
+
+              <Button className="w-full" onClick={handleCopyLink}>
+                {copied ? (
+                  <>
+                    <Check size={16} /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} /> Copy Link
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 
