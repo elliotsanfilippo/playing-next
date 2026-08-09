@@ -6,7 +6,6 @@ import {
   PoundSterling,
   Percent,
   Wallet,
-  Clock,
   Download,
 } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
@@ -237,7 +236,7 @@ export default function EarningsPage() {
           </Button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-3">
           <StatCard
             label="Gross Request Value"
             value={formatPence(grossValue)}
@@ -263,32 +262,7 @@ export default function EarningsPage() {
             icon={<Wallet size={20} />}
             tone="accent"
           />
-
-          <StatCard
-            label="Available Balance"
-            value={
-              payoutInfo?.connected && payoutInfo.balance
-                ? formatPence(payoutInfo.balance.available)
-                : "—"
-            }
-            subtitle={
-              payoutInfo?.connected && payoutInfo.balance
-                ? `${formatPence(payoutInfo.balance.pending)} pending`
-                : "Stripe not connected"
-            }
-            icon={<Clock size={20} />}
-            tone="info"
-          />
         </div>
-
-        <p className="mt-4 text-sm text-zinc-500">
-          Available Balance is your real Stripe balance, not a calculation —{" "}
-          <span className="text-zinc-300">Available</span>{" "}
-          is money that&apos;s cleared and ready to pay out to your bank,{" "}
-          <span className="text-zinc-300">Pending</span>{" "}
-          is recently captured money Stripe is still holding before release
-          (standard for every Stripe account, usually a few days).
-        </p>
 
         <Card variant="flat" className="mt-8 p-5 sm:p-6">
           <h2 className="text-h3">Free vs Pro Fee Breakdown</h2>
