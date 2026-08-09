@@ -156,6 +156,12 @@ export default function EarningsPage() {
     (request) => request.plan_at_checkout === "pro"
   );
 
+  const todayString = new Date().toDateString();
+
+  const todaysRequests = requests.filter(
+    (request) => new Date(request.created_at).toDateString() === todayString
+  );
+
   const exportCsv = () => {
     const header = [
       "Date",
@@ -275,14 +281,23 @@ export default function EarningsPage() {
           />
         </div>
 
+        <p className="mt-4 text-sm text-zinc-500">
+          Available Balance is your real Stripe balance, not a calculation —{" "}
+          <span className="text-zinc-300">Available</span>{" "}
+          is money that&apos;s cleared and ready to pay out to your bank,{" "}
+          <span className="text-zinc-300">Pending</span>{" "}
+          is recently captured money Stripe is still holding before release
+          (standard for every Stripe account, usually a few days).
+        </p>
+
         <Card variant="flat" className="mt-8 p-5 sm:p-6">
           <h2 className="text-h3">Free vs Pro Fee Breakdown</h2>
 
           <p className="mt-2 text-sm text-zinc-500">
             Which plan was active at the time each request was accepted —
-            this stays accurate even if you switch plans later, since it's
-            recorded per request rather than recalculated from your current
-            plan.
+            this stays accurate even if you switch plans later, since
+            it&apos;s recorded per request rather than recalculated from your
+            current plan.
           </p>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -352,7 +367,13 @@ export default function EarningsPage() {
 
         <Card variant="flat" className="mt-8 p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-h3">Transaction History</h2>
+            <div>
+              <h2 className="text-h3">Today&apos;s Transactions</h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                Older requests aren&apos;t shown here — export CSV for your
+                full history.
+              </p>
+            </div>
 
             <Button
               variant="secondary"
@@ -366,10 +387,10 @@ export default function EarningsPage() {
           </div>
 
           <div className="mt-6 space-y-3">
-            {requests.length === 0 ? (
-              <p className="text-zinc-400">No requests yet.</p>
+            {todaysRequests.length === 0 ? (
+              <p className="text-zinc-400">No requests yet today.</p>
             ) : (
-              requests.slice(0, 50).map((request) => (
+              todaysRequests.map((request) => (
                 <div
                   key={request.id}
                   className="flex flex-col gap-2 rounded-control bg-zinc-950/60 p-4 sm:flex-row sm:items-center sm:justify-between"

@@ -30,6 +30,7 @@ type Props = {
 export default function StatCard({
   label,
   value,
+  subtitle,
   icon,
   tone = "neutral",
 }: Props) {
@@ -39,6 +40,7 @@ export default function StatCard({
         <div>
           <p className="text-sm font-medium text-zinc-500">{label}</p>
           <h2 className="mt-3 text-2xl font-bold tracking-tight">{value}</h2>
+          {subtitle && <p className="mt-2 text-xs text-zinc-500">{subtitle}</p>}
         </div>
 
         {icon && (
