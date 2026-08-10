@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import Cropper, { type Area } from "react-easy-crop";
 import { supabase } from "../../../src/lib/supabase";
+import { getCroppedImageBlob } from "@/src/lib/cropImage";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { Input, Textarea } from "@/src/components/ui/Input";
@@ -49,6 +51,13 @@ function DJSettingsPageContent() {
 
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(
+    null
+  );
 
   const [djName, setDjName] = useState("");
   const [genres, setGenres] = useState("");
@@ -235,21 +244,59 @@ function DJSettingsPageContent() {
     }
   };
 
-  const uploadProfileImage = async (
+  const selectProfileImage = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
 
-    if (!file || !profile) return;
+    // Allows picking the same file twice in a row.
+    event.target.value = "";
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCroppedAreaPixels(null);
+      setCropSrc(reader.result as string);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const cancelCrop = () => {
+    setCropSrc(null);
+    setCroppedAreaPixels(null);
+  };
+
+  const saveCroppedImage = async () => {
+    if (!cropSrc || !croppedAreaPixels || !profile) return;
 
     setUploadingImage(true);
 
-    const fileName = `${profile.id}-${Date.now()}`;
+    let imageBlob: Blob;
+
+    try {
+      imageBlob = await getCroppedImageBlob(cropSrc, croppedAreaPixels);
+    } catch (caughtError) {
+      setUploadingImage(false);
+      toast.error(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to process the image."
+      );
+      return;
+    }
+
+    const fileName = `${profile.id}-${Date.now()}.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from("dj-profile-images")
-      .upload(fileName, file, {
+      .upload(fileName, imageBlob, {
         upsert: true,
+        contentType: "image/jpeg",
       });
 
     if (uploadError) {
@@ -278,6 +325,8 @@ function DJSettingsPageContent() {
       return;
     }
 
+    setCropSrc(null);
+    setCroppedAreaPixels(null);
     setProfileImageUrl(imageUrl);
     toast.success("Profile image uploaded");
   };
@@ -417,7 +466,7 @@ function DJSettingsPageContent() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={uploadProfileImage}
+                    onChange={selectProfileImage}
                     disabled={uploadingImage}
                     className="hidden"
                   />
@@ -694,6 +743,58 @@ function DJSettingsPageContent() {
           </div>
         </Card>
       </section>
+
+      {cropSrc && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm">
+          <div className="relative flex-1">
+            <Cropper
+              image={cropSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-4 border-t border-white/10 bg-canvas p-5 sm:p-6">
+            <div className="mx-auto flex w-full max-w-sm items-center gap-3">
+              <span className="text-xs text-zinc-500">Zoom</span>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(event) => setZoom(Number(event.target.value))}
+                className="w-full accent-accent-strong"
+              />
+            </div>
+
+            <div className="mx-auto flex w-full max-w-sm gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={cancelCrop}
+                disabled={uploadingImage}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                className="flex-1"
+                onClick={saveCroppedImage}
+                disabled={uploadingImage || !croppedAreaPixels}
+              >
+                {uploadingImage ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
