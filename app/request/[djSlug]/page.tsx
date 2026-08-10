@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
 import {
@@ -23,6 +24,7 @@ import RequestOptions from "@/src/components/request/RequestOptions";
 import CheckoutButton from "@/src/components/request/CheckoutButton";
 import EmptySearchState from "@/src/components/request/EmptySearchState";
 import Card from "@/src/components/ui/Card";
+import { buttonVariants } from "@/src/components/ui/Button";
 
 
 export default function RequestPage() {
@@ -437,6 +439,13 @@ localStorage.setItem(
             <p className="mt-4 text-zinc-400">
               This request link is invalid or no longer active.
             </p>
+
+            <Link
+              href="/"
+              className={buttonVariants({ className: "mt-6" })}
+            >
+              Go to Playing Next
+            </Link>
           </Card>
         </section>
       </main>

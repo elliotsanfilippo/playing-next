@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Music2, Radio, Crown } from "lucide-react";
+import Link from "next/link";
+import { Music2, Radio, Crown, ArrowLeft } from "lucide-react";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 
 type QueueTrack = {
@@ -63,8 +64,16 @@ export default function PublicQueuePage() {
 
   if (notFound) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-white">
         <p className="text-zinc-400">This DJ&apos;s queue isn&apos;t available.</p>
+
+        <Link
+          href="/dj/dashboard"
+          className="flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-300"
+        >
+          <ArrowLeft size={12} />
+          Back to Dashboard
+        </Link>
       </main>
     );
   }
@@ -79,6 +88,14 @@ export default function PublicQueuePage() {
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 text-white sm:px-10 sm:py-14">
+      <Link
+        href="/dj/dashboard"
+        className="fixed left-4 top-4 z-10 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-zinc-500 backdrop-blur transition hover:text-zinc-300"
+      >
+        <ArrowLeft size={12} />
+        Dashboard
+      </Link>
+
       <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
