@@ -78,6 +78,34 @@ export default function DJDashboardPage() {
       return;
     }
 
+    if (!data) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session) {
+        const response = await fetch("/api/dj/bootstrap-profile", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        if (response.ok) {
+          const { data: healedProfile } = await supabase
+            .from("dj_profiles")
+            .select("*")
+            .eq("user_id", user.id)
+            .limit(1)
+            .maybeSingle();
+
+          setDjProfile(healedProfile);
+          setLoadingDashboard(false);
+          return;
+        }
+
+        console.log("Bootstrap profile self-heal failed:", await response.json());
+      }
+    }
+
     setDjProfile(data);
     setLoadingDashboard(false);
   };

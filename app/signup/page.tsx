@@ -48,29 +48,17 @@ export default function SignupPage() {
     }
 
     if (data.user) {
-      const slug = email
-        .split("@")[0]
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
+      const response = await fetch("/api/dj/bootstrap-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: data.user.id, email }),
+      });
 
-      const { error: profileError } = await supabase
-        .from("dj_profiles")
-        .insert({
-          user_id: data.user.id,
-          dj_name: "New DJ",
-          slug,
-          bio: "",
-          genres: [],
-          request_price: 500,
-          shoutout_price: 800,
-          request_status: "taking_requests",
-        });
-
-      if (profileError) {
+      if (!response.ok) {
         setLoading(false);
-        console.log("Profile create error:", profileError);
-        toast.error(profileError.message);
+        const body = await response.json().catch(() => ({}));
+        console.log("Profile create error:", body);
+        toast.error(body.error || "Unable to set up your DJ profile.");
         return;
       }
     }
