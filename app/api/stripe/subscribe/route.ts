@@ -124,6 +124,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (!process.env.STRIPE_PRO_PRICE_ID) {
+      console.error("STRIPE_PRO_PRICE_ID is not configured.");
+
+      return NextResponse.json(
+        { error: "Pro subscriptions aren't available right now." },
+        { status: 500 }
+      );
+    }
+
     const origin = request.nextUrl.origin;
 
     const session = await stripe.checkout.sessions.create({
@@ -131,7 +140,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       line_items: [
         {
-          price: process.env.STRIPE_PRO_PRICE_ID!,
+          price: process.env.STRIPE_PRO_PRICE_ID,
           quantity: 1,
         },
       ],
