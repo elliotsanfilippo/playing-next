@@ -173,11 +173,11 @@ export default function DashboardHeader({
   const pauseResumeButton = (
     <Button
       size="sm"
-      variant={isTakingRequests ? "accent" : "danger"}
+      variant={isTakingRequests ? "danger" : "accent"}
       className={
         isTakingRequests
-          ? ""
-          : "border-transparent bg-red-500 text-white hover:bg-red-400"
+          ? "border-transparent bg-red-500 text-white hover:bg-red-400"
+          : ""
       }
       onClick={handleToggle}
       disabled={pending === "toggle"}
@@ -329,11 +329,11 @@ export default function DashboardHeader({
 
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Button
-              variant={isTakingRequests ? "accent" : "danger"}
+              variant={isTakingRequests ? "danger" : "accent"}
               className={
                 isTakingRequests
-                  ? ""
-                  : "border-transparent bg-red-500 text-white hover:bg-red-400"
+                  ? "border-transparent bg-red-500 text-white hover:bg-red-400"
+                  : ""
               }
               onClick={handleToggle}
               disabled={pending === "toggle"}
