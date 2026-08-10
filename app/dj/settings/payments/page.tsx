@@ -175,10 +175,20 @@ function PaymentsPageContent() {
     setOpeningDashboard(true);
     setError("");
 
+    /*
+     * Opened synchronously, inside the click handler, so browsers still
+     * treat it as a user-initiated popup — waiting for the fetch below to
+     * resolve first and only then calling window.open() gets silently
+     * blocked, since by that point it's no longer inside the original
+     * click's gesture.
+     */
+    const newWindow = window.open("", "_blank");
+
     try {
       const accessToken = await getAccessToken();
 
       if (!accessToken) {
+        newWindow?.close();
         router.push("/login");
         return;
       }
@@ -198,8 +208,14 @@ function PaymentsPageContent() {
         );
       }
 
-      window.open(result.url, "_blank", "noopener,noreferrer");
+      if (newWindow) {
+        newWindow.location.href = result.url;
+      } else {
+        window.location.href = result.url;
+      }
     } catch (caughtError) {
+      newWindow?.close();
+
       const message =
         caughtError instanceof Error
           ? caughtError.message
