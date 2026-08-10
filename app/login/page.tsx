@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { supabase, REMEMBER_ME_KEY } from "../../src/lib/supabase";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
@@ -14,6 +15,31 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  const resendVerification = async () => {
+    if (!email) {
+      setErrorMessage("Enter your email above first.");
+      return;
+    }
+
+    setResending(true);
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+    });
+
+    setResending(false);
+
+    if (error) {
+      toast.error(error.message || "Unable to resend the verification email.");
+      return;
+    }
+
+    toast.success("Verification email sent — check your inbox.");
+  };
 
   const login = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -25,6 +51,7 @@ export default function LoginPage() {
 
     setLoading(true);
     setErrorMessage("");
+    setNeedsVerification(false);
 
     /*
      * Read by the Supabase client's storage adapter on every read/write,
@@ -48,6 +75,7 @@ export default function LoginPage() {
 
       if (message.toLowerCase().includes("email not confirmed")) {
         message = "Please verify your email before signing in.";
+        setNeedsVerification(true);
       } else if (
         message.toLowerCase().includes("invalid login credentials")
       ) {
@@ -113,6 +141,18 @@ export default function LoginPage() {
             {errorMessage && (
               <div className="rounded-control border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
                 {errorMessage}
+                {needsVerification && (
+                  <button
+                    type="button"
+                    onClick={resendVerification}
+                    disabled={resending}
+                    className="mt-2 block font-semibold text-red-200 underline underline-offset-4 disabled:opacity-60"
+                  >
+                    {resending
+                      ? "Sending..."
+                      : "Resend verification email"}
+                  </button>
+                )}
               </div>
             )}
 
