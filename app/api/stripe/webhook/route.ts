@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { sendPushToDJ } from "@/src/lib/webpush";
+import { checkAndMarkQrBoxEligible } from "@/src/lib/qrBoxIncentive";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -215,14 +216,19 @@ export async function POST(request: Request) {
           ? "free"
           : "pro";
 
-        await supabaseAdmin
+        const { data: updatedProfiles } = await supabaseAdmin
           .from("dj_profiles")
           .update({
             stripe_subscription_id: subscription.id,
             stripe_subscription_status: subscription.status,
             plan,
           })
-          .eq("stripe_customer_id", customerId);
+          .eq("stripe_customer_id", customerId)
+          .select("id");
+
+        if (plan === "pro" && updatedProfiles && updatedProfiles.length > 0) {
+          await checkAndMarkQrBoxEligible(updatedProfiles[0].id);
+        }
 
         break;
       }

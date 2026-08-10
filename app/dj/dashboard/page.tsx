@@ -21,6 +21,7 @@ import PlayingNextCard from "./components/PlayingNextCard";
 import PendingRequests from "./components/PendingRequests";
 import AcceptedQueue from "./components/AcceptedQueue";
 import SetupChecklist from "./components/SetupChecklist";
+import QrBoxBanner from "./components/QrBoxBanner";
 import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
 import Onboarding from "./components/Onboarding";
@@ -467,6 +468,22 @@ export default function DJDashboardPage() {
   }, [router]);
 
   useEffect(() => {
+    const qrBoxResult = new URLSearchParams(window.location.search).get(
+      "qr_box"
+    );
+
+    if (!qrBoxResult) return;
+
+    if (qrBoxResult === "claimed") {
+      toast.success("Your QR display block is on its way!");
+    } else if (qrBoxResult === "error") {
+      toast.error("Something went wrong with your QR box order.");
+    }
+
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  useEffect(() => {
     if (!requestLink) {
       setQrCodeUrl("");
       return;
@@ -542,15 +559,26 @@ export default function DJDashboardPage() {
   const continueToDashboard = async () => {
     if (!djProfile || !onboardingComplete) return;
 
-    const { error } = await supabase
-      .from("dj_profiles")
-      .update({
-        onboarding_complete: true,
-      })
-      .eq("id", djProfile.id);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (error) {
-      toast.error(error.message);
+    if (!session) {
+      toast.error("Your session is invalid or has expired.");
+      return;
+    }
+
+    const response = await fetch("/api/dj/complete-onboarding", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      toast.error(result.error || "Unable to update your profile.");
       return;
     }
 
@@ -593,6 +621,12 @@ export default function DJDashboardPage() {
           logout={logout}
           router={router}
         />
+
+        {djProfile?.qr_box_eligible &&
+          !djProfile.qr_box_claimed &&
+          !djProfile.qr_box_dismissed && (
+            <QrBoxBanner onDismissed={fetchDJProfile} />
+          )}
 
         <StatsCards
           pendingCount={pendingRequests.length}

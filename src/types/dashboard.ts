@@ -25,4 +25,7 @@ export type DJProfile = {
   plan?: string;
   onboarding_complete: boolean;
   launch_complete_seen: boolean;
+  qr_box_eligible?: boolean;
+  qr_box_claimed?: boolean;
+  qr_box_dismissed?: boolean;
 };
