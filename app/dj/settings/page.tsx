@@ -57,6 +57,7 @@ function DJSettingsPageContent() {
   const [saving, setSaving] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [qrBoxAvailable, setQrBoxAvailable] = useState(false);
   const [notificationPrefs, setNotificationPrefsState] =
     useState<NotificationPreferences>({ sound: true, browser: false });
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -287,6 +288,11 @@ function DJSettingsPageContent() {
     getExistingPushSubscription().then((subscription) => {
       setPushEnabled(!!subscription);
     });
+
+    fetch("/api/qr-box/availability")
+      .then((response) => response.json())
+      .then((data) => setQrBoxAvailable(Boolean(data.available)))
+      .catch((error) => console.log("QR box availability fetch error:", error));
 
     if (searchParams.get("pro") === "success") {
       toast.success("Welcome to Pro! This can take a few seconds to appear below.");
@@ -548,6 +554,12 @@ function DJSettingsPageContent() {
                           <p className="mt-1 text-sm text-zinc-400">
                             £14.99/month · 0% platform fee
                           </p>
+                          {qrBoxAvailable && (
+                            <p className="mt-2 text-sm font-semibold text-amber-400">
+                              🎁 First 50 DJs to go Pro get a free QR display
+                              block (just pay shipping)
+                            </p>
+                          )}
                         </div>
 
                         <Button
