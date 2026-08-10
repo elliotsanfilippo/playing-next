@@ -24,6 +24,11 @@ export default function SignupPage() {
       return;
     }
 
+    if (password.length < 8) {
+      setErrorMessage("Password must be at least 8 characters.");
+      return;
+    }
+
     setLoading(true);
     setErrorMessage("");
 
@@ -107,9 +112,11 @@ export default function SignupPage() {
               type="password"
               autoComplete="new-password"
               placeholder="Password"
+              minLength={8}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+            <p className="text-xs text-zinc-500">At least 8 characters.</p>
 
             {errorMessage && (
               <div className="rounded-control border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
