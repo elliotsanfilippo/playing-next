@@ -44,6 +44,7 @@ function PaymentsPageContent() {
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [openingDashboard, setOpeningDashboard] = useState(false);
   const [error, setError] = useState("");
 
   const getAccessToken = async () => {
@@ -168,6 +169,48 @@ function PaymentsPageContent() {
     }
   }, [connecting, router]);
 
+  const openStripeDashboard = async () => {
+    if (openingDashboard) return;
+
+    setOpeningDashboard(true);
+    setError("");
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("/api/stripe/connect/dashboard-link", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await readApiResponse(response);
+
+      if (!response.ok || !result.url) {
+        throw new Error(
+          result.error || "Unable to open your Stripe dashboard."
+        );
+      }
+
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to open your Stripe dashboard.";
+
+      setError(message);
+    } finally {
+      setOpeningDashboard(false);
+    }
+  };
+
   useEffect(() => {
     const initialise = async () => {
       const result = await checkStatus();
@@ -226,6 +269,16 @@ function PaymentsPageContent() {
                       Your account is ready to receive transfers and
                       payouts.
                     </p>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={openStripeDashboard}
+                      disabled={openingDashboard}
+                      className="mt-4"
+                    >
+                      {openingDashboard ? "Opening..." : "View in Stripe"}
+                    </Button>
                   </div>
                 </div>
               </div>
