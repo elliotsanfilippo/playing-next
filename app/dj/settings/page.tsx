@@ -34,6 +34,7 @@ type DJProfile = {
   shoutout_price: number | null;
   plan: string | null;
   stripe_subscription_status: string | null;
+  stripe_connected: boolean | null;
 };
 
 const fieldLabel = "text-sm text-zinc-400";
@@ -576,6 +577,34 @@ function DJSettingsPageContent() {
                 </div>
               );
             })()}
+
+            <div className="rounded-card border border-white/10 bg-black/20 p-5 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-zinc-400">Payments</p>
+                  <h3 className="mt-1 text-lg font-semibold">
+                    {profile?.stripe_connected
+                      ? "Stripe is connected"
+                      : "Connect Stripe to get paid"}
+                  </h3>
+                  <p className="mt-2 text-sm text-zinc-500">
+                    {profile?.stripe_connected
+                      ? "Manage your payout account, bank details, or reconnect if Stripe needs anything from you."
+                      : "You need a connected Stripe account before guests can pay you."}
+                  </p>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.push("/dj/settings/payments")}
+                >
+                  {profile?.stripe_connected
+                    ? "Manage Payments"
+                    : "Connect Stripe"}
+                </Button>
+              </div>
+            </div>
 
             <div className="rounded-card border border-white/10 bg-black/20 p-5 sm:p-6">
               <p className="text-sm text-zinc-400">Notifications</p>
