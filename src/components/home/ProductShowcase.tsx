@@ -48,8 +48,8 @@ export default function ProductShowcase() {
 
             <div className="mt-6 space-y-3">
               {[
-                ["Miracle", "Calvin Harris", "£5"],
-                ["One More Time", "Daft Punk", "£5"],
+                ["Don't You Worry Child", "Swedish House Mafia", "£5"],
+                ["Titanium", "David Guetta", "£5"],
                 ["Praise You", "Fatboy Slim", "£8"],
               ].map(([title, artist, price], index) => (
                 <div

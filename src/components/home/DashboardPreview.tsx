@@ -4,18 +4,18 @@ import Badge from "@/src/components/ui/Badge";
 export default function DashboardPreview() {
   const queue = [
     {
-      title: "Better Late Than Never",
-      artist: "ELSAN",
+      title: "Free Your Mind",
+      artist: "Prospa",
       price: "£5",
     },
     {
-      title: "All My Funk",
-      artist: "ELSAN",
+      title: "Feel So Close",
+      artist: "Calvin Harris",
       price: "£5",
     },
     {
-      title: "No More",
-      artist: "ELSAN",
+      title: "One More Time",
+      artist: "Daft Punk",
       price: "£8",
     },
   ];
@@ -71,9 +71,9 @@ export default function DashboardPreview() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate font-bold">Miracle</p>
+              <p className="truncate font-bold">Levels</p>
               <p className="truncate text-sm text-zinc-500">
-                Calvin Harris
+                Avicii
               </p>
             </div>
 
