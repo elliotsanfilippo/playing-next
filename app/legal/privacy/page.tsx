@@ -10,10 +10,11 @@ export default function PrivacyPolicyPage() {
       <Note>
         <strong>Draft — not yet legally reviewed.</strong>{" "}The facts below
         (what we collect, who we share it with) are accurate to how the
-        product currently works. The bracketed company details still need
-        filling in once our business structure is finalised, and this
-        document as a whole should be reviewed by a solicitor before we
-        rely on it at public launch.
+        product currently works. A geographic contact address still needs
+        adding here before public launch (UK E-Commerce Regulations
+        require one for an online service like this), and this document
+        as a whole should be reviewed by a solicitor before we rely on it
+        beyond a small beta.
       </Note>
 
       <P>
@@ -24,8 +25,8 @@ export default function PrivacyPolicyPage() {
       </P>
 
       <P>
-        Data controller: <strong>[Registered business/trading name — TBD]</strong>,{" "}
-        <strong>[registered address — TBD]</strong>. Contact us at{" "}
+        Data controller: <strong>Elliot Sanfilippo, trading as Playing Next</strong>.
+        Contact us at{" "}
         <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
           info@playingnextapp.com
         </a>{" "}
