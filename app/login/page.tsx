@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { supabase } from "../../src/lib/supabase";
+import { supabase, REMEMBER_ME_KEY } from "../../src/lib/supabase";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { Input } from "@/src/components/ui/Input";
@@ -11,6 +11,7 @@ import Eyebrow from "@/src/components/ui/Eyebrow";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -24,6 +25,16 @@ export default function LoginPage() {
 
     setLoading(true);
     setErrorMessage("");
+
+    /*
+     * Read by the Supabase client's storage adapter on every read/write,
+     * so it must be set before signInWithPassword actually writes the
+     * session — not after.
+     */
+    window.localStorage.setItem(
+      REMEMBER_ME_KEY,
+      rememberMe ? "true" : "false"
+    );
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -88,6 +99,16 @@ export default function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-400">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                className="h-4 w-4 rounded border-white/20 bg-transparent accent-accent-strong"
+              />
+              Remember me
+            </label>
 
             {errorMessage && (
               <div className="rounded-control border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
