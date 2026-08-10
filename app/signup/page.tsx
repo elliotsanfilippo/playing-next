@@ -77,7 +77,7 @@ export default function SignupPage() {
 
     setLoading(false);
     setSuccessMessage(
-      "Account created! Please check your email to verify your account before signing in."
+      "Account created! Please check your email to verify your account before signing in. If you don't see it within a few minutes, check your spam or junk folder."
     );
 
     setEmail("");

@@ -38,7 +38,9 @@ export default function LoginPage() {
       return;
     }
 
-    toast.success("Verification email sent — check your inbox.");
+    toast.success(
+      "Verification email sent — check your inbox (and your spam/junk folder)."
+    );
   };
 
   const login = async (event?: React.FormEvent) => {
@@ -74,7 +76,8 @@ export default function LoginPage() {
       let message = error.message;
 
       if (message.toLowerCase().includes("email not confirmed")) {
-        message = "Please verify your email before signing in.";
+        message =
+          "Please verify your email before signing in. Check your spam or junk folder if you don't see it.";
         setNeedsVerification(true);
       } else if (
         message.toLowerCase().includes("invalid login credentials")
