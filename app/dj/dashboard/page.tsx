@@ -538,6 +538,49 @@ export default function DJDashboardPage() {
     Boolean(qrCodeUrl) &&
     Boolean(djProfile!.stripe_connected);
 
+  /*
+   * A DJ can become fully qualified (all 5 conditions above) without
+   * ever clicking through the Onboarding screen's "Continue to
+   * Dashboard" button — e.g. finishing their profile via Settings
+   * after already having seen the launch-complete screen once. Nothing
+   * else in the app calls the completion route in that path, so
+   * djProfile.onboarding_complete can stay stuck false forever even
+   * though the DJ is genuinely done. This silently self-heals it the
+   * next time their dashboard loads, which also lets QR box
+   * eligibility (gated on this flag) catch up.
+   */
+  const onboardingHealAttempted = useRef(false);
+
+  useEffect(() => {
+    if (!djProfile || !onboardingComplete || djProfile.onboarding_complete) {
+      return;
+    }
+
+    if (onboardingHealAttempted.current) return;
+    onboardingHealAttempted.current = true;
+
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) return;
+
+      const response = await fetch("/api/dj/complete-onboarding", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        await fetchDJProfile();
+      } else {
+        console.log("Onboarding self-heal failed:", await response.json());
+      }
+    })();
+  }, [djProfile, onboardingComplete]);
+
   const continueFromLaunch = async () => {
     if (!djProfile) return;
 
