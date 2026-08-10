@@ -29,6 +29,13 @@ export default function SignupPage() {
       return;
     }
 
+    if (!/[A-Z]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      setErrorMessage(
+        "Password must include an uppercase letter and a special character."
+      );
+      return;
+    }
+
     setLoading(true);
     setErrorMessage("");
 
@@ -116,7 +123,10 @@ export default function SignupPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-            <p className="text-xs text-zinc-500">At least 8 characters.</p>
+            <p className="text-xs text-zinc-500">
+              At least 8 characters, with an uppercase letter and a special
+              character.
+            </p>
 
             {errorMessage && (
               <div className="rounded-control border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
