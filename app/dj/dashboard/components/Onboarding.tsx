@@ -3,6 +3,7 @@ import { Headphones, Check } from "lucide-react";
 import type { DJProfile } from "@/src/types/dashboard";
 import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
+import AddToHomeScreen from "./AddToHomeScreen";
 
 type Props = {
   djProfile: DJProfile;
@@ -100,6 +101,8 @@ export default function Onboarding({
           </div>
 
           <div className="mt-8">
+            <AddToHomeScreen />
+
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-zinc-300">
                 Setup progress
