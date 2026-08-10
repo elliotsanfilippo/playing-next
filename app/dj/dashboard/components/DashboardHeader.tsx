@@ -145,14 +145,12 @@ export default function DashboardHeader({
   );
 
   const statusBadge = (
-    <button
-      onClick={handleToggle}
-      disabled={pending === "toggle"}
+    <span
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold",
         isTakingRequests
-          ? "border border-accent/20 bg-accent/15 text-accent hover:bg-accent/20"
-          : "border border-red-500/20 bg-red-500/15 text-red-400 hover:bg-red-500/20"
+          ? "border border-accent/20 bg-accent/15 text-accent"
+          : "border border-red-500/20 bg-red-500/15 text-red-400"
       )}
     >
       <span
@@ -167,7 +165,7 @@ export default function DashboardHeader({
         : isTakingRequests
           ? "Taking Requests"
           : "Requests Paused"}
-    </button>
+    </span>
   );
 
   const pauseResumeButton = (
