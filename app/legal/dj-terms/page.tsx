@@ -61,6 +61,17 @@ export default function DjTermsPage() {
         The 50p guest service fee is retained by Playing Next in every
         case and is never part of your payout.
       </P>
+      <P>
+        If a guest successfully disputes an accepted request with their
+        card issuer — including a claim that the request wasn&rsquo;t
+        played — Stripe deducts the disputed amount, plus any dispute
+        fee, from Playing Next&rsquo;s own balance, not yours directly,
+        since your share was already transferred to you. You agree to
+        reimburse us for that amount if the dispute is upheld. We&rsquo;ll
+        contact you using your account details to resolve this, and we
+        may deduct it from a future payout instead of requiring separate
+        repayment.
+      </P>
 
       <H2>4. Fees</H2>
       <P>
