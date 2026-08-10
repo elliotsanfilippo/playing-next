@@ -125,10 +125,12 @@ export default function GuestTermsPage() {
       <H2>10. Complaints &amp; contact</H2>
       <P>
         Questions about these terms, or about a specific request? Contact{" "}
-        <strong>[support email — TBD]</strong>. If you want to raise a
-        complaint, use the same address and describe what happened,
-        including your request ID if you have one — we aim to acknowledge
-        it within 5 business days.
+        <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
+          info@playingnextapp.com
+        </a>
+        . If you want to raise a complaint, use the same address and
+        describe what happened, including your request ID if you have
+        one — we aim to acknowledge it within 5 business days.
       </P>
       <P>
         This covers complaints about Playing Next itself. A complaint

@@ -127,7 +127,19 @@ export default function SignupPage() {
               {loading ? "Creating Account..." : "Create Account"}
             </Button>
 
-            <p className="pt-4 text-center text-sm text-zinc-400">
+            <p className="text-center text-xs text-zinc-500">
+              By creating an account you agree to our{" "}
+              <Link href="/legal/dj-terms" className="underline underline-offset-4 hover:text-zinc-300">
+                DJ Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/legal/privacy" className="underline underline-offset-4 hover:text-zinc-300">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+
+            <p className="pt-2 text-center text-sm text-zinc-400">
               Already have an account?{" "}
               <Link
                 href="/login"

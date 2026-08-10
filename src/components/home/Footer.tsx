@@ -41,7 +41,12 @@ export default function Footer() {
             <p>
               Playing Next connects guests at an event with the DJ
               playing it, for paid song requests. Support:{" "}
-              <span className="text-zinc-400">[support email — TBD]</span>
+              <a
+                href="mailto:info@playingnextapp.com"
+                className="text-zinc-400 hover:text-white"
+              >
+                info@playingnextapp.com
+              </a>
             </p>
 
             <p className="mt-2">© {new Date().getFullYear()} Playing Next</p>

@@ -95,7 +95,10 @@ export default function RefundPolicyPage() {
       <H2>7. Contact</H2>
       <P>
         For anything refund-related, contact{" "}
-        <strong>[support email — TBD]</strong>.
+        <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
+          info@playingnextapp.com
+        </a>
+        .
       </P>
     </LegalDoc>
   );

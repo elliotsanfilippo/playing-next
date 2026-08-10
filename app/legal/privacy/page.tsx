@@ -26,8 +26,11 @@ export default function PrivacyPolicyPage() {
       <P>
         Data controller: <strong>[Registered business/trading name — TBD]</strong>,{" "}
         <strong>[registered address — TBD]</strong>. Contact us at{" "}
-        <strong>[support email — TBD]</strong>{" "}for anything in this policy,
-        including exercising any of the rights below.
+        <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
+          info@playingnextapp.com
+        </a>{" "}
+        for anything in this policy, including exercising any of the rights
+        below.
       </P>
 
       <H2>1. Information we collect</H2>
@@ -176,8 +179,11 @@ export default function PrivacyPolicyPage() {
         export the personal data we hold about you, and to object to or
         restrict certain processing. Since we don&rsquo;t yet have
         self-service tools for most of this, contact us at{" "}
-        <strong>[support email — TBD]</strong>{" "}and we&rsquo;ll action it
-        manually. You also have the right to complain to the{" "}
+        <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
+          info@playingnextapp.com
+        </a>{" "}
+        and we&rsquo;ll action it manually. You also have the right to
+        complain to the{" "}
         <a
           href="https://ico.org.uk/make-a-complaint/"
           className="text-accent hover:underline"

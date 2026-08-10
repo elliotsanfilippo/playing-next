@@ -149,9 +149,12 @@ export default function DjTermsPage() {
       <H2>12. Complaints &amp; contact</H2>
       <P>
         Questions about these terms, fees, or your account? Contact{" "}
-        <strong>[support email — TBD]</strong>. If you want to raise a
-        complaint — about a payout, a fee, or anything else — use the
-        same address; we aim to acknowledge it within 5 business days.
+        <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
+          info@playingnextapp.com
+        </a>
+        . If you want to raise a complaint — about a payout, a fee, or
+        anything else — use the same address; we aim to acknowledge it
+        within 5 business days.
       </P>
       <P>
         This covers complaints about Playing Next itself, not about your

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import { VIP_PRICE } from "@/src/lib/pricing";
@@ -105,6 +106,18 @@ export default function CheckoutButton({
 
         <p className="mt-4 text-center text-xs text-zinc-600">
           Secure payment powered by Stripe
+        </p>
+
+        <p className="mt-2 text-center text-xs text-zinc-600">
+          By continuing you agree to our{" "}
+          <Link href="/legal/guest-terms" className="underline underline-offset-4 hover:text-zinc-400">
+            Guest Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/legal/refund-policy" className="underline underline-offset-4 hover:text-zinc-400">
+            Refund Policy
+          </Link>
+          .
         </p>
       </div>
     </section>
