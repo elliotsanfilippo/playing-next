@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
+import { isEffectivelyTakingRequests } from "@/src/lib/djActivity";
 import {
   getGuestNotificationsEnabled,
   showBrowserNotification,
@@ -62,7 +63,7 @@ export default function RequestPage() {
   const { data, error } = await supabase
     .from("dj_profiles")
     .select(
-      "id, dj_name, request_status, genres, bio, request_price, shoutout_price, profile_image_url"
+      "id, dj_name, request_status, last_active_at, genres, bio, request_price, shoutout_price, profile_image_url"
     )
     .eq("slug", djSlug)
     .maybeSingle();
@@ -148,7 +149,7 @@ export default function RequestPage() {
     const { data, error } = await supabase
       .from("dj_profiles")
       .select(
-        "id, dj_name, request_status, genres, bio, request_price, shoutout_price, profile_image_url"
+        "id, dj_name, request_status, last_active_at, genres, bio, request_price, shoutout_price, profile_image_url"
       )
       .eq("slug", djSlug)
       .maybeSingle();
@@ -163,7 +164,7 @@ export default function RequestPage() {
     }
 
     setDjProfile(data);
-    if (data.request_status !== "taking_requests") {
+    if (!isEffectivelyTakingRequests(data)) {
   setSearchQuery("");
   setTracks([]);
   setSelectedSong(null);
@@ -179,7 +180,7 @@ export default function RequestPage() {
     const { data } = await supabase
       .from("dj_profiles")
       .select(
-        "id, dj_name, request_status, genres, bio, request_price, shoutout_price, profile_image_url"
+        "id, dj_name, request_status, last_active_at, genres, bio, request_price, shoutout_price, profile_image_url"
       )
       .eq("slug", djSlug)
       .maybeSingle();
@@ -187,7 +188,7 @@ export default function RequestPage() {
     if (!isMounted || !data) return;
 
     setDjProfile(data);
-    if (data.request_status !== "taking_requests") {
+    if (!isEffectivelyTakingRequests(data)) {
   setSearchQuery("");
   setTracks([]);
   setSelectedSong(null);
@@ -314,7 +315,9 @@ document.addEventListener(
     return () => clearInterval(interval);
   }, [djSlug]);
 
-  const isTakingRequests = djProfile?.request_status === "taking_requests";
+  const isTakingRequests = Boolean(
+    djProfile && isEffectivelyTakingRequests(djProfile)
+  );
 
   const requestPrice = djProfile?.request_price || 500;
   const shoutoutPrice = djProfile?.shoutout_price || 800;

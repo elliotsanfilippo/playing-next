@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
+import { isEffectivelyTakingRequests } from "@/src/lib/djActivity";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +40,7 @@ export async function GET(
 
     const { data: djProfile, error: profileError } = await supabase
       .from("dj_profiles")
-      .select("id, dj_name, profile_image_url, request_status")
+      .select("id, dj_name, profile_image_url, request_status, last_active_at")
       .eq("slug", djSlug)
       .maybeSingle();
 
@@ -74,7 +75,7 @@ export async function GET(
     return NextResponse.json({
       djName: djProfile.dj_name,
       djImage: djProfile.profile_image_url,
-      isLive: djProfile.request_status === "taking_requests",
+      isLive: isEffectivelyTakingRequests(djProfile),
       nowPlaying: nowPlaying
         ? {
             songTitle: nowPlaying.song_title,

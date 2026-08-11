@@ -470,6 +470,23 @@ export default function DJDashboardPage() {
         return;
       }
 
+      /*
+       * Best-effort "the DJ is currently paying attention" signal, used
+       * to derive whether guests should see them as taking requests —
+       * separate from the DJ's own pause/resume toggle, which stays
+       * exactly as they left it. Fire-and-forget: worth doing, not
+       * worth blocking the dashboard load over.
+       */
+      supabase
+        .from("dj_profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("user_id", session.user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.log("Activity timestamp update failed:", error);
+          }
+        });
+
       await fetchDJProfile();
       await fetchRequests();
     };

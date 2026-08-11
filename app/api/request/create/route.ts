@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 import { VIP_SLOT_LIMIT } from "@/src/lib/pricing";
+import { isEffectivelyTakingRequests } from "@/src/lib/djActivity";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
-      .select("id, request_status")
+      .select("id, request_status, last_active_at")
       .eq("slug", djSlug)
       .maybeSingle();
 
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (djProfile.request_status !== "taking_requests") {
+    if (!isEffectivelyTakingRequests(djProfile)) {
       return NextResponse.json(
         { error: "This DJ is not taking requests right now." },
         { status: 409 }
