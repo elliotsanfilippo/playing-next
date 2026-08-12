@@ -304,7 +304,13 @@ export default function DJDashboardPage() {
       .from("song_requests")
       .update({ dj_hidden: true })
       .eq("dj_profile_id", djProfile.id)
-      .in("request_status", ["played", "declined", "refunded", "disputed"])
+      .in("request_status", [
+        "played",
+        "declined",
+        "cancelled",
+        "refunded",
+        "disputed",
+      ])
       .select();
 
     if (error) {

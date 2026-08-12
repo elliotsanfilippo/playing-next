@@ -79,11 +79,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await stripe.paymentIntents.cancel(songRequest.stripe_payment_intent_id);
+    /*
+     * The cancellation reason is what lets the webhook tell a guest
+     * cancelling their own request apart from a DJ declining it or
+     * Stripe auto-cancelling an uncaptured authorisation — all three
+     * arrive as the same payment_intent.canceled event. Without it,
+     * whichever of the two writes below lands first would decide the
+     * guest's status, which is a race.
+     */
+    await stripe.paymentIntents.cancel(songRequest.stripe_payment_intent_id, {
+      cancellation_reason: "requested_by_customer",
+    });
 
     const { error: updateError } = await supabase
       .from("song_requests")
-      .update({ request_status: "declined" })
+      .update({ request_status: "cancelled" })
       .eq("id", requestId)
       .eq("request_status", "pending");
 

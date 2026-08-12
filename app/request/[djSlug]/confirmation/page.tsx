@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Bell, BellRing, Crown } from "lucide-react";
+import { Check, Bell, BellRing, Crown, X } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import { buttonVariants } from "@/src/components/ui/Button";
@@ -54,12 +54,53 @@ const STATUS_COPY: Record<string, { label: string; description: string }> = {
     description:
       "The DJ could not accept this request. Your payment will not be captured.",
   },
+  cancelled: {
+    label: "Request Cancelled",
+    description:
+      "You cancelled this request. Your payment will not be captured.",
+  },
   refunded: {
     label: "Refunded",
     description: "This payment has been refunded.",
   },
   disputed: {
     label: "Payment Disputed",
+    description:
+      "A dispute has been raised on this payment with your card issuer.",
+  },
+};
+
+/*
+ * The page header used to be a hardcoded celebration ("You're in.",
+ * green tick) no matter the status, so a cancelled or declined request
+ * still opened by congratulating the guest before contradicting itself
+ * further down the page. Anything that ended without the song being
+ * queued gets an honest header instead.
+ */
+const CLOSED_HEADER: Record<
+  string,
+  { eyebrow: string; heading: string; description: string }
+> = {
+  cancelled: {
+    eyebrow: "Request cancelled",
+    heading: "Cancelled.",
+    description:
+      "You cancelled this request, so you haven’t been charged for it.",
+  },
+  declined: {
+    eyebrow: "Request declined",
+    heading: "Not this time.",
+    description:
+      "The DJ couldn’t take this one, so you haven’t been charged for it.",
+  },
+  refunded: {
+    eyebrow: "Request refunded",
+    heading: "Refunded.",
+    description: "This payment has been refunded to your card.",
+  },
+  disputed: {
+    eyebrow: "Payment disputed",
+    heading: "Payment disputed.",
     description:
       "A dispute has been raised on this payment with your card issuer.",
   },
@@ -213,6 +254,7 @@ function ConfirmationPageContent() {
 
   const status = request?.request_status || "pending";
   const statusCopy = STATUS_COPY[status] || STATUS_COPY.pending;
+  const closedHeader = CLOSED_HEADER[status];
   const tone = requestStatusTone(status);
 
   if (loading) {
@@ -254,20 +296,38 @@ function ConfirmationPageContent() {
     <main className="min-h-screen bg-canvas px-5 py-10 text-white sm:px-6 sm:py-14">
       <section className="mx-auto max-w-2xl">
         <div className="text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-accent/20 bg-accent/10 shadow-xl shadow-green-500/10">
-            <Check size={32} className="text-accent" strokeWidth={3} />
-          </div>
+          {closedHeader ? (
+            <>
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                <X size={32} className="text-zinc-400" strokeWidth={3} />
+              </div>
 
-          <Eyebrow tone="accent" className="mt-6">
-            Request submitted
-          </Eyebrow>
+              <Eyebrow className="mt-6">{closedHeader.eyebrow}</Eyebrow>
 
-          <h1 className="mt-3 text-display">You&apos;re in.</h1>
+              <h1 className="mt-3 text-display">{closedHeader.heading}</h1>
 
-          <p className="mx-auto mt-4 max-w-md leading-7 text-zinc-400">
-            Your payment has been authorised and your request has been sent
-            to the DJ.
-          </p>
+              <p className="mx-auto mt-4 max-w-md leading-7 text-zinc-400">
+                {closedHeader.description}
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-accent/20 bg-accent/10 shadow-xl shadow-green-500/10">
+                <Check size={32} className="text-accent" strokeWidth={3} />
+              </div>
+
+              <Eyebrow tone="accent" className="mt-6">
+                Request submitted
+              </Eyebrow>
+
+              <h1 className="mt-3 text-display">You&apos;re in.</h1>
+
+              <p className="mx-auto mt-4 max-w-md leading-7 text-zinc-400">
+                Your payment has been authorised and your request has been
+                sent to the DJ.
+              </p>
+            </>
+          )}
         </div>
 
         <Card variant="elevated" className="mt-10 overflow-hidden">
@@ -353,7 +413,7 @@ function ConfirmationPageContent() {
               <p className="mt-2 text-sm leading-6 text-zinc-500">
                 {status === "pending" || status === "checkout_pending"
                   ? "No need to refresh. You’ll only be charged if the DJ accepts your request."
-                  : status === "declined"
+                  : status === "declined" || status === "cancelled"
                     ? "No need to refresh. Your payment will not be captured."
                     : "No need to refresh. Your request status will update here automatically."}
               </p>

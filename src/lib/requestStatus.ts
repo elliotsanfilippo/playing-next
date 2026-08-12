@@ -7,6 +7,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
   playing_next: "info",
   played: "neutral",
   declined: "danger",
+  cancelled: "neutral",
   refunded: "danger",
   disputed: "danger",
 };
@@ -29,6 +30,12 @@ const STATUS_NOTIFICATION_COPY: Record<string, string> = {
   refunded: "Your payment was refunded.",
   disputed: "A dispute was raised on your payment.",
 };
+
+/*
+ * "cancelled" is deliberately absent above: the guest cancelled it
+ * themselves seconds earlier, so notifying them about it is noise.
+ * Returning null here means no notification fires.
+ */
 
 export function requestStatusNotificationCopy(
   status: string

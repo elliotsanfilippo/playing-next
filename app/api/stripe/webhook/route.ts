@@ -47,9 +47,11 @@ const supabaseAdmin = createClient(
  *
  * We reuse the existing "declined" status for expiry/auto-cancel, since
  * the guest-facing meaning ("you were not charged") is accurate either
- * way. Refunds and disputes get their own statuses ("refunded",
- * "disputed") because, unlike a decline, a payment genuinely was taken
- * first — telling the guest "declined" there would be inaccurate.
+ * way. A guest cancelling their own request gets "cancelled" instead —
+ * same money outcome, but telling someone the DJ declined a request
+ * they withdrew themselves is just wrong. Refunds and disputes get
+ * their own statuses ("refunded", "disputed") because, unlike a
+ * decline, a payment genuinely was taken first.
  */
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -142,10 +144,22 @@ export async function POST(request: Request) {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const requestId = paymentIntent.metadata?.requestId;
 
+        /*
+         * A guest cancelling their own request, a DJ declining it, and
+         * Stripe auto-cancelling an uncaptured authorisation all land
+         * here identically. Only the guest's own cancellation sets
+         * "requested_by_customer", so that's what separates "you
+         * cancelled this" from "the DJ couldn't take it".
+         */
+        const nextStatus =
+          paymentIntent.cancellation_reason === "requested_by_customer"
+            ? "cancelled"
+            : "declined";
+
         if (requestId) {
           await supabaseAdmin
             .from("song_requests")
-            .update({ request_status: "declined" })
+            .update({ request_status: nextStatus })
             .eq("id", requestId)
             .in("request_status", ["checkout_pending", "pending"]);
         }
