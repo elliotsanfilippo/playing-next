@@ -10,6 +10,7 @@ import Badge from "@/src/components/ui/Badge";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import { requestStatusTone } from "@/src/lib/requestStatus";
+import { declineReasonGuestCopy } from "@/src/lib/declineReasons";
 import {
   getGuestNotificationsEnabled,
   requestNotificationPermission,
@@ -26,6 +27,7 @@ type SongRequest = {
   request_status: string;
   queue_position: number | null;
   is_vip: boolean;
+  decline_reason: string | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -311,7 +313,10 @@ export default function MyRequestsPage() {
                       request.request_status === "cancelled" ||
                       request.request_status === "expired") && (
                       <p className="mt-4 text-sm text-zinc-400">
-                        You have not been charged.
+                        {request.request_status === "declined" &&
+                        declineReasonGuestCopy(request.decline_reason)
+                          ? `${declineReasonGuestCopy(request.decline_reason)} You have not been charged.`
+                          : "You have not been charged."}
                       </p>
                     )}
                   </div>

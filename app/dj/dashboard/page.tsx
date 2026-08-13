@@ -268,11 +268,18 @@ export default function DJDashboardPage() {
     }
   };
 
-  const updateRequestStatus = async (requestId: string, status: string) => {
+  const updateRequestStatus = async (
+    requestId: string,
+    status: string,
+    declineReason?: string | null
+  ) => {
     const { error } = await supabase
       .from("song_requests")
       .update({
         request_status: status,
+        ...(declineReason !== undefined
+          ? { decline_reason: declineReason }
+          : {}),
       })
       .eq("id", requestId);
 
@@ -360,7 +367,10 @@ export default function DJDashboardPage() {
     toast.success("Request accepted");
   };
 
-  const declineRequest = async (request: SongRequest) => {
+  const declineRequest = async (
+    request: SongRequest,
+    declineReason?: string | null
+  ) => {
     if (request.stripe_payment_intent_id) {
       const response = await fetch("/api/stripe/cancel", {
         method: "POST",
@@ -381,7 +391,7 @@ export default function DJDashboardPage() {
       }
     }
 
-    await updateRequestStatus(request.id, "declined");
+    await updateRequestStatus(request.id, "declined", declineReason ?? null);
     toast.success("Request declined");
   };
 

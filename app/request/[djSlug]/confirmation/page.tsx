@@ -10,6 +10,7 @@ import Eyebrow from "@/src/components/ui/Eyebrow";
 import { buttonVariants } from "@/src/components/ui/Button";
 import { toneSurfaceClasses, toneDotClasses } from "@/src/components/ui/Badge";
 import { requestStatusTone } from "@/src/lib/requestStatus";
+import { declineReasonGuestCopy } from "@/src/lib/declineReasons";
 import {
   getGuestNotificationsEnabled,
   requestNotificationPermission,
@@ -26,6 +27,7 @@ type SubmittedRequest = {
   request_status: string;
   queue_position: number | null;
   is_vip: boolean;
+  decline_reason: string | null;
 };
 
 const STATUS_COPY: Record<string, { label: string; description: string }> = {
@@ -266,6 +268,10 @@ function ConfirmationPageContent() {
   const status = request?.request_status || "pending";
   const statusCopy = STATUS_COPY[status] || STATUS_COPY.pending;
   const closedHeader = CLOSED_HEADER[status];
+  const declineReasonCopy =
+    status === "declined"
+      ? declineReasonGuestCopy(request?.decline_reason ?? null)
+      : null;
   const tone = requestStatusTone(status);
 
   if (loading) {
@@ -318,7 +324,9 @@ function ConfirmationPageContent() {
               <h1 className="mt-3 text-display">{closedHeader.heading}</h1>
 
               <p className="mx-auto mt-4 max-w-md leading-7 text-zinc-400">
-                {closedHeader.description}
+                {declineReasonCopy
+                  ? `${declineReasonCopy} You haven’t been charged for it.`
+                  : closedHeader.description}
               </p>
             </>
           ) : (
