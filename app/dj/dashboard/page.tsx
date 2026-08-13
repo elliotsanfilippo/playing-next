@@ -308,6 +308,7 @@ export default function DJDashboardPage() {
         "played",
         "declined",
         "cancelled",
+        "expired",
         "refunded",
         "disputed",
       ])

@@ -36,6 +36,7 @@ const STATUS_LABEL: Record<string, string> = {
   played: "Played",
   declined: "Declined",
   cancelled: "Cancelled",
+  expired: "Expired",
 };
 
 export default function MyRequestsPage() {
@@ -188,6 +189,7 @@ export default function MyRequestsPage() {
       played: 4,
       declined: 5,
       cancelled: 5,
+      expired: 5,
     };
 
     const statusOrder =
@@ -306,7 +308,8 @@ export default function MyRequestsPage() {
                     )}
 
                     {(request.request_status === "declined" ||
-                      request.request_status === "cancelled") && (
+                      request.request_status === "cancelled" ||
+                      request.request_status === "expired") && (
                       <p className="mt-4 text-sm text-zinc-400">
                         You have not been charged.
                       </p>

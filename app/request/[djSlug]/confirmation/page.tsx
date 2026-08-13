@@ -59,6 +59,11 @@ const STATUS_COPY: Record<string, { label: string; description: string }> = {
     description:
       "You cancelled this request. Your payment will not be captured.",
   },
+  expired: {
+    label: "Request Expired",
+    description:
+      "The DJ didn’t respond in time, so this request expired. Your payment was never taken.",
+  },
   refunded: {
     label: "Refunded",
     description: "This payment has been refunded.",
@@ -92,6 +97,12 @@ const CLOSED_HEADER: Record<
     heading: "Not this time.",
     description:
       "The DJ couldn’t take this one, so you haven’t been charged for it.",
+  },
+  expired: {
+    eyebrow: "Request expired",
+    heading: "Expired.",
+    description:
+      "The DJ didn’t get to this one in time, so you haven’t been charged for it.",
   },
   refunded: {
     eyebrow: "Request refunded",
@@ -413,7 +424,9 @@ function ConfirmationPageContent() {
               <p className="mt-2 text-sm leading-6 text-zinc-500">
                 {status === "pending" || status === "checkout_pending"
                   ? "No need to refresh. You’ll only be charged if the DJ accepts your request."
-                  : status === "declined" || status === "cancelled"
+                  : status === "declined" ||
+                      status === "cancelled" ||
+                      status === "expired"
                     ? "No need to refresh. Your payment will not be captured."
                     : "No need to refresh. Your request status will update here automatically."}
               </p>

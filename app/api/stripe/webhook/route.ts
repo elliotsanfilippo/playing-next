@@ -95,6 +95,7 @@ export async function POST(request: Request) {
               .from("song_requests")
               .update({
                 request_status: "pending",
+                pending_at: new Date().toISOString(),
                 stripe_payment_intent_id: paymentIntentId,
               })
               .eq("id", requestId)
@@ -145,16 +146,22 @@ export async function POST(request: Request) {
         const requestId = paymentIntent.metadata?.requestId;
 
         /*
-         * A guest cancelling their own request, a DJ declining it, and
-         * Stripe auto-cancelling an uncaptured authorisation all land
-         * here identically. Only the guest's own cancellation sets
-         * "requested_by_customer", so that's what separates "you
-         * cancelled this" from "the DJ couldn't take it".
+         * A guest cancelling, a DJ declining, our own expiry sweep and
+         * Stripe's 7-day auto-cancel all arrive here as the same event,
+         * so the cancellation reason is the only thing separating them.
+         * Each writer sets its own reason, which keeps this agreeing
+         * with whatever that writer records directly — otherwise
+         * whichever landed first would decide the guest's status.
          */
+        const cancellationReason = paymentIntent.cancellation_reason;
+
         const nextStatus =
-          paymentIntent.cancellation_reason === "requested_by_customer"
+          cancellationReason === "requested_by_customer"
             ? "cancelled"
-            : "declined";
+            : cancellationReason === "abandoned" ||
+                cancellationReason === "automatic"
+              ? "expired"
+              : "declined";
 
         if (requestId) {
           await supabaseAdmin

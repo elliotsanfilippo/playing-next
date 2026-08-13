@@ -86,13 +86,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    /*
+     * Guarded on "checkout_pending" because the webhook races this
+     * redirect to make the same transition — whichever arrives first
+     * wins, and the loser must not reset pending_at, or the DJ's
+     * response window would silently restart.
+     */
     const { error: updateError } = await supabaseAdmin
       .from("song_requests")
       .update({
         request_status: "pending",
+        pending_at: new Date().toISOString(),
         stripe_payment_intent_id: paymentIntentId,
       })
-      .eq("id", requestId);
+      .eq("id", requestId)
+      .eq("request_status", "checkout_pending");
 
     if (updateError) {
       console.error("Song request update error:", updateError);
