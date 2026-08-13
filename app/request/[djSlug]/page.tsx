@@ -330,6 +330,14 @@ document.addEventListener(
       return;
     }
 
+    /*
+     * No client-side profanity check on purpose. /api/request/create
+     * runs before the Stripe redirect and surfaces its rejection as a
+     * toast, so the guest is already told to reword before any payment
+     * — mirroring the matcher here would only save a round-trip, and
+     * it costs ~20KB gzipped on every guest's phone to do it.
+     */
+
     setSubmitting(true);
 
     try {

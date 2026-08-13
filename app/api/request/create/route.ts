@@ -3,6 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 import { VIP_SLOT_LIMIT } from "@/src/lib/pricing";
 import { isEffectivelyTakingRequests } from "@/src/lib/djActivity";
+import {
+  MESSAGE_REJECTED_COPY,
+  messageNeedsRewording,
+} from "@/src/lib/messageModeration";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,6 +75,17 @@ export async function POST(request: NextRequest) {
     if (requestType === "song_message" && !message) {
       return NextResponse.json(
         { error: "Please add a message for your Song + Message request." },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * Enforced here rather than only in the browser, since the client
+     * check is a courtesy and this route is public.
+     */
+    if (messageNeedsRewording(message)) {
+      return NextResponse.json(
+        { error: MESSAGE_REJECTED_COPY },
         { status: 400 }
       );
     }
