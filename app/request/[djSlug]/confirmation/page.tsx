@@ -393,7 +393,15 @@ function ConfirmationPageContent() {
                   <h3 className="text-lg font-bold">{statusCopy.label}</h3>
 
                   <p className="mt-2 text-sm leading-6 opacity-80">
-                    {statusCopy.description}
+                    {/*
+                      When the DJ gave a reason, the header above already
+                      states it — repeating a second, vaguer explanation
+                      here reads like two competing answers, so this drops
+                      to just the payment reassurance.
+                    */}
+                    {declineReasonCopy
+                      ? "Your payment will not be captured."
+                      : statusCopy.description}
                   </p>
                 </div>
               </div>
