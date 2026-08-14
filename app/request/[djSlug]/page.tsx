@@ -40,6 +40,10 @@ export default function RequestPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [selectedSong, setSelectedSong] = useState<SpotifyTrack | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    alreadyRequested: boolean;
+    alreadyPlayed: boolean;
+  } | null>(null);
 
   const [requestType, setRequestType] = useState<
     "song_request" | "song_message"
@@ -101,6 +105,40 @@ export default function RequestPage() {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  /*
+   * Informational only — lets a guest know before they pay that a
+   * track is already in the queue or was already played tonight.
+   */
+  useEffect(() => {
+    if (!selectedSong) {
+      setDuplicateWarning(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkDuplicate = async () => {
+      try {
+        const response = await fetch(
+          `/api/request/duplicate-check?djSlug=${encodeURIComponent(djSlug)}&spotifyTrackId=${encodeURIComponent(selectedSong.id)}`
+        );
+
+        if (!response.ok || cancelled) return;
+
+        const data = await response.json();
+        if (!cancelled) setDuplicateWarning(data);
+      } catch (error) {
+        console.log("Duplicate check error:", error);
+      }
+    };
+
+    checkDuplicate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSong, djSlug]);
 
   /*
    * Debounced rather than firing on every keystroke — searching "levels"
@@ -380,6 +418,7 @@ document.addEventListener(
         djSlug,
         songTitle: selectedSong.title,
         artist: selectedSong.artist,
+        spotifyTrackId: selectedSong.id,
         requestType,
         message: requestType === "song_message" ? message.trim() : undefined,
         isVip,
@@ -526,6 +565,7 @@ localStorage.setItem(
     <Card variant="elevated" className="mt-6 p-6 sm:p-8">
       <SelectedSong
         selectedSong={selectedSong}
+        duplicateWarning={duplicateWarning}
         onChangeSong={() => {
           setSelectedSong(null);
           setSearchQuery("");

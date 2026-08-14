@@ -23,6 +23,7 @@ type CreateRequestBody = {
   djSlug?: string;
   songTitle?: string;
   artist?: string;
+  spotifyTrackId?: string;
   requestType?: "song_request" | "song_message";
   message?: string;
   isVip?: boolean;
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
     const djSlug = body.djSlug?.trim().slice(0, 100);
     const songTitle = body.songTitle?.trim().slice(0, 300);
     const artist = body.artist?.trim().slice(0, 300);
+    const spotifyTrackId = body.spotifyTrackId?.trim().slice(0, 100) || null;
     const requestType =
       body.requestType === "song_message" ? "song_message" : "song_request";
     const message = body.message?.trim().slice(0, 500) || null;
@@ -163,6 +165,7 @@ export async function POST(request: NextRequest) {
         dj_profile_id: djProfile.id,
         song_title: songTitle,
         artist,
+        spotify_track_id: spotifyTrackId,
         request_status: "checkout_pending",
         queue_position: nextQueuePosition,
         request_type: requestType,
