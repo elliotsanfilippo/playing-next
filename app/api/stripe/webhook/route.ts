@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { sendPushToDJ } from "@/src/lib/webpush";
 import { checkAndMarkQrBoxEligible } from "@/src/lib/qrBoxIncentive";
+import { createChargebackDispute } from "@/src/lib/chargebacks";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -246,18 +247,67 @@ export async function POST(request: Request) {
           typeof dispute.payment_intent === "string"
             ? dispute.payment_intent
             : dispute.payment_intent?.id;
+        const chargeId =
+          typeof dispute.charge === "string"
+            ? dispute.charge
+            : dispute.charge?.id;
 
         if (paymentIntentId) {
-          await supabaseAdmin
+          const { data: updatedRequests } = await supabaseAdmin
             .from("song_requests")
             .update({ request_status: "disputed" })
-            .eq("stripe_payment_intent_id", paymentIntentId);
+            .eq("stripe_payment_intent_id", paymentIntentId)
+            .select("id, dj_profile_id, dj_earnings, song_title, artist");
 
-          await supabaseAdmin
+          const { data: updatedTips } = await supabaseAdmin
             .from("tips")
             .update({ status: "disputed" })
             .eq("stripe_payment_intent_id", paymentIntentId)
-            .eq("status", "succeeded");
+            .eq("status", "succeeded")
+            .select("id, dj_profile_id, dj_earnings, message");
+
+          const requestRow = updatedRequests?.[0];
+          const tipRow = updatedTips?.[0];
+
+          if (requestRow) {
+            await createChargebackDispute({
+              djProfileId: requestRow.dj_profile_id,
+              sourceTable: "song_requests",
+              sourceId: requestRow.id,
+              stripeDisputeId: dispute.id,
+              stripeChargeId: chargeId ?? null,
+              disputedAmount: requestRow.dj_earnings,
+              description: `Song request: ${requestRow.song_title} — ${requestRow.artist}`,
+            });
+
+            sendPushToDJ(requestRow.dj_profile_id, {
+              title: "A charge was disputed",
+              body: `${requestRow.song_title} — you have 7 days to respond.`,
+              url: "/dj/dashboard",
+            }).catch((pushError) => {
+              console.error("Chargeback push notification error:", pushError);
+            });
+          } else if (tipRow) {
+            await createChargebackDispute({
+              djProfileId: tipRow.dj_profile_id,
+              sourceTable: "tips",
+              sourceId: tipRow.id,
+              stripeDisputeId: dispute.id,
+              stripeChargeId: chargeId ?? null,
+              disputedAmount: tipRow.dj_earnings,
+              description: tipRow.message
+                ? `Tip: "${tipRow.message}"`
+                : "Tip",
+            });
+
+            sendPushToDJ(tipRow.dj_profile_id, {
+              title: "A charge was disputed",
+              body: "A tip was disputed — you have 7 days to respond.",
+              url: "/dj/dashboard",
+            }).catch((pushError) => {
+              console.error("Chargeback push notification error:", pushError);
+            });
+          }
         }
 
         break;
