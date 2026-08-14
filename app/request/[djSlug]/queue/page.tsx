@@ -102,7 +102,7 @@ export default function PublicQueuePage() {
     <main className="flex h-screen flex-col overflow-hidden bg-canvas px-6 py-8 text-white sm:px-10 sm:py-10">
       <Link
         href="/dj/dashboard"
-        className="fixed left-4 top-4 z-10 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-zinc-500 backdrop-blur transition hover:text-zinc-300"
+        className="relative z-10 mb-6 flex w-fit shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-zinc-500 backdrop-blur transition hover:text-zinc-300 sm:fixed sm:left-4 sm:top-4 sm:mb-0"
       >
         <ArrowLeft size={12} />
         Dashboard
@@ -209,7 +209,7 @@ export default function PublicQueuePage() {
       </div>
 
       {qrCodeUrl && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-4 rounded-card-lg border border-white/10 bg-zinc-900/90 p-4 shadow-2xl backdrop-blur">
+        <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-card-lg border border-white/10 bg-zinc-900/90 p-4 shadow-2xl backdrop-blur sm:left-auto sm:right-6 sm:translate-x-0">
           <div className="rounded-card bg-white p-2">
             <img src={qrCodeUrl} alt="QR code" className="h-24 w-24" />
           </div>
