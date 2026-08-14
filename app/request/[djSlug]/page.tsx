@@ -75,7 +75,7 @@ export default function RequestPage() {
   const { data, error } = await supabase
     .from("dj_profiles")
     .select(
-      "id, dj_name, request_status, last_active_at, genres, bio, request_price, shoutout_price, profile_image_url"
+      "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, request_price, shoutout_price, profile_image_url"
     )
     .eq("slug", djSlug)
     .maybeSingle();
@@ -218,7 +218,7 @@ export default function RequestPage() {
     const { data, error } = await supabase
       .from("dj_profiles")
       .select(
-        "id, dj_name, request_status, last_active_at, genres, bio, request_price, shoutout_price, profile_image_url"
+        "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, request_price, shoutout_price, profile_image_url"
       )
       .eq("slug", djSlug)
       .maybeSingle();
@@ -266,7 +266,7 @@ export default function RequestPage() {
     const { data } = await supabase
       .from("dj_profiles")
       .select(
-        "id, dj_name, request_status, last_active_at, genres, bio, request_price, shoutout_price, profile_image_url"
+        "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, request_price, shoutout_price, profile_image_url"
       )
       .eq("slug", djSlug)
       .maybeSingle();

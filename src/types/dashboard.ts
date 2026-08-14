@@ -23,6 +23,8 @@ export type DJProfile = {
   shoutout_price?: number | null;
   stripe_connected?: boolean;
   plan?: string;
+  stripe_subscription_status?: string | null;
+  auto_close_at?: string | null;
   onboarding_complete: boolean;
   launch_complete_seen: boolean;
   qr_box_eligible?: boolean;

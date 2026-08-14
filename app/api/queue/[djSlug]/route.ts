@@ -40,7 +40,9 @@ export async function GET(
 
     const { data: djProfile, error: profileError } = await supabase
       .from("dj_profiles")
-      .select("id, dj_name, profile_image_url, request_status, last_active_at")
+      .select(
+        "id, dj_name, profile_image_url, request_status, last_active_at, auto_close_at"
+      )
       .eq("slug", djSlug)
       .maybeSingle();
 

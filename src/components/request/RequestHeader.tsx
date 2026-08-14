@@ -6,6 +6,7 @@ export type DJProfile = {
   dj_name: string;
   request_status: string;
   last_active_at: string | null;
+  auto_close_at?: string | null;
   genres: string[] | string | null;
   bio: string | null;
   request_price: number | null;

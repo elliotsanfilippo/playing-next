@@ -15,11 +15,14 @@ import {
 } from "lucide-react";
 import Button from "@/src/components/ui/Button";
 import { cn } from "@/src/lib/cn";
+import AutoCloseControl from "./AutoCloseControl";
 
 type Props = {
   djProfile: DJProfile | null;
   isTakingRequests: boolean;
   toggleRequests: () => Promise<void>;
+  isPro: boolean;
+  setAutoClose: (minutes: number | null) => Promise<void>;
   logout: () => Promise<void>;
   router: {
     push: (path: string) => void;
@@ -40,6 +43,8 @@ export default function DashboardHeader({
   djProfile,
   isTakingRequests,
   toggleRequests,
+  isPro,
+  setAutoClose,
   logout,
   router,
 }: Props) {
@@ -168,6 +173,15 @@ export default function DashboardHeader({
     </span>
   );
 
+  const autoCloseControl = (
+    <AutoCloseControl
+      isPro={isPro}
+      isTakingRequests={isTakingRequests}
+      autoCloseAt={djProfile?.auto_close_at}
+      onSetAutoClose={setAutoClose}
+    />
+  );
+
   const pauseResumeButton = (
     <Button
       size="sm"
@@ -216,6 +230,7 @@ export default function DashboardHeader({
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {statusBadge}
               {pauseResumeButton}
+              {autoCloseControl}
             </div>
           </div>
 
@@ -285,7 +300,10 @@ export default function DashboardHeader({
               </p>
             )}
 
-            <div className="mt-4">{statusBadge}</div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {statusBadge}
+              {autoCloseControl}
+            </div>
           </div>
         </div>
 

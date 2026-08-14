@@ -296,14 +296,16 @@ export default function DJDashboardPage() {
       return;
     }
 
-    const nextStatus =
-      djProfile.request_status === "taking_requests"
-        ? "paused"
-        : "taking_requests";
+    const nextStatus = isTakingRequests ? "paused" : "taking_requests";
 
+    /*
+     * A manual click always clears any pending auto-close — otherwise
+     * resuming after an auto-close (or pausing early) would leave a
+     * stale schedule that could immediately re-close things again.
+     */
     const { error } = await supabase
       .from("dj_profiles")
-      .update({ request_status: nextStatus })
+      .update({ request_status: nextStatus, auto_close_at: null })
       .eq("id", djProfile.id);
 
     if (error) {
@@ -315,10 +317,38 @@ export default function DJDashboardPage() {
     setDjProfile({
       ...djProfile,
       request_status: nextStatus,
+      auto_close_at: null,
     });
 
     await fetchDJProfile();
     await fetchRequests();
+  };
+
+  const setAutoClose = async (minutes: number | null) => {
+    if (!djProfile) {
+      toast.error("DJ profile not loaded yet.");
+      return;
+    }
+
+    const autoCloseAt = minutes
+      ? new Date(Date.now() + minutes * 60_000).toISOString()
+      : null;
+
+    const { error } = await supabase
+      .from("dj_profiles")
+      .update({ auto_close_at: autoCloseAt })
+      .eq("id", djProfile.id);
+
+    if (error) {
+      console.log("Auto-close update error:", error);
+      toast.error(error.message);
+      return;
+    }
+
+    setDjProfile({ ...djProfile, auto_close_at: autoCloseAt });
+    toast.success(
+      autoCloseAt ? "Auto-close scheduled." : "Auto-close cancelled."
+    );
   };
 
   /*
@@ -568,7 +598,16 @@ export default function DJDashboardPage() {
     router.push("/login");
   };
 
-  const isTakingRequests = djProfile?.request_status === "taking_requests";
+  const isDjPro =
+    djProfile?.plan === "pro" &&
+    djProfile?.stripe_subscription_status === "active";
+
+  const autoClosed = Boolean(
+    djProfile?.auto_close_at && new Date(djProfile.auto_close_at) <= new Date()
+  );
+
+  const isTakingRequests =
+    djProfile?.request_status === "taking_requests" && !autoClosed;
 
   const requestLink = djProfile
     ? `${window.location.origin}/request/${djProfile.slug}`
@@ -828,6 +867,8 @@ export default function DJDashboardPage() {
           djProfile={djProfile}
           isTakingRequests={isTakingRequests}
           toggleRequests={toggleRequests}
+          isPro={isDjPro}
+          setAutoClose={setAutoClose}
           logout={logout}
           router={router}
         />

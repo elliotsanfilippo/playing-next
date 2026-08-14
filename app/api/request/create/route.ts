@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
       .select(
-        "id, request_status, last_active_at, max_pending_requests"
+        "id, request_status, last_active_at, auto_close_at, max_pending_requests"
       )
       .eq("slug", djSlug)
       .maybeSingle();
