@@ -99,7 +99,7 @@ export default function PublicQueuePage() {
   }
 
   return (
-    <main className="min-h-screen bg-canvas px-6 py-10 text-white sm:px-10 sm:py-14">
+    <main className="flex h-screen flex-col overflow-hidden bg-canvas px-6 py-8 text-white sm:px-10 sm:py-10">
       <Link
         href="/dj/dashboard"
         className="fixed left-4 top-4 z-10 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-zinc-500 backdrop-blur transition hover:text-zinc-300"
@@ -108,8 +108,8 @@ export default function PublicQueuePage() {
         Dashboard
       </Link>
 
-      <div className="mx-auto max-w-4xl">
-        <div className="flex items-center justify-between">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 items-center justify-between">
           <div className="flex items-center gap-4">
             {data.djImage ? (
               <img
@@ -137,7 +137,7 @@ export default function PublicQueuePage() {
           )}
         </div>
 
-        <div className="mt-14">
+        <div className="mt-10 shrink-0 sm:mt-12">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
             Now Playing
           </p>
@@ -164,8 +164,8 @@ export default function PublicQueuePage() {
           )}
         </div>
 
-        <div className="mt-16">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
+        <div className="mt-10 flex min-h-0 flex-1 flex-col sm:mt-12">
+          <p className="shrink-0 text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
             Up Next
           </p>
 
@@ -174,7 +174,7 @@ export default function PublicQueuePage() {
               The queue is empty. Get your request in.
             </p>
           ) : (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pb-44 pr-1 sm:pr-52">
               {data.upNext.map((track, index) => (
                 <div
                   key={`${track.songTitle}-${index}`}
