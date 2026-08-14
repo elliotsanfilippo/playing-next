@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { Toaster } from "sonner";
+import ConsentBanner from "@/src/components/ConsentBanner";
 import "./globals.css";
 
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
@@ -72,10 +73,9 @@ export default function RootLayout({
             {/*
               Consent Mode defaults must run before GTM's own script
               evaluates, so every Google tag it loads starts denied
-              until the (not yet built) consent banner calls
-              updateConsent() from src/lib/consent.ts. beforeInteractive
-              guarantees Next.js injects this ahead of GTM regardless
-              of DOM order below.
+              until ConsentBanner calls updateConsent() from
+              src/lib/consent.ts. beforeInteractive guarantees Next.js
+              injects this ahead of GTM regardless of DOM order below.
             */}
             <Script id="consent-mode-default" strategy="beforeInteractive">
               {`
@@ -113,6 +113,8 @@ export default function RootLayout({
         )}
 
         {children}
+
+        <ConsentBanner />
 
         <Toaster
           position="bottom-right"
