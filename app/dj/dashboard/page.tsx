@@ -32,6 +32,7 @@ export default function DJDashboardPage() {
   const router = useRouter();
 
   const [requests, setRequests] = useState<SongRequest[]>([]);
+  const [tipsToday, setTipsToday] = useState(0);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -108,6 +109,32 @@ export default function DJDashboardPage() {
 
     setDjProfile(data);
     setLoadingDashboard(false);
+  };
+
+  /*
+   * Goes through the authenticated API route rather than a direct
+   * client query — tips has RLS enabled with zero policies (deny-all),
+   * matching the same "service-role only" pattern already used for
+   * money-adjacent reads elsewhere.
+   */
+  const fetchTips = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) return;
+
+    const response = await fetch("/api/dj/tips", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (!response.ok) {
+      console.log("Tips load error:", await response.json().catch(() => ({})));
+      return;
+    }
+
+    const data = await response.json();
+    setTipsToday((data.todayTotal ?? 0) / 100);
   };
 
   const fetchRequests = async () => {
@@ -506,6 +533,7 @@ export default function DJDashboardPage() {
 
       await fetchDJProfile();
       await fetchRequests();
+      await fetchTips();
     };
 
     checkAuth();
@@ -738,6 +766,7 @@ export default function DJDashboardPage() {
           queueCount={acceptedRequests.length}
           playedCount={playedRequests.length}
           tonightRevenue={tonightRevenue}
+          tipsToday={tipsToday}
         />
 
         <PlayingNextCard

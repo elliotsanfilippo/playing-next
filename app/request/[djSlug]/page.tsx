@@ -23,6 +23,7 @@ import TrackResults, {
 import SelectedSong from "@/src/components/request/SelectedSong";
 import RequestOptions from "@/src/components/request/RequestOptions";
 import CheckoutButton from "@/src/components/request/CheckoutButton";
+import TipCard from "@/src/components/request/TipCard";
 import EmptySearchState from "@/src/components/request/EmptySearchState";
 import Card from "@/src/components/ui/Card";
 import { buttonVariants } from "@/src/components/ui/Button";
@@ -80,6 +81,26 @@ export default function RequestPage() {
   setDjNotFound(false);
   setIsLoadingDJ(false);
 };
+
+  /*
+   * Reads the query string directly rather than useSearchParams, which
+   * would require wrapping this whole page in a Suspense boundary just
+   * for a one-off toast on the way back from a tip. Cleans the URL
+   * afterwards so refreshing the page doesn't re-fire the toast.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("tipped") === "1") {
+      const amount = params.get("tipAmount");
+
+      toast.success(
+        amount ? `Thanks for the £${amount} tip! 🎉` : "Thanks for the tip! 🎉"
+      );
+
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   /*
    * Debounced rather than firing on every keystroke — searching "levels"
@@ -471,6 +492,8 @@ localStorage.setItem(
   djProfile={djProfile!}
   isTakingRequests={isTakingRequests}
 />
+
+  <TipCard djSlug={djSlug} isTakingRequests={isTakingRequests} />
 
   <Card variant="elevated" className="mt-6 p-6 sm:p-8">
   <RequestCardHeader />

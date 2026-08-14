@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Gift } from "lucide-react";
 import { supabase } from "../../src/lib/supabase";
+import {
+  PRO_MONTHLY_PRICE_GBP,
+  PRO_BREAK_EVEN_MONTHLY_GBP,
+} from "@/src/lib/pricing";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
@@ -149,7 +153,7 @@ export default function PlansPage() {
           >
             <Eyebrow tone="accent">Pro</Eyebrow>
             <p className="mt-3 text-4xl font-bold">
-              £14.99
+              £{PRO_MONTHLY_PRICE_GBP.toFixed(2)}
               <span className="text-base font-medium text-zinc-500">
                 /month
               </span>
@@ -158,8 +162,8 @@ export default function PlansPage() {
               0% platform fee — keep everything you earn
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              Pays for itself once you&rsquo;re taking around £100/month in
-              accepted requests
+              Pays for itself once you&rsquo;re taking around £
+              {PRO_BREAK_EVEN_MONTHLY_GBP}/month in accepted requests
             </p>
 
             <ul className="mt-6 flex-1 space-y-3">

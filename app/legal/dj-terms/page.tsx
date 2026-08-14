@@ -1,4 +1,5 @@
 import { LegalDoc, H2, P, Ul, Note } from "@/src/components/legal/LegalDoc";
+import { PRO_MONTHLY_PRICE_GBP } from "@/src/lib/pricing";
 
 export const metadata = {
   title: "DJ Terms | Playing Next",
@@ -80,7 +81,8 @@ export default function DjTermsPage() {
         remaining 85%.
       </P>
       <P>
-        <strong>Pro plan</strong>{" "}(£14.99/month): a 0% platform fee —
+        <strong>Pro plan</strong>{" "}(£{PRO_MONTHLY_PRICE_GBP.toFixed(2)}/month):
+        a 0% platform fee —
         you keep 100% of the request price on accepted requests. Billed
         monthly via Stripe; manage or cancel your subscription any time
         from your account settings. If your payment fails, your account

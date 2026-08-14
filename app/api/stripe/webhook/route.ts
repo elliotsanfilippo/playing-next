@@ -76,11 +76,48 @@ export async function POST(request: Request) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const requestId = session.metadata?.requestId;
+        const tipId = session.metadata?.tipId;
 
         const paymentIntentId =
           typeof session.payment_intent === "string"
             ? session.payment_intent
             : session.payment_intent?.id;
+
+        /*
+         * Same reconciliation role as the request path below: a no-op
+         * on the common case where /api/stripe/tip-success already ran,
+         * and the only thing that actually does anything for a guest
+         * whose browser never made it back from Stripe.
+         */
+        if (tipId && paymentIntentId) {
+          const { data: updatedTips, error: tipUpdateError } =
+            await supabaseAdmin
+              .from("tips")
+              .update({
+                status: "succeeded",
+                stripe_payment_intent_id: paymentIntentId,
+              })
+              .eq("id", tipId)
+              .eq("status", "pending")
+              .select("dj_profile_id, amount");
+
+          if (tipUpdateError) {
+            console.error(
+              "Webhook tip checkout.session.completed update error:",
+              tipUpdateError
+            );
+          } else if (updatedTips && updatedTips.length > 0) {
+            const updatedTip = updatedTips[0];
+
+            sendPushToDJ(updatedTip.dj_profile_id, {
+              title: "You got a tip! 🎉",
+              body: `£${(updatedTip.amount / 100).toFixed(2)} tip from a guest`,
+              url: "/dj/dashboard",
+            }).catch((pushError) => {
+              console.error("Tip push notification error:", pushError);
+            });
+          }
+        }
 
         if (requestId && paymentIntentId) {
           /*
@@ -192,6 +229,12 @@ export async function POST(request: Request) {
             .update({ request_status: "refunded" })
             .eq("stripe_payment_intent_id", paymentIntentId)
             .in("request_status", ["accepted", "playing_next", "played"]);
+
+          await supabaseAdmin
+            .from("tips")
+            .update({ status: "refunded" })
+            .eq("stripe_payment_intent_id", paymentIntentId)
+            .eq("status", "succeeded");
         }
 
         break;
@@ -209,6 +252,12 @@ export async function POST(request: Request) {
             .from("song_requests")
             .update({ request_status: "disputed" })
             .eq("stripe_payment_intent_id", paymentIntentId);
+
+          await supabaseAdmin
+            .from("tips")
+            .update({ status: "disputed" })
+            .eq("stripe_payment_intent_id", paymentIntentId)
+            .eq("status", "succeeded");
         }
 
         break;

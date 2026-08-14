@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
 import { supabase } from "../../../src/lib/supabase";
 import { getCroppedImageBlob } from "@/src/lib/cropImage";
+import { PRO_MONTHLY_PRICE_GBP } from "@/src/lib/pricing";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { Input, Textarea } from "@/src/components/ui/Input";
@@ -603,7 +604,8 @@ function DJSettingsPageContent() {
                         <div>
                           <h4 className="font-semibold">Pro</h4>
                           <p className="mt-1 text-sm text-zinc-400">
-                            £14.99/month · 0% platform fee · full analytics
+                            £{PRO_MONTHLY_PRICE_GBP.toFixed(2)}/month · 0%
+                            platform fee · full analytics
                           </p>
                           <Link
                             href="/plans"

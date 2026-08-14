@@ -12,6 +12,7 @@ import {
   Lock,
 } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
+import { PRO_MONTHLY_PRICE_GBP } from "@/src/lib/pricing";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import StatCard from "@/src/components/ui/StatCard";
@@ -256,7 +257,9 @@ export default function AnalyticsPage() {
 
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button onClick={upgradeToPro} disabled={subscribing}>
-                {subscribing ? "Opening..." : "Upgrade to Pro — £14.99/mo"}
+                {subscribing
+                  ? "Opening..."
+                  : `Upgrade to Pro — £${PRO_MONTHLY_PRICE_GBP.toFixed(2)}/mo`}
               </Button>
 
               <Link
