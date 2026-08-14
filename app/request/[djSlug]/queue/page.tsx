@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { Music2, Radio, Crown, ArrowLeft } from "lucide-react";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 
@@ -34,6 +35,17 @@ export default function PublicQueuePage() {
 
   const [data, setData] = useState<QueueData | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+
+  useEffect(() => {
+    if (!djSlug) return;
+
+    const requestLink = `${window.location.origin}/request/${djSlug}`;
+
+    QRCode.toDataURL(requestLink, { margin: 1 })
+      .then(setQrCodeUrl)
+      .catch((error) => console.log("QR code error:", error));
+  }, [djSlug]);
 
   useEffect(() => {
     let isMounted = true;
@@ -195,6 +207,18 @@ export default function PublicQueuePage() {
           )}
         </div>
       </div>
+
+      {qrCodeUrl && (
+        <div className="fixed bottom-6 right-6 flex items-center gap-4 rounded-card-lg border border-white/10 bg-zinc-900/90 p-4 shadow-2xl backdrop-blur">
+          <div className="rounded-card bg-white p-2">
+            <img src={qrCodeUrl} alt="QR code" className="h-24 w-24" />
+          </div>
+
+          <p className="max-w-[9rem] text-sm font-semibold leading-tight text-zinc-300">
+            Scan to request a song
+          </p>
+        </div>
+      )}
     </main>
   );
 }
