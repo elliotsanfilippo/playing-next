@@ -120,11 +120,11 @@ export default function QrBoxBanner({ onDismissed }: Props) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-zinc-300">
-            <span className="font-semibold text-white">
-              Free QR display block
-            </span>
-            {" "}&middot; first 50 Pro DJs, just cover shipping
+          <p className="text-sm font-semibold text-white">
+            Free QR display block
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            First 50 Pro DJs, just cover shipping
           </p>
         </div>
 
