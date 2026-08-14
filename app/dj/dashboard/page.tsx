@@ -30,6 +30,7 @@ import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
 import Onboarding from "./components/Onboarding";
 import LaunchComplete from "./components/LaunchComplete";
+import PostGigRecapModal from "./components/PostGigRecapModal";
 import DashboardSkeleton from "./components/DashboardSkeleton";
 
 export default function DJDashboardPage() {
@@ -302,10 +303,23 @@ export default function DJDashboardPage() {
      * A manual click always clears any pending auto-close — otherwise
      * resuming after an auto-close (or pausing early) would leave a
      * stale schedule that could immediately re-close things again.
+     * Resuming also stamps session_started_at, marking the start of a
+     * fresh gig for the post-gig recap; pausing leaves it as-is so the
+     * recap can read back the window that just ended.
      */
+    const updates: {
+      request_status: string;
+      auto_close_at: null;
+      session_started_at?: string;
+    } = { request_status: nextStatus, auto_close_at: null };
+
+    if (nextStatus === "taking_requests") {
+      updates.session_started_at = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from("dj_profiles")
-      .update({ request_status: nextStatus, auto_close_at: null })
+      .update(updates)
       .eq("id", djProfile.id);
 
     if (error) {
@@ -314,14 +328,26 @@ export default function DJDashboardPage() {
       return;
     }
 
-    setDjProfile({
-      ...djProfile,
-      request_status: nextStatus,
-      auto_close_at: null,
-    });
+    setDjProfile({ ...djProfile, ...updates });
 
     await fetchDJProfile();
     await fetchRequests();
+  };
+
+  const dismissRecap = async () => {
+    if (!djProfile) return;
+
+    const { error } = await supabase
+      .from("dj_profiles")
+      .update({ session_started_at: null })
+      .eq("id", djProfile.id);
+
+    if (error) {
+      console.log("Dismiss recap error:", error);
+      return;
+    }
+
+    setDjProfile({ ...djProfile, session_started_at: null });
   };
 
   const setAutoClose = async (minutes: number | null) => {
@@ -609,6 +635,36 @@ export default function DJDashboardPage() {
   const isTakingRequests =
     djProfile?.request_status === "taking_requests" && !autoClosed;
 
+  const sessionRequests = djProfile?.session_started_at
+    ? requests.filter(
+        (request) =>
+          new Date(request.created_at) >=
+            new Date(djProfile.session_started_at!) &&
+          ["accepted", "playing_next", "played"].includes(
+            request.request_status
+          )
+      )
+    : [];
+
+  const showRecap =
+    !isTakingRequests &&
+    Boolean(djProfile?.session_started_at) &&
+    sessionRequests.length > 0;
+
+  /*
+   * A session with zero successful requests isn't worth a recap —
+   * silently clears the pending marker instead of popping up an empty
+   * "0 requests played" modal.
+   */
+  useEffect(() => {
+    if (!djProfile?.session_started_at) return;
+    if (isTakingRequests) return;
+    if (sessionRequests.length > 0) return;
+
+    dismissRecap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [djProfile?.session_started_at, isTakingRequests, sessionRequests.length]);
+
   const requestLink = djProfile
     ? `${window.location.origin}/request/${djProfile.slug}`
     : "";
@@ -872,6 +928,15 @@ export default function DJDashboardPage() {
           logout={logout}
           router={router}
         />
+
+        {showRecap && djProfile && (
+          <PostGigRecapModal
+            djName={djProfile.dj_name}
+            djSlug={djProfile.slug}
+            sessionRequests={sessionRequests}
+            onDismiss={dismissRecap}
+          />
+        )}
 
         <ChargebackBanner
           disputes={chargebacks}

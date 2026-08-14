@@ -25,6 +25,7 @@ export type DJProfile = {
   plan?: string;
   stripe_subscription_status?: string | null;
   auto_close_at?: string | null;
+  session_started_at?: string | null;
   onboarding_complete: boolean;
   launch_complete_seen: boolean;
   qr_box_eligible?: boolean;
