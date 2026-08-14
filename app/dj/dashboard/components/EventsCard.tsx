@@ -49,22 +49,26 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
       <Card variant="elevated" className="mb-8 overflow-hidden">
         <Link
           href="/plans"
-          className="flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-white/[0.03]"
+          className="flex items-start gap-3 px-5 py-3.5 transition hover:bg-white/[0.03] sm:items-center"
         >
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400">
-              <Lock size={15} />
-            </div>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400">
+            <Lock size={15} />
+          </div>
 
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-zinc-300">
               <span className="font-semibold text-white">Events Mode</span>
               <span className="hidden sm:inline">
                 {" "}&middot; run named events with their own pricing
               </span>
             </p>
+
+            <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
+              Named events with their own pricing
+            </p>
           </div>
 
-          <span className="shrink-0 text-sm font-semibold text-accent">
+          <span className="shrink-0 self-center text-sm font-semibold text-accent">
             Compare plans
           </span>
         </Link>
@@ -207,20 +211,24 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.03]"
+          className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.03] sm:items-center"
         >
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-              <PartyPopper size={15} />
-            </div>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+            <PartyPopper size={15} />
+          </div>
 
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-zinc-300">
               <span className="font-semibold text-white">Events Mode</span>
               <span className="hidden sm:inline">{" "}&middot; No active event</span>
             </p>
+
+            <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
+              No active event
+            </p>
           </div>
 
-          <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-accent">
+          <span className="flex shrink-0 items-center gap-1 self-center text-sm font-semibold text-accent">
             Manage <ChevronDown size={15} />
           </span>
         </button>
