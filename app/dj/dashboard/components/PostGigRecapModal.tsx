@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { X, Download } from "lucide-react";
+import { X, Share2 } from "lucide-react";
 import Button from "@/src/components/ui/Button";
 import type { SongRequest } from "@/src/types/dashboard";
 
@@ -64,6 +64,7 @@ export default function PostGigRecapModal({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dismissing, setDismissing] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [ready, setReady] = useState(false);
 
   const songCounts = new Map<
@@ -227,14 +228,61 @@ export default function PostGigRecapModal({
     };
   }, [djName, djSlug, sessionRequests, showTopSong, topSong]);
 
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const getCanvasBlob = () =>
+    new Promise<Blob | null>((resolve) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        resolve(null);
+        return;
+      }
+      canvas.toBlob((blob) => resolve(blob), "image/png");
+    });
 
-    const link = document.createElement("a");
-    link.download = `${djSlug}-recap.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+  /*
+   * The classic <a download> trick doesn't reliably save anything on
+   * mobile Safari, which is where most DJs would actually be tapping
+   * this. Web Share API with a file opens the native share sheet
+   * instead (straight to Instagram/Messages/Photos), so it's tried
+   * first; the download link is only a fallback for browsers that
+   * don't support sharing files (most desktop browsers).
+   */
+  const handleShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+
+    try {
+      const blob = await getCanvasBlob();
+      if (!blob) return;
+
+      const file = new File([blob], `${djSlug}-recap.png`, {
+        type: "image/png",
+      });
+
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "My night on Playing Next",
+          });
+          return;
+        } catch (error) {
+          if ((error as Error)?.name === "AbortError") return;
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = `${djSlug}-recap.png`;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setSharing(false);
+    }
   };
 
   const handleDismiss = async () => {
@@ -262,8 +310,8 @@ export default function PostGigRecapModal({
         </button>
 
         <p className="mb-4 pr-10 text-sm text-zinc-400">
-          Nice set! Here&apos;s your night in numbers — share it if you&apos;re
-          proud of it.
+          Nice set! Here&apos;s your night in numbers. Share it if
+          you&apos;re proud of it.
         </p>
 
         <div className="overflow-hidden rounded-control border border-white/10 bg-black">
@@ -280,9 +328,13 @@ export default function PostGigRecapModal({
             {dismissing ? "Closing..." : "Maybe later"}
           </Button>
 
-          <Button className="flex-1" onClick={handleDownload} disabled={!ready}>
-            <Download size={14} className="mr-1.5" />
-            Download
+          <Button
+            className="flex-1"
+            onClick={handleShare}
+            disabled={!ready || sharing}
+          >
+            <Share2 size={14} className="mr-1.5" />
+            {sharing ? "Sharing..." : "Share"}
           </Button>
         </div>
       </div>
