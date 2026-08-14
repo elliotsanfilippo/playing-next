@@ -197,7 +197,7 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
   return (
     <Card variant="elevated" className="mb-8 overflow-hidden">
       <div className="p-6 sm:p-8">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
               <PartyPopper size={20} />
@@ -222,12 +222,17 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
               size="sm"
               disabled={pendingActionId === "end"}
               onClick={handleEnd}
+              className="shrink-0"
             >
               {pendingActionId === "end" ? "Ending..." : "End Event"}
             </Button>
           ) : (
             !creating && (
-              <Button size="sm" onClick={() => setCreating(true)}>
+              <Button
+                size="sm"
+                onClick={() => setCreating(true)}
+                className="shrink-0"
+              >
                 + Start New Event
               </Button>
             )

@@ -52,12 +52,14 @@ export default function StatsCards({
         tone="accent"
       />
 
-      <StatCard
-        label="Tips Today"
-        value={`£${tipsToday.toFixed(2)}`}
-        icon={<Heart size={20} />}
-        tone="accent"
-      />
+      <div className="col-span-2 xl:col-span-1">
+        <StatCard
+          label="Tips Today"
+          value={`£${tipsToday.toFixed(2)}`}
+          icon={<Heart size={20} />}
+          tone="accent"
+        />
+      </div>
     </section>
   );
 }
