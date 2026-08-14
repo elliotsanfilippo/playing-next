@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { Toaster } from "sonner";
 import "./globals.css";
+
+const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -64,6 +67,51 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {GTM_ID && (
+          <>
+            {/*
+              Consent Mode defaults must run before GTM's own script
+              evaluates, so every Google tag it loads starts denied
+              until the (not yet built) consent banner calls
+              updateConsent() from src/lib/consent.ts. beforeInteractive
+              guarantees Next.js injects this ahead of GTM regardless
+              of DOM order below.
+            */}
+            <Script id="consent-mode-default" strategy="beforeInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('consent', 'default', {
+                  ad_storage: 'denied',
+                  ad_user_data: 'denied',
+                  ad_personalization: 'denied',
+                  analytics_storage: 'denied',
+                  wait_for_update: 500
+                });
+              `}
+            </Script>
+
+            <Script id="gtm-script" strategy="beforeInteractive">
+              {`
+                (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+                new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+                j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+                'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+                })(window,document,'script','dataLayer','${GTM_ID}');
+              `}
+            </Script>
+
+            <noscript>
+              <iframe
+                src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+                height="0"
+                width="0"
+                style={{ display: "none", visibility: "hidden" }}
+              />
+            </noscript>
+          </>
+        )}
+
         {children}
 
         <Toaster
