@@ -21,11 +21,11 @@ import PlayingNextCard from "./components/PlayingNextCard";
 import PendingRequests from "./components/PendingRequests";
 import AcceptedQueue from "./components/AcceptedQueue";
 import SetupChecklist from "./components/SetupChecklist";
-import QrBoxBanner from "./components/QrBoxBanner";
 import ChargebackBanner, {
   type ChargebackDispute,
 } from "./components/ChargebackBanner";
-import EventsCard, { type DjEvent } from "./components/EventsCard";
+import NotificationsStrip from "./components/NotificationsStrip";
+import { type DjEvent } from "./components/EventsCard";
 import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
 import Onboarding from "./components/Onboarding";
@@ -820,17 +820,17 @@ export default function DJDashboardPage() {
           onResolved={fetchChargebacks}
         />
 
-        <EventsCard
+        <NotificationsStrip
           events={events}
-          isPro={eventsIsPro}
-          onChanged={fetchEvents}
-        />
-
-        {djProfile?.qr_box_eligible &&
-          !djProfile.qr_box_claimed &&
-          !djProfile.qr_box_dismissed && (
-            <QrBoxBanner onDismissed={fetchDJProfile} />
+          eventsIsPro={eventsIsPro}
+          onEventsChanged={fetchEvents}
+          showQrBox={Boolean(
+            djProfile?.qr_box_eligible &&
+              !djProfile.qr_box_claimed &&
+              !djProfile.qr_box_dismissed
           )}
+          onQrBoxDismissed={fetchDJProfile}
+        />
 
         <StatsCards
           pendingCount={pendingRequests.length}

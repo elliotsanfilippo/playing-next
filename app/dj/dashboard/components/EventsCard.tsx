@@ -4,7 +4,6 @@ import { useState } from "react";
 import { PartyPopper, Lock, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { Input } from "@/src/components/ui/Input";
 import Eyebrow from "@/src/components/ui/Eyebrow";
@@ -42,37 +41,36 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
    * single slim row instead of a full card — this section only
    * deserves real space on the dashboard once there's something
    * actually happening (an active event) or the DJ has chosen to open
-   * it up to manage one.
+   * it up to manage one. No outer Card here: the dashboard nests this
+   * inside a shared notifications strip alongside QrBoxBanner.
    */
   if (!isPro) {
     return (
-      <Card variant="elevated" className="mb-8 overflow-hidden">
-        <Link
-          href="/plans"
-          className="flex items-start gap-3 px-5 py-3.5 transition hover:bg-white/[0.03] sm:items-center"
-        >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400">
-            <Lock size={15} />
-          </div>
+      <Link
+        href="/plans"
+        className="flex items-start gap-3 px-5 py-3.5 transition hover:bg-white/[0.03] sm:items-center"
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400">
+          <Lock size={15} />
+        </div>
 
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-zinc-300">
-              <span className="font-semibold text-white">Events Mode</span>
-              <span className="hidden sm:inline">
-                {" "}&middot; run named events with their own pricing
-              </span>
-            </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-zinc-300">
+            <span className="font-semibold text-white">Events Mode</span>
+            <span className="hidden sm:inline">
+              {" "}&middot; run named events with their own pricing
+            </span>
+          </p>
 
-            <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
-              Named events with their own pricing
-            </p>
-          </div>
+          <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
+            Named events with their own pricing
+          </p>
+        </div>
 
-          <span className="shrink-0 self-center text-sm font-semibold text-accent">
-            Compare plans
-          </span>
-        </Link>
-      </Card>
+        <span className="shrink-0 self-center text-sm font-semibold text-accent">
+          Compare plans
+        </span>
+      </Link>
     );
   }
 
@@ -207,92 +205,89 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
 
   if (!activeEvent && !expanded) {
     return (
-      <Card variant="elevated" className="mb-8 overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.03] sm:items-center"
-        >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-            <PartyPopper size={15} />
-          </div>
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.03] sm:items-center"
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <PartyPopper size={15} />
+        </div>
 
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-zinc-300">
-              <span className="font-semibold text-white">Events Mode</span>
-              <span className="hidden sm:inline">{" "}&middot; No active event</span>
-            </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-zinc-300">
+            <span className="font-semibold text-white">Events Mode</span>
+            <span className="hidden sm:inline">{" "}&middot; No active event</span>
+          </p>
 
-            <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
-              No active event
-            </p>
-          </div>
+          <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
+            No active event
+          </p>
+        </div>
 
-          <span className="flex shrink-0 items-center gap-1 self-center text-sm font-semibold text-accent">
-            Manage <ChevronDown size={15} />
-          </span>
-        </button>
-      </Card>
+        <span className="flex shrink-0 items-center gap-1 self-center text-sm font-semibold text-accent">
+          Manage <ChevronDown size={15} />
+        </span>
+      </button>
     );
   }
 
   return (
-    <Card variant="elevated" className="mb-8 overflow-hidden">
-      <div className="p-6 sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
-              <PartyPopper size={20} />
-            </div>
-
-            <div>
-              <Eyebrow tone="accent">Events Mode</Eyebrow>
-
-              <h2 className="mt-1 text-xl font-bold">
-                {activeEvent ? activeEvent.name : "No active event"}
-              </h2>
-
-              <p className="mt-2 text-sm text-zinc-400">
-                {activeEvent
-                  ? "New requests and tips are being tracked under this event."
-                  : "Running as your regular ongoing session."}
-              </p>
-            </div>
+    <div className="p-6 sm:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+            <PartyPopper size={20} />
           </div>
 
-          {activeEvent ? (
+          <div>
+            <Eyebrow tone="accent">Events Mode</Eyebrow>
+
+            <h2 className="mt-1 text-xl font-bold">
+              {activeEvent ? activeEvent.name : "No active event"}
+            </h2>
+
+            <p className="mt-2 text-sm text-zinc-400">
+              {activeEvent
+                ? "New requests and tips are being tracked under this event."
+                : "Running as your regular ongoing session."}
+            </p>
+          </div>
+        </div>
+
+        {activeEvent ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={pendingActionId === "end"}
+            onClick={handleEnd}
+            className="shrink-0"
+          >
+            {pendingActionId === "end" ? "Ending..." : "End Event"}
+          </Button>
+        ) : (
+          <div className="flex shrink-0 gap-2">
+            {!creating && (
+              <Button
+                size="sm"
+                onClick={() => setCreating(true)}
+                className="shrink-0"
+              >
+                + Start New Event
+              </Button>
+            )}
+
             <Button
               variant="secondary"
               size="sm"
-              disabled={pendingActionId === "end"}
-              onClick={handleEnd}
+              onClick={() => setExpanded(false)}
               className="shrink-0"
             >
-              {pendingActionId === "end" ? "Ending..." : "End Event"}
+              Collapse
             </Button>
-          ) : (
-            <div className="flex shrink-0 gap-2">
-              {!creating && (
-                <Button
-                  size="sm"
-                  onClick={() => setCreating(true)}
-                  className="shrink-0"
-                >
-                  + Start New Event
-                </Button>
-              )}
-
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setExpanded(false)}
-                className="shrink-0"
-              >
-                Collapse
-              </Button>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
         {creating && (
           <div className="mt-5 rounded-control border border-white/10 bg-white/[0.03] p-4">
@@ -379,6 +374,5 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
           </div>
         )}
       </div>
-    </Card>
   );
 }
