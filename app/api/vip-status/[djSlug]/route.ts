@@ -39,7 +39,7 @@ export async function GET(
 
     const { data: djProfile, error: profileError } = await supabase
       .from("dj_profiles")
-      .select("id")
+      .select("id, max_pending_requests")
       .eq("slug", djSlug)
       .maybeSingle();
 
@@ -66,8 +66,22 @@ export async function GET(
       );
     }
 
+    const { count: pendingCount, error: pendingCountError } = await supabase
+      .from("song_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("dj_profile_id", djProfile.id)
+      .in("request_status", ["checkout_pending", "pending"]);
+
+    if (pendingCountError) {
+      return NextResponse.json(
+        { error: pendingCountError.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       vipAvailable: (count ?? 0) < VIP_SLOT_LIMIT,
+      pendingFull: (pendingCount ?? 0) >= djProfile.max_pending_requests,
     });
   } catch (error) {
     return NextResponse.json(

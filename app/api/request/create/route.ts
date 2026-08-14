@@ -94,7 +94,9 @@ export async function POST(request: NextRequest) {
 
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
-      .select("id, request_status, last_active_at")
+      .select(
+        "id, request_status, last_active_at, max_pending_requests"
+      )
       .eq("slug", djSlug)
       .maybeSingle();
 
@@ -108,6 +110,39 @@ export async function POST(request: NextRequest) {
     if (!isEffectivelyTakingRequests(djProfile)) {
       return NextResponse.json(
         { error: "This DJ is not taking requests right now." },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * Caps how many unanswered requests a DJ can have at once. Counts
+     * checkout_pending too, not just pending — otherwise several
+     * guests mid-checkout at the same moment could all pass this
+     * check and push the real pending count past the cap once they
+     * all finish paying.
+     */
+    const { count: pendingCount, error: pendingCountError } =
+      await supabaseAdmin
+        .from("song_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("dj_profile_id", djProfile.id)
+        .in("request_status", ["checkout_pending", "pending"]);
+
+    if (pendingCountError) {
+      console.error("Pending count error:", pendingCountError);
+
+      return NextResponse.json(
+        { error: "Unable to create your request." },
+        { status: 500 }
+      );
+    }
+
+    if ((pendingCount ?? 0) >= djProfile.max_pending_requests) {
+      return NextResponse.json(
+        {
+          error:
+            "This DJ's queue is full right now. Try again in a few minutes.",
+        },
         { status: 409 }
       );
     }

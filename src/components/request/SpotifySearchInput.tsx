@@ -30,7 +30,7 @@ export default function SpotifySearchInput({
           placeholder={
             isTakingRequests
               ? "Search songs or artists..."
-              : "Requests are currently paused"
+              : "Search unavailable right now"
           }
           className="h-20 w-full bg-transparent text-lg text-white outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed"
         />

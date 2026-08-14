@@ -58,6 +58,7 @@ export default function RequestPage() {
   const [message, setMessage] = useState("");
   const [isVip, setIsVip] = useState(false);
   const [vipAvailable, setVipAvailable] = useState(true);
+  const [pendingFull, setPendingFull] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const previousRequestStatusesRef = useRef<Map<string, string> | null>(
@@ -200,7 +201,10 @@ export default function RequestPage() {
       const data = await response.json();
 
       if (!isMounted) return;
-      if (response.ok) setVipAvailable(data.vipAvailable !== false);
+      if (response.ok) {
+        setVipAvailable(data.vipAvailable !== false);
+        setPendingFull(data.pendingFull === true);
+      }
     } catch (error) {
       console.log("VIP status fetch error:", error);
     }
@@ -402,13 +406,22 @@ document.addEventListener(
     djProfile && isEffectivelyTakingRequests(djProfile)
   );
 
+  /*
+   * Distinct from isTakingRequests on purpose — a full pending queue
+   * is a temporary capacity limit, not the DJ pausing, so the header
+   * badge still says "Taking Requests" while the search/submit flow
+   * itself is blocked. Tips aren't gated by this: they don't add to
+   * the pending queue.
+   */
+  const canSubmitRequest = isTakingRequests && !pendingFull;
+
   const requestPrice =
     activeEvent?.request_price ?? djProfile?.request_price ?? 500;
   const shoutoutPrice =
     activeEvent?.shoutout_price ?? djProfile?.shoutout_price ?? 800;
 
   const submitRequest = async () => {
-    if (!selectedSong || !djProfile || !isTakingRequests || submitting) return;
+    if (!selectedSong || !djProfile || !canSubmitRequest || submitting) return;
 
     if (requestType === "song_message" && message.trim().length === 0) {
       toast.error("Please add a message for your Song + Message request.");
@@ -566,14 +579,21 @@ localStorage.setItem(
 
   <SpotifySearchInput
     searchQuery={searchQuery}
-    isTakingRequests={isTakingRequests}
+    isTakingRequests={canSubmitRequest}
     onSearch={setSearchQuery}
   />
+
+  {isTakingRequests && pendingFull && (
+    <p className="mt-4 rounded-control border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+      This DJ&rsquo;s queue is full right now. Check back in a few
+      minutes.
+    </p>
+  )}
 
   {!selectedSong &&
     tracks.length === 0 &&
     searchQuery.length < 2 &&
-    isTakingRequests && (
+    canSubmitRequest && (
       <EmptySearchState />
     )}
 </Card>
@@ -582,7 +602,7 @@ localStorage.setItem(
   <TrackResults
     tracks={tracks}
     selectedSong={selectedSong}
-    isTakingRequests={isTakingRequests}
+    isTakingRequests={canSubmitRequest}
     onSelect={setSelectedSong}
   />
 )}
@@ -612,7 +632,7 @@ localStorage.setItem(
         shoutoutPrice={shoutoutPrice}
         message={message}
         setMessage={setMessage}
-        isTakingRequests={isTakingRequests}
+        isTakingRequests={canSubmitRequest}
         isVip={isVip}
         setIsVip={setIsVip}
         vipAvailable={vipAvailable}
@@ -622,7 +642,7 @@ localStorage.setItem(
     <Card variant="elevated" className="mt-6 p-6 sm:p-8">
       <CheckoutButton
         selectedSong
-        isTakingRequests={isTakingRequests}
+        isTakingRequests={canSubmitRequest}
         requestType={requestType}
         requestPrice={requestPrice}
         shoutoutPrice={shoutoutPrice}

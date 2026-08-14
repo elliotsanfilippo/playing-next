@@ -36,6 +36,8 @@ type DJProfile = {
   genres: string[] | string | null;
   request_price: number | null;
   shoutout_price: number | null;
+  max_pending_requests: number | null;
+  max_queue_requests: number | null;
   plan: string | null;
   stripe_subscription_status: string | null;
   stripe_connected: boolean | null;
@@ -66,6 +68,8 @@ function DJSettingsPageContent() {
   const [bio, setBio] = useState("");
   const [requestPrice, setRequestPrice] = useState("5");
   const [shoutoutPrice, setShoutoutPrice] = useState("8");
+  const [maxPendingRequests, setMaxPendingRequests] = useState("8");
+  const [maxQueueRequests, setMaxQueueRequests] = useState("8");
   const [saving, setSaving] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
@@ -108,6 +112,8 @@ function DJSettingsPageContent() {
     setBio(data.bio || "");
     setRequestPrice(((data.request_price || 500) / 100).toString());
     setShoutoutPrice(((data.shoutout_price || 800) / 100).toString());
+    setMaxPendingRequests((data.max_pending_requests ?? 8).toString());
+    setMaxQueueRequests((data.max_queue_requests ?? 8).toString());
     setProfileImageUrl(data.profile_image_url || "");
     setLoadingProfile(false);
   };
@@ -117,6 +123,8 @@ function DJSettingsPageContent() {
 
     const priceInPence = Math.round(Number(requestPrice) * 100);
     const shoutoutPriceInPence = Math.round(Number(shoutoutPrice) * 100);
+    const maxPending = Math.round(Number(maxPendingRequests));
+    const maxQueue = Math.round(Number(maxQueueRequests));
 
     if (!djName.trim()) {
       toast.error("Please enter a DJ name.");
@@ -140,6 +148,16 @@ function DJSettingsPageContent() {
       return;
     }
 
+    if (!Number.isInteger(maxPending) || maxPending <= 0) {
+      toast.error("Please enter a valid pending queue limit.");
+      return;
+    }
+
+    if (!Number.isInteger(maxQueue) || maxQueue <= 0) {
+      toast.error("Please enter a valid queue limit.");
+      return;
+    }
+
     setSaving(true);
 
     const { error } = await supabase
@@ -153,6 +171,8 @@ function DJSettingsPageContent() {
         bio,
         request_price: priceInPence,
         shoutout_price: shoutoutPriceInPence,
+        max_pending_requests: maxPending,
+        max_queue_requests: maxQueue,
       })
       .eq("id", profile.id);
 
@@ -535,6 +555,49 @@ function DJSettingsPageContent() {
                   onChange={(event) => setShoutoutPrice(event.target.value)}
                   className="mt-2 h-auto py-4"
                 />
+              </div>
+            </div>
+
+            <div>
+              <label className={fieldLabel}>Queue limits</label>
+              <p className="mt-1 text-xs text-zinc-500">
+                Caps how many unanswered requests and accepted songs can
+                pile up at once. Once a limit is hit, guests are told to
+                try again shortly rather than paying into a backlog.
+              </p>
+
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs text-zinc-500">
+                    Max pending requests
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={maxPendingRequests}
+                    onChange={(event) =>
+                      setMaxPendingRequests(event.target.value)
+                    }
+                    className="mt-2 h-auto py-4"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-500">
+                    Max songs in queue
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={maxQueueRequests}
+                    onChange={(event) =>
+                      setMaxQueueRequests(event.target.value)
+                    }
+                    className="mt-2 h-auto py-4"
+                  />
+                </div>
               </div>
             </div>
 

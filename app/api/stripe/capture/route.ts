@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     const { data: songRequest, error: requestError } = await supabase
       .from("song_requests")
       .select(
-        "id, request_status, stripe_payment_intent_id, dj_profiles!inner(user_id)"
+        "id, request_status, stripe_payment_intent_id, dj_profile_id, dj_profiles!inner(user_id, max_queue_requests)"
       )
       .eq("id", requestId)
       .eq("stripe_payment_intent_id", paymentIntentId)
@@ -87,6 +87,39 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: `This request is already "${songRequest.request_status}" and cannot be captured again.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * Caps how many songs a DJ can have already accepted and waiting
+     * to play. Checked before capturing so a queue that's genuinely
+     * full never takes a guest's money for an accept that can't
+     * actually happen — the request itself is untouched, still
+     * pending, so the DJ can still accept it once they've played
+     * something and freed a slot.
+     */
+    const { count: queueCount, error: queueCountError } = await supabase
+      .from("song_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("dj_profile_id", songRequest.dj_profile_id)
+      .in("request_status", ["accepted", "playing_next"]);
+
+    if (queueCountError) {
+      console.error("Queue count error:", queueCountError);
+
+      return NextResponse.json(
+        { error: "Unable to accept this request." },
+        { status: 500 }
+      );
+    }
+
+    if ((queueCount ?? 0) >= profile.max_queue_requests) {
+      return NextResponse.json(
+        {
+          error:
+            "Your queue is full. Mark something as played to free up a slot.",
         },
         { status: 409 }
       );
