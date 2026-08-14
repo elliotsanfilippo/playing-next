@@ -56,6 +56,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    /*
+     * A non-null ID only proves a PaymentIntent exists, not that the
+     * card was actually authorised — a guest who reaches this URL
+     * with a declined or otherwise-unconfirmed intent (e.g. by
+     * visiting it manually with a session_id seen in the browser bar,
+     * rather than via Stripe's own redirect) would otherwise still
+     * get their request marked pending and the DJ notified, with
+     * nothing actually held on their card. requires_capture is the
+     * correct proof of a successful authorisation for this
+     * manual-capture flow, mirroring the amount_received check in
+     * tip-success and the payment_status check in qr-box-success.
+     */
+    const paymentIntentStatus =
+      typeof paymentIntent === "object" ? paymentIntent?.status : undefined;
+
+    if (paymentIntentStatus !== "requires_capture") {
+      console.error("Checkout success hit with unauthorised payment intent", {
+        requestId,
+        paymentIntentId,
+        paymentIntentStatus,
+      });
+
+      return NextResponse.redirect(
+        new URL("/?payment_error=payment_not_authorised", origin)
+      );
+    }
+
     const { data: songRequest, error: requestError } =
       await supabaseAdmin
         .from("song_requests")
