@@ -29,6 +29,10 @@ export default function Navbar() {
           <a href="#how-it-works" className="transition hover:text-white">
             How it works
           </a>
+
+          <Link href="/plans" className="transition hover:text-white">
+            Pricing
+          </Link>
         </nav>
 
         <div className="flex items-center gap-1 sm:gap-3">

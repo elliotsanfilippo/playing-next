@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ListMusic,
   CheckCircle2,
   XCircle,
   Percent,
   PoundSterling,
+  Lock,
 } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import Card from "@/src/components/ui/Card";
@@ -33,6 +35,8 @@ export default function AnalyticsPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [isActivePro, setIsActivePro] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   const [analytics, setAnalytics] = useState<Analytics>({
     totalRequests: 0,
@@ -59,12 +63,29 @@ export default function AnalyticsPage() {
 
     const { data: profile, error: profileError } = await supabase
       .from("dj_profiles")
-      .select("id")
+      .select("id, plan, stripe_subscription_status")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (profileError || !profile) {
       console.log("Analytics profile load error:", profileError);
+      setLoading(false);
+      return;
+    }
+
+    /*
+     * Same rule as the 0% fee itself: a lapsed Pro payment falls back
+     * to Free everywhere at once, not just the platform fee. Skips the
+     * requests query entirely for Free DJs — no reason to pull a
+     * guest's request history over the wire just to hide it behind a
+     * blur.
+     */
+    const activePro =
+      profile.plan === "pro" && profile.stripe_subscription_status === "active";
+
+    setIsActivePro(activePro);
+
+    if (!activePro) {
       setLoading(false);
       return;
     }
@@ -143,6 +164,41 @@ export default function AnalyticsPage() {
     fetchAnalytics();
   }, []);
 
+  const upgradeToPro = async () => {
+    if (subscribing) return;
+
+    setSubscribing(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("/api/stripe/subscribe", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Unable to start the Pro upgrade.");
+      }
+
+      window.location.href = result.url;
+    } catch (error) {
+      console.log("Analytics upgrade error:", error);
+      setSubscribing(false);
+    }
+  };
+
   const acceptanceRate =
     analytics.totalRequests > 0
       ? (
@@ -184,45 +240,74 @@ export default function AnalyticsPage() {
           </Button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <StatCard
-            label="Total Requests"
-            value={analytics.totalRequests}
-            icon={<ListMusic size={20} />}
-            tone="neutral"
-          />
+        {!isActivePro ? (
+          <Card variant="elevated" className="p-8 text-center sm:p-12">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+              <Lock size={24} />
+            </div>
 
-          <StatCard
-            label="Accepted"
-            value={analytics.acceptedRequests}
-            icon={<CheckCircle2 size={20} />}
-            tone="accent"
-          />
+            <h2 className="mt-5 text-h2">Analytics is a Pro feature</h2>
 
-          <StatCard
-            label="Declined"
-            value={analytics.declinedRequests}
-            icon={<XCircle size={20} />}
-            tone="danger"
-          />
+            <p className="mx-auto mt-3 max-w-md text-zinc-400">
+              See your acceptance rate, net earnings and most requested
+              songs — upgrade to Pro to unlock it, plus 0% platform fee on
+              every accepted request.
+            </p>
 
-          <StatCard
-            label="Acceptance Rate"
-            value={`${acceptanceRate}%`}
-            icon={<Percent size={20} />}
-            tone="info"
-          />
+            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button onClick={upgradeToPro} disabled={subscribing}>
+                {subscribing ? "Opening..." : "Upgrade to Pro — £14.99/mo"}
+              </Button>
 
-          <StatCard
-            label="Net Earnings"
-            value={`£${analytics.totalRevenue.toFixed(2)}`}
-            subtitle="Full breakdown in Earnings"
-            icon={<PoundSterling size={20} />}
-            tone="accent"
-          />
-        </div>
+              <Link
+                href="/plans"
+                className="text-sm font-semibold text-zinc-400 underline underline-offset-4 hover:text-white"
+              >
+                Compare plans
+              </Link>
+            </div>
+          </Card>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <StatCard
+                label="Total Requests"
+                value={analytics.totalRequests}
+                icon={<ListMusic size={20} />}
+                tone="neutral"
+              />
 
-        <Card variant="flat" className="mt-8 p-5 sm:p-6">
+              <StatCard
+                label="Accepted"
+                value={analytics.acceptedRequests}
+                icon={<CheckCircle2 size={20} />}
+                tone="accent"
+              />
+
+              <StatCard
+                label="Declined"
+                value={analytics.declinedRequests}
+                icon={<XCircle size={20} />}
+                tone="danger"
+              />
+
+              <StatCard
+                label="Acceptance Rate"
+                value={`${acceptanceRate}%`}
+                icon={<Percent size={20} />}
+                tone="info"
+              />
+
+              <StatCard
+                label="Net Earnings"
+                value={`£${analytics.totalRevenue.toFixed(2)}`}
+                subtitle="Full breakdown in Earnings"
+                icon={<PoundSterling size={20} />}
+                tone="accent"
+              />
+            </div>
+
+            <Card variant="flat" className="mt-8 p-5 sm:p-6">
           <h2 className="text-h3">Most Requested Songs</h2>
 
           <div className="mt-6 space-y-3">
@@ -245,7 +330,9 @@ export default function AnalyticsPage() {
               ))
             )}
           </div>
-        </Card>
+            </Card>
+          </>
+        )}
       </section>
     </main>
   );

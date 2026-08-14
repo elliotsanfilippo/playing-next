@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
@@ -602,8 +603,14 @@ function DJSettingsPageContent() {
                         <div>
                           <h4 className="font-semibold">Pro</h4>
                           <p className="mt-1 text-sm text-zinc-400">
-                            £14.99/month · 0% platform fee
+                            £14.99/month · 0% platform fee · full analytics
                           </p>
+                          <Link
+                            href="/plans"
+                            className="mt-1 inline-block text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
+                          >
+                            Compare plans
+                          </Link>
                           {qrBoxAvailable && (
                             <p className="mt-2 text-sm font-semibold text-amber-400">
                               🎁 First 50 DJs to go Pro get a free QR display

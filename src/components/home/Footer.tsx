@@ -30,6 +30,10 @@ export default function Footer() {
               Sign up
             </Link>
 
+            <Link href="/plans" className="hover:text-white">
+              Pricing
+            </Link>
+
             <a href="#find-dj" className="hover:text-white">
               Find a DJ
             </a>
