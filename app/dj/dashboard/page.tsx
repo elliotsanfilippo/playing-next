@@ -473,6 +473,23 @@ export default function DJDashboardPage() {
       if (!response.ok) {
         const result = await response.json();
         console.log("Stripe cancel error:", result);
+
+        /*
+         * A failed cancel most often means this request was already
+         * accepted (and captured) elsewhere — by another tab, another
+         * device, or a stale queue view — between when this DJ opened
+         * the dashboard and when they clicked Decline. Writing
+         * "declined" over that anyway would tell the guest "you
+         * weren't charged" while their card actually was, and it was
+         * genuinely paid to the DJ. Refreshing surfaces the real
+         * status instead of guessing.
+         */
+        toast.error(
+          result.error ||
+            "This request may have already been accepted. Refreshing…"
+        );
+        await fetchRequests();
+        return;
       }
     }
 
