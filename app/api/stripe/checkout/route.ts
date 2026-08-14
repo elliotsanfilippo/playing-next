@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
           request_type,
           request_status,
           dj_profile_id,
-          is_vip
+          is_vip,
+          event_id
         `
       )
       .eq("id", requestId)
@@ -161,12 +162,33 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Select the correct price from the DJ profile.
+     * An active event's price overrides the DJ's base price when set
+     * — re-resolved here rather than trusted from the client, same as
+     * the DJ's own base prices below. A null override on the event
+     * just means "use the DJ's normal price for this one".
+     */
+    let eventRequestPrice: number | null = null;
+    let eventShoutoutPrice: number | null = null;
+
+    if (songRequest.event_id) {
+      const { data: event } = await supabase
+        .from("dj_events")
+        .select("request_price, shoutout_price")
+        .eq("id", songRequest.event_id)
+        .maybeSingle();
+
+      eventRequestPrice = event?.request_price ?? null;
+      eventShoutoutPrice = event?.shoutout_price ?? null;
+    }
+
+    /*
+     * Select the correct price from the event override, then the DJ
+     * profile.
      */
     const rawRequestAmount =
       requestType === "song_message"
-        ? djProfile.shoutout_price
-        : djProfile.request_price;
+        ? (eventShoutoutPrice ?? djProfile.shoutout_price)
+        : (eventRequestPrice ?? djProfile.request_price);
 
     const baseAmount =
       typeof rawRequestAmount === "number"

@@ -36,6 +36,12 @@ export default function RequestPage() {
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [isLoadingDJ, setIsLoadingDJ] = useState(true);
   const [djNotFound, setDjNotFound] = useState(false);
+  const [activeEvent, setActiveEvent] = useState<{
+    id: string;
+    name: string;
+    request_price: number | null;
+    shoutout_price: number | null;
+  } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
@@ -233,6 +239,23 @@ export default function RequestPage() {
 }
     setDjNotFound(false);
     setIsLoadingDJ(false);
+    fetchActiveEvent(data.id);
+  };
+
+  /*
+   * Public read (RLS allows anyone to see an is_active=true event) —
+   * only its name and any price overrides, nothing else about the
+   * DJ's event history.
+   */
+  const fetchActiveEvent = async (djProfileId: string) => {
+    const { data } = await supabase
+      .from("dj_events")
+      .select("id, name, request_price, shoutout_price")
+      .eq("dj_profile_id", djProfileId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (isMounted) setActiveEvent(data ?? null);
   };
 
   const refreshDJ = async () => {
@@ -255,6 +278,7 @@ export default function RequestPage() {
   setRequestType("song_request");
   setIsVip(false);
 }
+    fetchActiveEvent(data.id);
   };
 
   loadDJ();
@@ -378,8 +402,10 @@ document.addEventListener(
     djProfile && isEffectivelyTakingRequests(djProfile)
   );
 
-  const requestPrice = djProfile?.request_price || 500;
-  const shoutoutPrice = djProfile?.shoutout_price || 800;
+  const requestPrice =
+    activeEvent?.request_price ?? djProfile?.request_price ?? 500;
+  const shoutoutPrice =
+    activeEvent?.shoutout_price ?? djProfile?.shoutout_price ?? 800;
 
   const submitRequest = async () => {
     if (!selectedSong || !djProfile || !isTakingRequests || submitting) return;
@@ -530,6 +556,7 @@ localStorage.setItem(
   djSlug={djSlug}
   djProfile={djProfile!}
   isTakingRequests={isTakingRequests}
+  eventName={activeEvent?.name ?? null}
 />
 
   <TipCard djSlug={djSlug} isTakingRequests={isTakingRequests} />

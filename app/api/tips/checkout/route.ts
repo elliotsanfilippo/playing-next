@@ -112,10 +112,18 @@ export async function POST(request: NextRequest) {
     const djEarnings = amount - platformFee;
     const totalAmount = amount + SERVICE_FEE;
 
+    const { data: activeEvent } = await supabase
+      .from("dj_events")
+      .select("id")
+      .eq("dj_profile_id", djProfile.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
     const { data: tip, error: insertError } = await supabase
       .from("tips")
       .insert({
         dj_profile_id: djProfile.id,
+        event_id: activeEvent?.id ?? null,
         message,
         amount,
         guest_service_fee: SERVICE_FEE,

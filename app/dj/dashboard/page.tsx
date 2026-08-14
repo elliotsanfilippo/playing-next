@@ -25,6 +25,7 @@ import QrBoxBanner from "./components/QrBoxBanner";
 import ChargebackBanner, {
   type ChargebackDispute,
 } from "./components/ChargebackBanner";
+import EventsCard, { type DjEvent } from "./components/EventsCard";
 import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
 import Onboarding from "./components/Onboarding";
@@ -37,6 +38,8 @@ export default function DJDashboardPage() {
   const [requests, setRequests] = useState<SongRequest[]>([]);
   const [tipsToday, setTipsToday] = useState(0);
   const [chargebacks, setChargebacks] = useState<ChargebackDispute[]>([]);
+  const [events, setEvents] = useState<DjEvent[]>([]);
+  const [eventsIsPro, setEventsIsPro] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -166,6 +169,30 @@ export default function DJDashboardPage() {
 
     const data = await response.json();
     setChargebacks(data.disputes ?? []);
+  };
+
+  const fetchEvents = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) return;
+
+    const response = await fetch("/api/dj/events", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (!response.ok) {
+      console.log(
+        "Events load error:",
+        await response.json().catch(() => ({}))
+      );
+      return;
+    }
+
+    const data = await response.json();
+    setEvents(data.events ?? []);
+    setEventsIsPro(Boolean(data.isPro));
   };
 
   const fetchRequests = async () => {
@@ -566,6 +593,7 @@ export default function DJDashboardPage() {
       await fetchRequests();
       await fetchTips();
       await fetchChargebacks();
+      await fetchEvents();
     };
 
     checkAuth();
@@ -790,6 +818,12 @@ export default function DJDashboardPage() {
         <ChargebackBanner
           disputes={chargebacks}
           onResolved={fetchChargebacks}
+        />
+
+        <EventsCard
+          events={events}
+          isPro={eventsIsPro}
+          onChanged={fetchEvents}
         />
 
         {djProfile?.qr_box_eligible &&

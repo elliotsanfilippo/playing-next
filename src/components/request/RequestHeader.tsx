@@ -17,12 +17,14 @@ type Props = {
   djSlug: string;
   djProfile: DJProfile;
   isTakingRequests: boolean;
+  eventName?: string | null;
 };
 
 export default function RequestHeader({
   djSlug,
   djProfile,
   isTakingRequests,
+  eventName,
 }: Props) {
   const genres = Array.isArray(djProfile.genres)
     ? djProfile.genres
@@ -55,6 +57,12 @@ export default function RequestHeader({
           <p className="text-sm font-medium text-zinc-400">Playing Next</p>
 
           <h1 className="mt-2 text-h1">{djProfile.dj_name}</h1>
+
+          {eventName && (
+            <p className="mt-1 text-sm font-semibold text-accent">
+              Now taking requests for: {eventName}
+            </p>
+          )}
 
           <Badge tone={isTakingRequests ? "accent" : "danger"} dot className="mt-4">
             {isTakingRequests ? "Taking Requests" : "Requests Paused"}

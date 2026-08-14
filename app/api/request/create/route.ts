@@ -159,6 +159,18 @@ export async function POST(request: NextRequest) {
 
     const nextQueuePosition = (existingRequests?.length || 0) + 1;
 
+    /*
+     * Resolved server-side rather than trusting an eventId from the
+     * client — same reasoning as the price re-derivation in the
+     * checkout route.
+     */
+    const { data: activeEvent } = await supabaseAdmin
+      .from("dj_events")
+      .select("id")
+      .eq("dj_profile_id", djProfile.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
     const { data, error } = await supabaseAdmin
       .from("song_requests")
       .insert({
@@ -166,6 +178,7 @@ export async function POST(request: NextRequest) {
         song_title: songTitle,
         artist,
         spotify_track_id: spotifyTrackId,
+        event_id: activeEvent?.id ?? null,
         request_status: "checkout_pending",
         queue_position: nextQueuePosition,
         request_type: requestType,
