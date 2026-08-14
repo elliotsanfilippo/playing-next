@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PartyPopper, Lock } from "lucide-react";
+import { PartyPopper, Lock, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import Card from "@/src/components/ui/Card";
@@ -29,6 +29,7 @@ type Props = {
 };
 
 export default function EventsCard({ events, isPro, onChanged }: Props) {
+  const [expanded, setExpanded] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [requestPrice, setRequestPrice] = useState("");
@@ -36,36 +37,37 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
+  /*
+   * Free DJs and Pro DJs with nothing running both collapse to a
+   * single slim row instead of a full card — this section only
+   * deserves real space on the dashboard once there's something
+   * actually happening (an active event) or the DJ has chosen to open
+   * it up to manage one.
+   */
   if (!isPro) {
     return (
       <Card variant="elevated" className="mb-8 overflow-hidden">
-        <div className="p-6 sm:p-8">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-zinc-400">
-              <Lock size={20} />
+        <Link
+          href="/plans"
+          className="flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-white/[0.03]"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400">
+              <Lock size={15} />
             </div>
 
-            <div>
-              <Eyebrow tone="accent">Pro feature</Eyebrow>
-
-              <h2 className="mt-1 text-xl font-bold">Events Mode</h2>
-
-              <p className="mt-2 text-sm text-zinc-400">
-                Run named events, like a wedding or a Saturday residency,
-                each with its own pricing and its own earnings summary.
-                Your QR code and link stay exactly the same; you just
-                switch what's active from here.
-              </p>
-
-              <Link
-                href="/plans"
-                className="mt-4 inline-block text-sm font-semibold text-accent hover:underline"
-              >
-                Compare plans
-              </Link>
-            </div>
+            <p className="text-sm font-medium text-zinc-300">
+              <span className="font-semibold text-white">Events Mode</span>
+              <span className="hidden sm:inline">
+                {" "}&middot; run named events with their own pricing
+              </span>
+            </p>
           </div>
-        </div>
+
+          <span className="shrink-0 text-sm font-semibold text-accent">
+            Compare plans
+          </span>
+        </Link>
       </Card>
     );
   }
@@ -199,6 +201,33 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
     }
   };
 
+  if (!activeEvent && !expanded) {
+    return (
+      <Card variant="elevated" className="mb-8 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.03]"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+              <PartyPopper size={15} />
+            </div>
+
+            <p className="text-sm font-medium text-zinc-300">
+              <span className="font-semibold text-white">Events Mode</span>
+              <span className="hidden sm:inline">{" "}&middot; No active event</span>
+            </p>
+          </div>
+
+          <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-accent">
+            Manage <ChevronDown size={15} />
+          </span>
+        </button>
+      </Card>
+    );
+  }
+
   return (
     <Card variant="elevated" className="mb-8 overflow-hidden">
       <div className="p-6 sm:p-8">
@@ -234,15 +263,26 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
               {pendingActionId === "end" ? "Ending..." : "End Event"}
             </Button>
           ) : (
-            !creating && (
+            <div className="flex shrink-0 gap-2">
+              {!creating && (
+                <Button
+                  size="sm"
+                  onClick={() => setCreating(true)}
+                  className="shrink-0"
+                >
+                  + Start New Event
+                </Button>
+              )}
+
               <Button
+                variant="secondary"
                 size="sm"
-                onClick={() => setCreating(true)}
+                onClick={() => setExpanded(false)}
                 className="shrink-0"
               >
-                + Start New Event
+                Collapse
               </Button>
-            )
+            </div>
           )}
         </div>
 
@@ -312,7 +352,7 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
 
                   <p className="mt-0.5 text-sm text-zinc-500">
                     {event.requestCount} request
-                    {event.requestCount === 1 ? "" : "s"} · £
+                    {event.requestCount === 1 ? "" : "s"} &middot; £
                     {(event.totalEarnings / 100).toFixed(2)} earned
                   </p>
                 </div>

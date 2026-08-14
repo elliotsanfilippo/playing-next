@@ -7,7 +7,6 @@ import { Check, Gift } from "lucide-react";
 import { supabase } from "../../src/lib/supabase";
 import {
   PRO_MONTHLY_PRICE_GBP,
-  PRO_BREAK_EVEN_MONTHLY_GBP,
   PRO_BREAK_EVEN_REQUESTS,
   TYPICAL_REQUEST_PRICE_GBP,
 } from "@/src/lib/pricing";
@@ -165,8 +164,7 @@ export default function PlansPage() {
               0% platform fee: keep everything you earn
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              Pays for itself once you&rsquo;re taking around £
-              {PRO_BREAK_EVEN_MONTHLY_GBP}/month in accepted requests, about{" "}
+              Pays for itself once you&rsquo;re taking around{" "}
               {PRO_BREAK_EVEN_REQUESTS} requests a month at a typical £
               {TYPICAL_REQUEST_PRICE_GBP} price
             </p>
