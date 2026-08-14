@@ -57,13 +57,7 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-zinc-300">
             <span className="font-semibold text-white">Events Mode</span>
-            <span className="hidden sm:inline">
-              {" "}&middot; run named events with their own pricing
-            </span>
-          </p>
-
-          <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
-            Named events with their own pricing
+            {" "}&middot; run named events with their own pricing
           </p>
         </div>
 
@@ -217,11 +211,7 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-zinc-300">
             <span className="font-semibold text-white">Events Mode</span>
-            <span className="hidden sm:inline">{" "}&middot; No active event</span>
-          </p>
-
-          <p className="mt-0.5 text-xs text-zinc-500 sm:hidden">
-            No active event
+            {" "}&middot; No active event
           </p>
         </div>
 
