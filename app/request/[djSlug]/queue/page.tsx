@@ -164,7 +164,11 @@ export default function PublicQueuePage() {
           )}
         </div>
 
-        <div className="mt-10 flex min-h-0 flex-1 flex-col sm:mt-12">
+        <div
+          className={`mt-10 flex flex-col sm:mt-12 ${
+            data.upNext.length === 0 ? "shrink-0" : "min-h-0 flex-1"
+          }`}
+        >
           <p className="shrink-0 text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
             Up Next
           </p>
@@ -174,7 +178,7 @@ export default function PublicQueuePage() {
               The queue is empty. Get your request in.
             </p>
           ) : (
-            <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pb-44 pr-1 sm:pr-52">
+            <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
               {data.upNext.map((track, index) => (
                 <div
                   key={`${track.songTitle}-${index}`}
@@ -206,19 +210,19 @@ export default function PublicQueuePage() {
             </div>
           )}
         </div>
-      </div>
 
-      {qrCodeUrl && (
-        <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-card-lg border border-white/10 bg-zinc-900/90 p-4 shadow-2xl backdrop-blur sm:left-auto sm:right-6 sm:translate-x-0">
-          <div className="rounded-card bg-white p-2">
-            <img src={qrCodeUrl} alt="QR code" className="h-24 w-24" />
+        {qrCodeUrl && (
+          <div className="mt-8 flex shrink-0 items-center gap-4 self-center rounded-card-lg border border-white/10 bg-zinc-900/90 p-4 shadow-2xl backdrop-blur sm:self-end">
+            <div className="rounded-card bg-white p-2">
+              <img src={qrCodeUrl} alt="QR code" className="h-20 w-20 sm:h-24 sm:w-24" />
+            </div>
+
+            <p className="max-w-[9rem] text-sm font-semibold leading-tight text-zinc-300">
+              Scan to request a song
+            </p>
           </div>
-
-          <p className="max-w-[9rem] text-sm font-semibold leading-tight text-zinc-300">
-            Scan to request a song
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </main>
   );
 }
