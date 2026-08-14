@@ -26,6 +26,7 @@ const PRO_FEATURES = [
   "0% platform fee: keep 100% of every request",
   "Full analytics: acceptance rate and top requested songs",
   "Events Mode: named events with their own pricing and earnings summary",
+  "Scheduled auto-close: set requests to close themselves at the end of a night",
 ];
 
 export default function PlansPage() {
