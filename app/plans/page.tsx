@@ -24,7 +24,7 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
   "Everything in Free",
   "0% platform fee: keep 100% of every request",
-  "Full analytics: acceptance rate, earnings, top songs",
+  "Full analytics: acceptance rate and top requested songs",
   "Events Mode: named events with their own pricing and earnings summary",
 ];
 
@@ -85,10 +85,10 @@ export default function PlansPage() {
     <main className="min-h-screen bg-canvas px-5 py-10 text-white sm:px-6 sm:py-14">
       <div className="mx-auto max-w-4xl">
         <Link
-          href="/"
+          href={loggedIn ? "/dj/dashboard" : "/"}
           className="text-sm font-semibold text-zinc-400 transition hover:text-white"
         >
-          ← Back to Playing Next
+          ← {loggedIn ? "Back to Dashboard" : "Back to Playing Next"}
         </Link>
 
         <div className="mt-8 text-center">
@@ -99,8 +99,8 @@ export default function PlansPage() {
           <h1 className="mt-3 text-display">Simple, honest pricing</h1>
 
           <p className="mx-auto mt-4 max-w-lg text-zinc-400">
-            Start free. Upgrade whenever you want to keep every penny of
-            your requests.
+            Start free. Move to Pro when you&rsquo;re ready to stop paying a
+            fee on every request.
           </p>
         </div>
 
