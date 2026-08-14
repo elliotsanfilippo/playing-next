@@ -8,6 +8,8 @@ import { supabase } from "../../src/lib/supabase";
 import {
   PRO_MONTHLY_PRICE_GBP,
   PRO_BREAK_EVEN_MONTHLY_GBP,
+  PRO_BREAK_EVEN_REQUESTS,
+  TYPICAL_REQUEST_PRICE_GBP,
 } from "@/src/lib/pricing";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
@@ -164,7 +166,9 @@ export default function PlansPage() {
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               Pays for itself once you&rsquo;re taking around £
-              {PRO_BREAK_EVEN_MONTHLY_GBP}/month in accepted requests
+              {PRO_BREAK_EVEN_MONTHLY_GBP}/month in accepted requests, about{" "}
+              {PRO_BREAK_EVEN_REQUESTS} requests a month at a typical £
+              {TYPICAL_REQUEST_PRICE_GBP} price
             </p>
 
             <ul className="mt-6 flex-1 space-y-3">
