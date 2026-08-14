@@ -13,6 +13,7 @@ import SearchStation, {
 import FeatureCards from "@/src/components/home/FeatureCards";
 import HowItWorks from "@/src/components/home/HowItWorks";
 import ProductShowcase from "@/src/components/home/ProductShowcase";
+import PricingTeaser from "@/src/components/home/PricingTeaser";
 import CTA from "@/src/components/home/CTA";
 import Footer from "@/src/components/home/Footer";
 
@@ -138,6 +139,8 @@ export default function HomePage() {
 />
 
       <ProductShowcase />
+
+      <PricingTeaser />
 
       <CTA />
 
