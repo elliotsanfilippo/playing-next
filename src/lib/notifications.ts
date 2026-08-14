@@ -62,7 +62,7 @@ export function showBrowserNotification(title: string, body: string) {
 
   new Notification(title, {
     body,
-    icon: "/logo.svg",
+    icon: "/icons/icon-192.png",
   });
 }
 

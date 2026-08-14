@@ -80,6 +80,7 @@ export default function HomePage() {
           "dj_name, slug, profile_image_url, request_status, genres"
         )
         .neq("dj_name", "New DJ")
+        .eq("hidden_from_discovery", false)
         .order("dj_name", { ascending: true });
 
       if (error) {

@@ -11,8 +11,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "Playing Next";
   const options = {
     body: payload.body || "",
-    icon: "/logo.svg",
-    badge: "/logo.svg",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
     data: { url: payload.url || "/dj/dashboard" },
   };
 
