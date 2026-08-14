@@ -26,7 +26,7 @@ const matcher = new RegExpMatcher({
 });
 
 export const MESSAGE_REJECTED_COPY =
-  "Please reword your message — it looks like it contains language we can’t pass on to the DJ.";
+  "Please reword your message. It looks like it contains language we can’t pass on to the DJ.";
 
 /*
  * The matcher handles character substitution ("sh1t") but not letters

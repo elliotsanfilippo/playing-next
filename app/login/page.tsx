@@ -39,7 +39,7 @@ export default function LoginPage() {
     }
 
     toast.success(
-      "Verification email sent — check your inbox (and your spam/junk folder)."
+      "Verification email sent. Check your inbox (and your spam/junk folder)."
     );
   };
 

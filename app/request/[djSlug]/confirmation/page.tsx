@@ -45,7 +45,7 @@ const STATUS_COPY: Record<string, { label: string; description: string }> = {
   },
   playing_next: {
     label: "Playing Next",
-    description: "Get ready — your request is coming up.",
+    description: "Get ready: your request is coming up.",
   },
   played: {
     label: "Played",

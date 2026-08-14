@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
         songRequest.request_type === "song_message"
           ? "New Song + Message request"
           : "New song request",
-      body: `${songRequest.song_title} — ${songRequest.artist}`,
+      body: `${songRequest.song_title} by ${songRequest.artist}`,
       url: "/dj/dashboard",
     }).catch((pushError) => {
       console.error("Push notification error:", pushError);

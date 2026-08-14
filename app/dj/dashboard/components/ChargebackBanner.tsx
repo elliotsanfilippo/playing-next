@@ -55,7 +55,7 @@ export default function ChargebackBanner({ disputes, onResolved }: Props) {
       toast.success(
         response === "accept"
           ? "Deducted from your payout."
-          : "Flagged for review — we'll follow up."
+          : "Flagged for review. We'll follow up."
       );
 
       onResolved();

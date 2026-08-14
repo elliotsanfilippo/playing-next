@@ -8,10 +8,10 @@ export default function RefundPolicyPage() {
   return (
     <LegalDoc title="Refund & Cancellation Policy" lastUpdated="7 August 2026">
       <Note>
-        <strong>Draft — not yet legally reviewed.</strong>{" "}Once a DJ
+        <strong>Draft: not yet legally reviewed.</strong>{" "}Once a DJ
         accepts a request, it&rsquo;s final: no refunds, for any reason.
         Before that point, nothing has been charged and you can cancel
-        yourself at any time — see below.
+        yourself at any time. See below.
       </Note>
 
       <H2>1. Before a DJ responds</H2>
@@ -40,11 +40,11 @@ export default function RefundPolicyPage() {
       <P>
         Accepting a request charges your card immediately, and pays the
         DJ their share at the same time. This is treated as a completed
-        purchase — the DJ has committed to add your song to their queue.
+        purchase. The DJ has committed to add your song to their queue.
       </P>
       <P>
         <strong>Once a DJ has accepted your request, it&rsquo;s final and
-        non-refundable</strong>{" "}— including if the DJ&rsquo;s set ends
+        non-refundable:</strong> including if the DJ&rsquo;s set ends
         before your song is played, or for any other reason once
         acceptance has happened. The DJ is paid the moment they accept,
         precisely so they can rely on that being final; we don&rsquo;t
@@ -62,7 +62,7 @@ export default function RefundPolicyPage() {
       <H2>3. Cancelling a request yourself</H2>
       <P>
         While a request is still pending, you can cancel it yourself from
-        the confirmation page or My Requests — this releases the card
+        the confirmation page or My Requests. This releases the card
         authorisation immediately and you&rsquo;re not charged. This is
         your last chance to change your mind: once the DJ accepts, it
         can&rsquo;t be cancelled or refunded (see section 2).
@@ -71,7 +71,7 @@ export default function RefundPolicyPage() {
       <H2>4. Card declines or payment issues</H2>
       <P>
         If your card is declined at checkout, your request simply
-        isn&rsquo;t submitted — nothing is charged, and you&rsquo;re free
+        isn&rsquo;t submitted. Nothing is charged, and you&rsquo;re free
         to try again with a different card.
       </P>
 
@@ -85,7 +85,7 @@ export default function RefundPolicyPage() {
       <H2>6. DJs</H2>
       <P>
         This policy covers guest payments. DJ payouts, once transferred,
-        follow Stripe&rsquo;s own terms for connected accounts — see our{" "}
+        follow Stripe&rsquo;s own terms for connected accounts. See our{" "}
         <a href="/legal/dj-terms" className="text-accent hover:underline">
           DJ Terms
         </a>

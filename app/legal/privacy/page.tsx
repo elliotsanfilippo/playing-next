@@ -8,7 +8,7 @@ export default function PrivacyPolicyPage() {
   return (
     <LegalDoc title="Privacy Policy" lastUpdated="7 August 2026">
       <Note>
-        <strong>Draft — not yet legally reviewed.</strong>{" "}The facts below
+        <strong>Draft: not yet legally reviewed.</strong>{" "}The facts below
         (what we collect, who we share it with) are accurate to how the
         product currently works. A geographic contact address still needs
         adding here before public launch (UK E-Commerce Regulations
@@ -43,8 +43,8 @@ export default function PrivacyPolicyPage() {
       <Ul>
         <li>The song title and artist you request</li>
         <li>
-          An optional message, if you choose &ldquo;Song + Message&rdquo; —
-          whatever you type is stored as-is, so please don&rsquo;t include
+          An optional message, if you choose &ldquo;Song + Message&rdquo;.
+          Whatever you type is stored as-is, so please don&rsquo;t include
           personal details you don&rsquo;t want kept
         </li>
       </Ul>
@@ -59,7 +59,7 @@ export default function PrivacyPolicyPage() {
         When you pay, you&rsquo;re taken to Stripe&rsquo;s own checkout
         page. Stripe collects your <strong>email address</strong>{" "}and{" "}
         <strong>cardholder name</strong>, and processes your card details
-        directly — we never see or store your card details ourselves.
+        directly. We never see or store your card details ourselves.
       </P>
 
       <P>
@@ -72,14 +72,14 @@ export default function PrivacyPolicyPage() {
           (Supabase)
         </li>
         <li>
-          Your DJ name, slug, bio, genres, profile photo, and prices —
-          all self-entered and, by design, publicly visible on your
-          profile page
+          Your DJ name, slug, bio, genres, profile photo, and prices
+          (all self-entered and, by design, publicly visible on your
+          profile page)
         </li>
         <li>
           When you connect payouts, Stripe collects your legal identity
-          details directly — full name, date of birth, address, and bank
-          account details — as part of their own onboarding flow. We
+          details directly (full name, date of birth, address, and bank
+          account details) as part of their own onboarding flow. We
           never see or store this; we only hold a reference ID to your
           Stripe account.
         </li>
@@ -88,18 +88,18 @@ export default function PrivacyPolicyPage() {
       <H2>2. Why we use it, and on what basis</H2>
       <Ul>
         <li>
-          <strong>To operate the service</strong>{" "}— taking and routing
+          <strong>To operate the service:</strong> taking and routing
           requests, processing payments, showing DJs their queue. This is
           necessary to perform our contract with you.
         </li>
         <li>
-          <strong>To keep the platform secure</strong>{" "}— for example, we
+          <strong>To keep the platform secure:</strong> for example, we
           use IP addresses transiently, in memory only, to rate-limit
           abusive request volume. This is a legitimate interest in
           preventing abuse.
         </li>
         <li>
-          <strong>To fix bugs</strong>{" "}— our error-monitoring tool
+          <strong>To fix bugs:</strong> our error-monitoring tool
           (Sentry) may capture technical details about an error, including
           IP address and browser information, when something breaks.
         </li>
@@ -113,26 +113,26 @@ export default function PrivacyPolicyPage() {
       </P>
       <Ul>
         <li>
-          <strong>Supabase</strong>{" "}— hosts our database, DJ
+          <strong>Supabase:</strong> hosts our database, DJ
           authentication, and profile images
         </li>
         <li>
-          <strong>Stripe</strong>{" "}— processes guest payments and DJ payouts
+          <strong>Stripe:</strong> processes guest payments and DJ payouts
           (Stripe Connect); collects guest email/payment details and DJ
           identity/bank details directly
         </li>
         <li>
-          <strong>Spotify</strong>{" "}— receives the song/artist text you
+          <strong>Spotify:</strong> receives the song/artist text you
           search for, so we can show matching tracks; we use app-level
           credentials, not your personal Spotify account, so no
           identifying information about you is sent
         </li>
         <li>
-          <strong>Sentry</strong>{" "}— receives technical error reports to
+          <strong>Sentry:</strong> receives technical error reports to
           help us fix bugs
         </li>
         <li>
-          <strong>Vercel</strong>{" "}— hosts the website and its server
+          <strong>Vercel:</strong> hosts the website and its server
           functions, and by nature of running the servers, logs request
           traffic including IP addresses
         </li>
@@ -164,7 +164,7 @@ export default function PrivacyPolicyPage() {
         stored in your browser&rsquo;s <code>localStorage</code>, not
         cookies. When you pay, you&rsquo;re taken to Stripe&rsquo;s own
         checkout page, which sets its own cookies under Stripe&rsquo;s
-        control — that&rsquo;s covered by{" "}
+        control. That&rsquo;s covered by{" "}
         <a
           href="https://stripe.com/gb/privacy"
           className="text-accent hover:underline"

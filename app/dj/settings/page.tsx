@@ -560,7 +560,7 @@ function DJSettingsPageContent() {
                       </p>
                       {hasPaymentIssue && (
                         <p className="mt-2 text-sm text-amber-400">
-                          There&apos;s a problem with your Pro payment — you&apos;re
+                          There&apos;s a problem with your Pro payment: you&apos;re
                           being charged the Free rate (15%) until it&apos;s
                           resolved.
                         </p>
@@ -670,7 +670,7 @@ function DJSettingsPageContent() {
                 New request alerts
               </h3>
               <p className="mt-2 text-sm text-zinc-500">
-                These are per-device — set them up on whatever you're
+                These are per-device. Set them up on whatever you're
                 running the dashboard on tonight.
               </p>
 

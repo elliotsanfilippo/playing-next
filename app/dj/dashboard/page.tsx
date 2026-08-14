@@ -264,7 +264,7 @@ export default function DJDashboardPage() {
       const isMessage = request.request_type === "song_message";
 
       toast(isMessage ? "New Song + Message request" : "New song request", {
-        description: `${request.song_title} — ${request.artist}`,
+        description: `${request.song_title} by ${request.artist}`,
       });
     });
 
@@ -283,7 +283,7 @@ export default function DJDashboardPage() {
 
       const body =
         newRequests.length === 1
-          ? `${newRequests[0].song_title} — ${newRequests[0].artist}`
+          ? `${newRequests[0].song_title} by ${newRequests[0].artist}`
           : newRequests.map((request) => request.song_title).join(", ");
 
       showBrowserNotification(title, body);

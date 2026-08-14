@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: "gbp",
             product_data: {
-              name: "QR Display Block — Shipping",
+              name: "QR Display Block: Shipping",
               description: `For ${djProfile.dj_name}`,
             },
             unit_amount: QR_BOX_SHIPPING_FEE,

@@ -28,7 +28,7 @@ const STATUS_NOTIFICATION_COPY: Record<string, string> = {
   playing_next: "Your song is up next!",
   played: "Your song was played!",
   declined: "Your song wasn't accepted this time.",
-  expired: "Your request expired — you weren't charged.",
+  expired: "Your request expired. You weren't charged.",
   refunded: "Your payment was refunded.",
   disputed: "A dispute was raised on your payment.",
 };

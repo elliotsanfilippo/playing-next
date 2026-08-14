@@ -153,7 +153,7 @@ export async function POST(request: Request) {
                 updated.request_type === "song_message"
                   ? "New Song + Message request"
                   : "New song request",
-              body: `${updated.song_title} — ${updated.artist}`,
+              body: `${updated.song_title} by ${updated.artist}`,
               url: "/dj/dashboard",
             }).catch((pushError) => {
               console.error("Push notification error:", pushError);
@@ -277,12 +277,12 @@ export async function POST(request: Request) {
               stripeDisputeId: dispute.id,
               stripeChargeId: chargeId ?? null,
               disputedAmount: requestRow.dj_earnings,
-              description: `Song request: ${requestRow.song_title} — ${requestRow.artist}`,
+              description: `Song request: ${requestRow.song_title} by ${requestRow.artist}`,
             });
 
             sendPushToDJ(requestRow.dj_profile_id, {
               title: "A charge was disputed",
-              body: `${requestRow.song_title} — you have 7 days to respond.`,
+              body: `${requestRow.song_title}: you have 7 days to respond.`,
               url: "/dj/dashboard",
             }).catch((pushError) => {
               console.error("Chargeback push notification error:", pushError);
@@ -302,7 +302,7 @@ export async function POST(request: Request) {
 
             sendPushToDJ(tipRow.dj_profile_id, {
               title: "A charge was disputed",
-              body: "A tip was disputed — you have 7 days to respond.",
+              body: "A tip was disputed: you have 7 days to respond.",
               url: "/dj/dashboard",
             }).catch((pushError) => {
               console.error("Chargeback push notification error:", pushError);

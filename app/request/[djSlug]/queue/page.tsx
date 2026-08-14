@@ -159,7 +159,7 @@ export default function PublicQueuePage() {
 
           {data.upNext.length === 0 ? (
             <p className="mt-4 text-lg text-zinc-600">
-              The queue is empty — get your request in.
+              The queue is empty. Get your request in.
             </p>
           ) : (
             <div className="mt-4 space-y-3">

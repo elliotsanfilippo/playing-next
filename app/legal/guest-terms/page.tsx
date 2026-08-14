@@ -8,7 +8,7 @@ export default function GuestTermsPage() {
   return (
     <LegalDoc title="Guest Terms" lastUpdated="7 August 2026">
       <Note>
-        <strong>Draft — not yet legally reviewed.</strong>{" "}This describes
+        <strong>Draft: not yet legally reviewed.</strong>{" "}This describes
         how the product actually works today. It should be reviewed by a
         solicitor, particularly the liability and marketplace-facilitator
         sections, before we rely on it at public launch.
@@ -24,7 +24,7 @@ export default function GuestTermsPage() {
       <P>
         Playing Next is a marketplace that lets you pay a DJ to request a
         song at an event they&rsquo;re playing. We provide the platform,
-        take the payment, and route your request to the DJ — but the DJ
+        take the payment, and route your request to the DJ. The DJ
         decides what to actually play. We are not the DJ, and we don&rsquo;t
         control their set.
       </P>
@@ -50,8 +50,8 @@ export default function GuestTermsPage() {
       </Ul>
       <P>
         While a request is still awaiting the DJ&rsquo;s response, you can
-        cancel it yourself from the confirmation page or My Requests —
-        this releases the authorisation the same way a decline does, and
+        cancel it yourself from the confirmation page or My Requests.
+        This releases the authorisation the same way a decline does, and
         you&rsquo;re not charged. Once the DJ has accepted, you can no
         longer cancel it yourself; see our{" "}
         <a href="/legal/refund-policy" className="text-accent hover:underline">
@@ -63,7 +63,7 @@ export default function GuestTermsPage() {
       <H2>3. No guarantee your song will be played</H2>
       <P>
         A DJ accepting your request means they&rsquo;ve committed to
-        adding it to their queue — it is not a guarantee of the exact time
+        adding it to their queue. It is not a guarantee of the exact time
         it will play, and we can&rsquo;t guarantee it will play at all if
         the DJ&rsquo;s set ends early, or for other reasons outside the
         DJ&rsquo;s control (venue curfews, technical issues, and similar).
@@ -87,7 +87,7 @@ export default function GuestTermsPage() {
         Playing tracks at an event requires the DJ or venue to hold the
         appropriate music licence (for example, from PRS for Music or
         PPL in the UK). That&rsquo;s the DJ&rsquo;s and/or venue&rsquo;s
-        responsibility, not ours — we don&rsquo;t license, host, or
+        responsibility, not ours. We don&rsquo;t license, host, or
         distribute any music ourselves; we only facilitate the request
         and payment.
       </P>
@@ -113,7 +113,7 @@ export default function GuestTermsPage() {
       <H2>8. Suspending access</H2>
       <P>
         We can suspend or restrict access to the platform for anyone
-        found abusing it — for example, submitting fraudulent payments or
+        found abusing it, for example submitting fraudulent payments or
         abusive message content.
       </P>
 
@@ -130,7 +130,7 @@ export default function GuestTermsPage() {
         </a>
         . If you want to raise a complaint, use the same address and
         describe what happened, including your request ID if you have
-        one — we aim to acknowledge it within 5 business days.
+        one. We aim to acknowledge it within 5 business days.
       </P>
       <P>
         This covers complaints about Playing Next itself. A complaint

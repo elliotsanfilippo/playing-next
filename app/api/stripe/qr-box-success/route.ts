@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
           subject: "Your QR display block is on its way",
           html: `<p>Thanks for claiming your free QR display block, ${
             djProfile?.dj_name || "there"
-          } — we've got your order and it'll ship to:</p><p>${addressBlock}</p>`,
+          }, we've got your order and it'll ship to:</p><p>${addressBlock}</p>`,
         }).catch((error) => console.error("DJ confirmation email error:", error));
       }
 
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
       if (opsEmail) {
         sendEmail({
           to: opsEmail,
-          subject: `New QR box order — ${djProfile?.dj_name || order.dj_profile_id}`,
+          subject: `New QR box order: ${djProfile?.dj_name || order.dj_profile_id}`,
           html: `<p>DJ: ${djProfile?.dj_name || "Unknown"} (${
             djProfile?.slug || order.dj_profile_id
           })</p><p>Ship to:</p><p>${addressBlock}</p>`,

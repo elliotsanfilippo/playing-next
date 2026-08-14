@@ -371,7 +371,7 @@ export default function EarningsPage() {
           <h2 className="text-h3">Free vs Pro Fee Breakdown</h2>
 
           <p className="mt-2 text-sm text-zinc-500">
-            Which plan was active at the time each request was accepted —
+            Which plan was active at the time each request was accepted.
             this stays accurate even if you switch plans later, since
             it&apos;s recorded per request rather than recalculated from your
             current plan.
@@ -412,7 +412,7 @@ export default function EarningsPage() {
             <h2 className="text-h3">Recent Payouts</h2>
 
             <p className="mt-2 text-sm text-zinc-500">
-              Straight from Stripe — when money actually left your balance
+              Straight from Stripe: when money actually left your balance
               for your bank account.
             </p>
 
@@ -447,7 +447,7 @@ export default function EarningsPage() {
             <div>
               <h2 className="text-h3">Today&apos;s Transactions</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Older requests aren&apos;t shown here — export CSV for your
+                Older requests aren&apos;t shown here. Export CSV for your
                 full history.
               </p>
             </div>

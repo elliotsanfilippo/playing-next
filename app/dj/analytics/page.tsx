@@ -251,7 +251,7 @@ export default function AnalyticsPage() {
 
             <p className="mx-auto mt-3 max-w-md text-zinc-400">
               See your acceptance rate, net earnings and most requested
-              songs — upgrade to Pro to unlock it, plus 0% platform fee on
+              songs. Upgrade to Pro to unlock it, plus 0% platform fee on
               every accepted request.
             </p>
 
@@ -259,7 +259,7 @@ export default function AnalyticsPage() {
               <Button onClick={upgradeToPro} disabled={subscribing}>
                 {subscribing
                   ? "Opening..."
-                  : `Upgrade to Pro — £${PRO_MONTHLY_PRICE_GBP.toFixed(2)}/mo`}
+                  : `Upgrade to Pro (£${PRO_MONTHLY_PRICE_GBP.toFixed(2)}/mo)`}
               </Button>
 
               <Link

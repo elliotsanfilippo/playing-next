@@ -126,7 +126,7 @@ export default function QrBoxBanner({ onDismissed }: Props) {
                 </h2>
 
                 <p className="mt-1 text-sm text-zinc-400">
-                  You&apos;re one of the first 50 DJs to go Pro — we&apos;ll
+                  You&apos;re one of the first 50 DJs to go Pro, so we&apos;ll
                   send you a physical QR stand for your booth. You just cover
                   shipping.
                 </p>
@@ -151,7 +151,7 @@ export default function QrBoxBanner({ onDismissed }: Props) {
         {mode === "confirmDismiss" && (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-zinc-300">
-              Are you sure? This is final — once dismissed, you won&apos;t be
+              Are you sure? This is final: once dismissed, you won&apos;t be
               able to claim your free QR block later.
             </p>
 
@@ -176,7 +176,7 @@ export default function QrBoxBanner({ onDismissed }: Props) {
             <h2 className="text-xl font-bold">Where should we send it?</h2>
 
             <p className="mt-1 text-sm text-zinc-400">
-              UK addresses only for now — you&apos;ll pay a small shipping fee
+              UK addresses only for now. You&apos;ll pay a small shipping fee
               (£3.99) at checkout.
             </p>
 

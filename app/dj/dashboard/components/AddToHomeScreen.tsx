@@ -100,7 +100,7 @@ export default function AddToHomeScreen() {
           <h2 className="font-semibold">Add Playing Next to your home screen</h2>
 
           <p className="mt-1 text-sm leading-relaxed text-zinc-400">
-            Get to your dashboard in one tap during a gig — no browser tabs,
+            Get to your dashboard in one tap during a gig: no browser tabs,
             no typing in the address bar.
           </p>
 

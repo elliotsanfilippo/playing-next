@@ -20,7 +20,7 @@ export default function SelectedSong({
   onChangeSong,
 }: Props) {
   const warningText = duplicateWarning?.alreadyPlayed
-    ? "Already played tonight — you can still request it, but it might not come round again."
+    ? "Already played tonight. You can still request it, but it might not come round again."
     : duplicateWarning?.alreadyRequested
       ? "Someone's already requested this tonight."
       : null;

@@ -79,7 +79,7 @@ export default function TipCard({ djSlug, isTakingRequests }: Props) {
           <div>
             <h2 className="font-bold">Tip the DJ</h2>
             <p className="text-sm text-zinc-400">
-              No song needed — just show some love.
+              No song needed, just show some love.
             </p>
           </div>
         </div>

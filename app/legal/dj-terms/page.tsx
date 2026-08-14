@@ -9,11 +9,11 @@ export default function DjTermsPage() {
   return (
     <LegalDoc title="DJ Terms" lastUpdated="7 August 2026">
       <Note>
-        <strong>Draft — not yet legally reviewed.</strong>{" "}The payments
+        <strong>Draft: not yet legally reviewed.</strong>{" "}The payments
         marketplace structure described here (destination charges via
         Stripe Connect, DJ as independent third party, tax responsibility)
         is exactly what a solicitor should sign off on before we rely on
-        it at public launch — see the note in our roadmap.
+        it at public launch. See the note in our roadmap.
       </Note>
 
       <P>
@@ -30,12 +30,12 @@ export default function DjTermsPage() {
         jurisdiction.
       </P>
 
-      <H2>2. Getting paid — Stripe Connect</H2>
+      <H2>2. Getting paid: Stripe Connect</H2>
       <P>
         We use Stripe Connect to pay DJs directly. When you connect
         payments, you go through Stripe&rsquo;s own onboarding flow, where
         Stripe collects your identity, business, and bank details
-        directly — we never see or store this ourselves, and Stripe&rsquo;s
+        directly. We never see or store this ourselves, and Stripe&rsquo;s
         own terms and privacy policy govern that relationship. You need a
         fully onboarded, active Stripe account before guests can pay you.
       </P>
@@ -43,7 +43,7 @@ export default function DjTermsPage() {
       <H2>3. How the money flows</H2>
       <P>
         When a guest submits a request, their card is authorised for the
-        request price plus a fixed 50p guest service fee — nothing is
+        request price plus a fixed 50p guest service fee. Nothing is
         charged yet.
       </P>
       <Ul>
@@ -64,8 +64,8 @@ export default function DjTermsPage() {
       </P>
       <P>
         If a guest successfully disputes an accepted request with their
-        card issuer — including a claim that the request wasn&rsquo;t
-        played — Stripe deducts the disputed amount, plus any dispute
+        card issuer (including a claim that the request wasn&rsquo;t
+        played), Stripe deducts the disputed amount, plus any dispute
         fee, from Playing Next&rsquo;s own balance, not yours directly,
         since your share was already transferred to you. You agree to
         reimburse us for that amount if the dispute is upheld. We&rsquo;ll
@@ -82,7 +82,7 @@ export default function DjTermsPage() {
       </P>
       <P>
         <strong>Pro plan</strong>{" "}(£{PRO_MONTHLY_PRICE_GBP.toFixed(2)}/month):
-        a 0% platform fee —
+        a 0% platform fee:
         you keep 100% of the request price on accepted requests. Billed
         monthly via Stripe; manage or cancel your subscription any time
         from your account settings. If your payment fails, your account
@@ -110,13 +110,13 @@ export default function DjTermsPage() {
         <li>
           Hold or obtain whatever music licence is required to legally
           play tracks at your events (for example, via PRS for Music or
-          PPL in the UK, or your venue&rsquo;s existing licence) — this is
+          PPL in the UK, or your venue&rsquo;s existing licence). This is
           your responsibility, not ours; we don&rsquo;t license or provide
           music
         </li>
         <li>
           Handle your own tax affairs. Using Playing Next does not make
-          you our employee — you&rsquo;re responsible for declaring and
+          you our employee: you&rsquo;re responsible for declaring and
           paying any tax due on your earnings. We don&rsquo;t deduct PAYE
           or provide tax advice; speak to an accountant if you&rsquo;re
           unsure.
@@ -165,13 +165,13 @@ export default function DjTermsPage() {
         <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
           info@playingnextapp.com
         </a>
-        . If you want to raise a complaint — about a payout, a fee, or
-        anything else — use the same address; we aim to acknowledge it
+        . If you want to raise a complaint (about a payout, a fee, or
+        anything else), use the same address; we aim to acknowledge it
         within 5 business days.
       </P>
       <P>
         This covers complaints about Playing Next itself, not about your
-        Stripe account directly — issues with your connected account
+        Stripe account directly. Issues with your connected account
         (verification, payout delays, restrictions) are Stripe&rsquo;s to
         resolve under your agreement with them, though we&rsquo;re happy
         to help however we can.
