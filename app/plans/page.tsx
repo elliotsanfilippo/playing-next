@@ -22,8 +22,9 @@ const FREE_FEATURES = [
 
 const PRO_FEATURES = [
   "Everything in Free",
-  "0% platform fee — keep 100% of every request",
+  "0% platform fee: keep 100% of every request",
   "Full analytics: acceptance rate, earnings, top songs",
+  "Events Mode: named events with their own pricing and earnings summary",
 ];
 
 export default function PlansPage() {
@@ -109,7 +110,7 @@ export default function PlansPage() {
               <strong className="text-accent">
                 First 50 DJs to go Pro
               </strong>{" "}
-              get a free physical QR display block for their booth — you
+              get a free physical QR display block for their booth, you
               just cover shipping.
             </p>
           </div>
@@ -159,7 +160,7 @@ export default function PlansPage() {
               </span>
             </p>
             <p className="mt-2 text-sm text-zinc-400">
-              0% platform fee — keep everything you earn
+              0% platform fee: keep everything you earn
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               Pays for itself once you&rsquo;re taking around £
@@ -190,7 +191,7 @@ export default function PlansPage() {
         </div>
 
         <p className="mx-auto mt-8 max-w-xl text-center text-sm text-zinc-500">
-          Every plan starts free — there&rsquo;s no card needed to sign up.
+          Every plan starts free. There&rsquo;s no card needed to sign up.
           Upgrade or cancel Pro any time from your account settings.
         </p>
       </div>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { Input } from "@/src/components/ui/Input";
+import Eyebrow from "@/src/components/ui/Eyebrow";
 import { supabase } from "@/src/lib/supabase";
 
 export type DjEvent = {
@@ -45,11 +46,15 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
             </div>
 
             <div>
-              <h2 className="text-xl font-bold">Events is a Pro feature</h2>
+              <Eyebrow tone="accent">Pro feature</Eyebrow>
 
-              <p className="mt-1 text-sm text-zinc-400">
-                Run named events — Smith Wedding, Saturday @ Venue — each with
-                their own pricing and earnings summary.
+              <h2 className="mt-1 text-xl font-bold">Events Mode</h2>
+
+              <p className="mt-2 text-sm text-zinc-400">
+                Run named events, like a wedding or a Saturday residency,
+                each with its own pricing and its own earnings summary.
+                Your QR code and link stay exactly the same; you just
+                switch what's active from here.
               </p>
 
               <Link
@@ -204,11 +209,13 @@ export default function EventsCard({ events, isPro, onChanged }: Props) {
             </div>
 
             <div>
-              <h2 className="text-xl font-bold">
+              <Eyebrow tone="accent">Events Mode</Eyebrow>
+
+              <h2 className="mt-1 text-xl font-bold">
                 {activeEvent ? activeEvent.name : "No active event"}
               </h2>
 
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-2 text-sm text-zinc-400">
                 {activeEvent
                   ? "New requests and tips are being tracked under this event."
                   : "Running as your regular ongoing session."}
