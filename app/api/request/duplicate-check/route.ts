@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,22 @@ const supabaseAdmin = createClient(
  */
 export async function GET(request: NextRequest) {
   try {
+    const { allowed, retryAfterSeconds } = rateLimit(
+      `duplicate-check:${getClientIp(request)}`,
+      30,
+      60_000
+    );
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        {
+          status: 429,
+          headers: { "Retry-After": retryAfterSeconds.toString() },
+        }
+      );
+    }
+
     const djSlug = request.nextUrl.searchParams.get("djSlug")?.trim();
     const spotifyTrackId = request.nextUrl.searchParams
       .get("spotifyTrackId")
