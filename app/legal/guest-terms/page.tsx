@@ -44,7 +44,7 @@ export default function GuestTermsPage() {
         </li>
         <li>
           If the DJ <strong>declines</strong>{" "}your request, or doesn&rsquo;t
-          respond within 7 days, the authorisation is released
+          respond within 2 hours, the authorisation is released
           automatically and you are not charged.
         </li>
       </Ul>

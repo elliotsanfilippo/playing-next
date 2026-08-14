@@ -26,9 +26,10 @@ export default function RefundPolicyPage() {
           charged.
         </li>
         <li>
-          If the DJ doesn&rsquo;t respond within <strong>7 days</strong>,
-          Stripe automatically expires the authorisation and you&rsquo;re
-          not charged, either.
+          If the DJ doesn&rsquo;t respond within <strong>2 hours</strong>,
+          the authorisation is released automatically and you&rsquo;re
+          not charged, either. (As a backstop, Stripe also expires any
+          authorisation on its own after 7 days regardless.)
         </li>
       </Ul>
       <P>

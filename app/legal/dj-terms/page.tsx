@@ -53,8 +53,8 @@ export default function DjTermsPage() {
           Stripe account the same moment.
         </li>
         <li>
-          If you <strong>decline</strong>, or don&rsquo;t respond within 7
-          days, the authorisation is automatically released and the guest
+          If you <strong>decline</strong>, or don&rsquo;t respond within 2
+          hours, the authorisation is automatically released and the guest
           is never charged.
         </li>
       </Ul>
