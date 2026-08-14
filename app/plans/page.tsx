@@ -99,8 +99,8 @@ export default function PlansPage() {
           <h1 className="mt-3 text-display">Simple, honest pricing</h1>
 
           <p className="mx-auto mt-4 max-w-lg text-zinc-400">
-            Start free. Move to Pro when you&rsquo;re ready to stop paying a
-            fee on every request.
+            No hidden fees. Pick the plan that fits how often you take
+            requests.
           </p>
         </div>
 
