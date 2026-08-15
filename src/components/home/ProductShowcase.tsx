@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { ChevronsUp, ChevronUp, ChevronDown } from "lucide-react";
 import { buttonVariants } from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
 
@@ -54,26 +54,38 @@ export default function ProductShowcase() {
               ].map(([title, artist, price], index) => (
                 <div
                   key={title}
-                  className="flex items-center gap-4 rounded-control border border-white/5 bg-white/[0.03] p-4"
+                  className="rounded-control border border-white/5 bg-white/[0.03] p-4"
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-sm font-bold text-zinc-500">
-                    {index + 1}
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-sm font-bold text-zinc-500">
+                      {index + 1}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{title}</p>
+                      <p className="truncate text-sm text-zinc-500">
+                        {artist}
+                      </p>
+                    </div>
+
+                    <span className="text-sm text-zinc-400">
+                      {price}
+                    </span>
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{title}</p>
-                    <p className="truncate text-sm text-zinc-500">
-                      {artist}
-                    </p>
+                  <div className="mt-3 flex gap-2 pl-14">
+                    <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-400">
+                      <ChevronsUp size={13} /> Top
+                    </span>
+
+                    <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-400">
+                      <ChevronUp size={13} /> Up
+                    </span>
+
+                    <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-400">
+                      <ChevronDown size={13} /> Down
+                    </span>
                   </div>
-
-                  <span className="text-sm text-zinc-400">
-                    {price}
-                  </span>
-
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-strong text-black">
-                    <Check size={16} strokeWidth={3} />
-                  </span>
                 </div>
               ))}
             </div>
