@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
-import {
-  SERVICE_FEE,
-  FREE_PLATFORM_FEE_BPS,
-  PRO_PLATFORM_FEE_BPS,
-  PRICING_VERSION,
-} from "@/src/lib/pricing";
+import { SERVICE_FEE, PRICING_VERSION } from "@/src/lib/pricing";
 import { isValidTipAmount } from "@/src/lib/tips";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -95,21 +90,19 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Same active-Pro rule as everywhere else money is split — a
-     * lapsed Pro payment falls back to the Free rate here too, not
-     * just on song requests.
+     * plan_at_checkout is still recorded for reporting, but unlike a
+     * song request, a tip pays out 100% to the DJ regardless of plan —
+     * the Free-plan platform fee only applies to paid requests. Only
+     * the flat guest service fee applies here.
      */
     const isPro =
       djProfile.plan === "pro" &&
       djProfile.stripe_subscription_status === "active";
 
     const planAtCheckout: "free" | "pro" = isPro ? "pro" : "free";
-    const platformFeeRateBps = isPro
-      ? PRO_PLATFORM_FEE_BPS
-      : FREE_PLATFORM_FEE_BPS;
-
-    const platformFee = Math.round((amount * platformFeeRateBps) / 10_000);
-    const djEarnings = amount - platformFee;
+    const platformFeeRateBps = 0;
+    const platformFee = 0;
+    const djEarnings = amount;
     const totalAmount = amount + SERVICE_FEE;
 
     const { data: activeEvent } = await supabase
