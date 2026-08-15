@@ -1,4 +1,4 @@
-import { Music2 } from "lucide-react";
+import { Music2, ChevronsUp, ChevronUp, ChevronDown } from "lucide-react";
 import Badge from "@/src/components/ui/Badge";
 
 export default function DashboardPreview() {
@@ -77,12 +77,21 @@ export default function DashboardPreview() {
               </p>
             </div>
 
-            <button
-              type="button"
-              className="rounded-xl bg-accent-strong px-3 py-2 text-xs font-bold text-black"
-            >
-              Accept
-            </button>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400"
+              >
+                Decline
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl bg-accent-strong px-3 py-2 text-xs font-bold text-black"
+              >
+                Accept
+              </button>
+            </div>
           </div>
         </div>
 
@@ -96,25 +105,41 @@ export default function DashboardPreview() {
             {queue.map((track, index) => (
               <div
                 key={track.title}
-                className="flex items-center gap-3 rounded-xl bg-white/[0.025] p-3"
+                className="rounded-xl bg-white/[0.025] p-3"
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-bold text-zinc-500">
-                  {index + 1}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-bold text-zinc-500">
+                    {index + 1}
+                  </span>
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">
-                    {track.title}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      {track.title}
+                    </p>
 
-                  <p className="truncate text-xs text-zinc-600">
-                    {track.artist}
-                  </p>
+                    <p className="truncate text-xs text-zinc-600">
+                      {track.artist}
+                    </p>
+                  </div>
+
+                  <span className="text-xs text-zinc-500">
+                    {track.price}
+                  </span>
                 </div>
 
-                <span className="text-xs text-zinc-500">
-                  {track.price}
-                </span>
+                <div className="mt-2 flex gap-1.5 pl-10">
+                  <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-zinc-400">
+                    <ChevronsUp size={11} /> Top
+                  </span>
+
+                  <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-zinc-400">
+                    <ChevronUp size={11} /> Up
+                  </span>
+
+                  <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-zinc-400">
+                    <ChevronDown size={11} /> Down
+                  </span>
+                </div>
               </div>
             ))}
           </div>
