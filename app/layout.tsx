@@ -72,20 +72,36 @@ export default function RootLayout({
           <>
             {/*
               Consent Mode defaults must run before GTM's own script
-              evaluates, so every Google tag it loads starts denied
-              until ConsentBanner calls updateConsent() from
-              src/lib/consent.ts. beforeInteractive guarantees Next.js
-              injects this ahead of GTM regardless of DOM order below.
+              evaluates, so every Google tag it loads starts with the
+              right state from the very first hit — GTM's "Google Tag"
+              tag type only sends its automatic pageview once, when it
+              initialises, and won't resend it later just because
+              consent changes mid-session (unlike the shared consent
+              state itself, which any tag reads live). So a returning
+              visitor's stored choice has to be read synchronously
+              right here, before GTM loads — ConsentBanner's own
+              updateConsent() call (src/lib/consent.ts) only needs to
+              cover the current session's Accept/Reject after this.
+              The storage key must stay in sync with STORAGE_KEY in
+              src/components/ConsentBanner.tsx. beforeInteractive
+              guarantees Next.js injects this ahead of GTM regardless
+              of DOM order below.
             */}
             <Script id="consent-mode-default" strategy="beforeInteractive">
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
+                var storedConsent;
+                try {
+                  storedConsent = localStorage.getItem('pn-cookie-consent');
+                } catch (e) {
+                  storedConsent = null;
+                }
                 gtag('consent', 'default', {
                   ad_storage: 'denied',
                   ad_user_data: 'denied',
                   ad_personalization: 'denied',
-                  analytics_storage: 'denied',
+                  analytics_storage: storedConsent === 'granted' ? 'granted' : 'denied',
                   wait_for_update: 500
                 });
               `}
