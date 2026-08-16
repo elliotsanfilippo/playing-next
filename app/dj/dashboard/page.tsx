@@ -993,6 +993,8 @@ export default function DJDashboardPage() {
           qrCodeUrl={qrCodeUrl}
           requestLink={requestLink}
           displayRequestLink={displayRequestLink}
+          djName={djProfile?.dj_name ?? ""}
+          djSlug={djProfile?.slug ?? ""}
         />
 
         <HistoryCard

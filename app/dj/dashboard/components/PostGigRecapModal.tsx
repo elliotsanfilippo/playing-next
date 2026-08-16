@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { X, Share2 } from "lucide-react";
 import Button from "@/src/components/ui/Button";
 import type { SongRequest } from "@/src/types/dashboard";
+import { roundRect, wrapSingleLine } from "@/src/lib/canvasArt";
 
 type Props = {
   djName: string;
@@ -15,40 +16,6 @@ type Props = {
 
 const CARD_WIDTH = 1080;
 const CARD_HEIGHT = 1920;
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, radius);
-  ctx.arcTo(x + width, y + height, x, y + height, radius);
-  ctx.arcTo(x, y + height, x, y, radius);
-  ctx.arcTo(x, y, x + width, y, radius);
-  ctx.closePath();
-}
-
-function wrapSingleLine(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number
-) {
-  if (ctx.measureText(text).width <= maxWidth) return text;
-
-  let truncated = text;
-  while (
-    truncated.length > 0 &&
-    ctx.measureText(`${truncated}…`).width > maxWidth
-  ) {
-    truncated = truncated.slice(0, -1);
-  }
-  return `${truncated}…`;
-}
 
 /*
  * Shown once a DJ's session ends (paused manually or auto-closed) as

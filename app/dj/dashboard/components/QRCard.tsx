@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Copy, Check, Download } from "lucide-react";
+import { Copy, Check, Download, Printer } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
+import QRFormatsModal from "./QRFormatsModal";
 
 type Props = {
   showQr: boolean;
@@ -10,14 +11,19 @@ type Props = {
   qrCodeUrl: string;
   requestLink: string;
   displayRequestLink: string;
+  djName: string;
+  djSlug: string;
 };
 
 export default function QRCard({
   qrCodeUrl,
   requestLink,
   displayRequestLink,
+  djName,
+  djSlug,
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const [showFormats, setShowFormats] = useState(false);
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(requestLink);
@@ -69,6 +75,14 @@ export default function QRCard({
                 )}
               </Button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowFormats(true)}
+              className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-accent transition hover:text-accent-strong"
+            >
+              <Printer size={15} /> Get a printable card, poster or wallpaper
+            </button>
           </div>
 
           <div className="flex justify-center">
@@ -80,6 +94,15 @@ export default function QRCard({
           </div>
         </div>
       </div>
+
+      {showFormats && (
+        <QRFormatsModal
+          djName={djName}
+          djSlug={djSlug}
+          requestLink={requestLink}
+          onClose={() => setShowFormats(false)}
+        />
+      )}
     </Card>
   );
 }
