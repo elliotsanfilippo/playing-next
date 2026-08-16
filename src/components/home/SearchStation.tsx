@@ -85,9 +85,9 @@ export default function SearchStation({
                       <Link
                         key={dj.slug}
                         href={`/request/${dj.slug}`}
-                        className="flex items-center justify-between gap-4 rounded-control p-3 transition hover:bg-white/5"
+                        className="flex items-center justify-between gap-3 rounded-control p-3 transition hover:bg-white/5"
                       >
-                        <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                           {dj.profile_image_url ? (
                             <img
                               src={dj.profile_image_url}
@@ -100,7 +100,7 @@ export default function SearchStation({
                             </div>
                           )}
 
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="truncate font-semibold text-white">
                               {dj.dj_name}
                             </p>
@@ -111,8 +111,8 @@ export default function SearchStation({
                           </div>
                         </div>
 
-                        <Badge tone={isLive ? "accent" : "neutral"}>
-                          {isLive ? "Taking requests" : "Paused"}
+                        <Badge tone={isLive ? "accent" : "neutral"} dot>
+                          {isLive ? "Live" : "Paused"}
                         </Badge>
                       </Link>
                     );

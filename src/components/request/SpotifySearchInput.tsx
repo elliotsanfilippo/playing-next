@@ -14,7 +14,7 @@ export default function SpotifySearchInput({
   return (
     <div className="mt-8">
       <div
-        className={`flex items-center gap-4 rounded-card border bg-black/50 px-5 transition ${
+        className={`flex items-center gap-3 rounded-card border bg-black/50 px-4 transition sm:gap-4 sm:px-5 ${
           isTakingRequests
             ? "border-white/10 focus-within:border-accent/40 focus-within:bg-black/70"
             : "border-white/5 opacity-50"
@@ -30,9 +30,9 @@ export default function SpotifySearchInput({
           placeholder={
             isTakingRequests
               ? "Search songs or artists..."
-              : "Search unavailable right now"
+              : "Search paused"
           }
-          className="h-20 w-full bg-transparent text-lg text-white outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed"
+          className="h-16 w-full min-w-0 truncate bg-transparent text-base text-white outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed sm:h-20 sm:text-lg"
         />
 
         {searchQuery && isTakingRequests && (
