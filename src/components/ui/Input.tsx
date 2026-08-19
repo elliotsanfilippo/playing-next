@@ -1,4 +1,7 @@
-import { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+"use client";
+
+import { InputHTMLAttributes, TextareaHTMLAttributes, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/src/lib/cn";
 
 const fieldClasses =
@@ -6,10 +9,35 @@ const fieldClasses =
 
 export function Input({
   className,
+  type,
   ...props
 }: InputHTMLAttributes<HTMLInputElement>) {
+  const [visible, setVisible] = useState(false);
+
+  if (type === "password") {
+    return (
+      <div className="relative">
+        <input
+          type={visible ? "text" : "password"}
+          className={cn(fieldClasses, "h-14 pr-12", className)}
+          {...props}
+        />
+
+        <button
+          type="button"
+          onClick={() => setVisible((current) => !current)}
+          tabIndex={-1}
+          aria-label={visible ? "Hide password" : "Show password"}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 transition hover:text-zinc-300"
+        >
+          {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <input className={cn(fieldClasses, "h-14", className)} {...props} />
+    <input type={type} className={cn(fieldClasses, "h-14", className)} {...props} />
   );
 }
 
