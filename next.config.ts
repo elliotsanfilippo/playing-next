@@ -3,6 +3,21 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.0.211"],
+  async redirects() {
+    return [
+      /*
+       * The dj-elliot test account's slug was renamed to
+       * dj-elliot-test (2026-08-19) to make clear in the admin
+       * dashboard that it isn't a real DJ — this keeps any
+       * already-printed/saved QR codes or links working.
+       */
+      {
+        source: "/request/dj-elliot/:path*",
+        destination: "/request/dj-elliot-test/:path*",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 /*
