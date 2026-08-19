@@ -208,12 +208,71 @@ html {
   animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/*
+  Simulated cursor click on the hero demo's incoming-request toast —
+  travels to the Accept button then does a small press pulse, plus a
+  separate expanding "click ring" sibling. One unified keyframe per
+  element rather than stacking two animations on the same `transform`,
+  since CSS animations don't compose transforms across each other.
+*/
+@keyframes cursor-click-sequence {
+  0% {
+    opacity: 0;
+    transform: translate(34px, -38px) scale(1);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(34px, -38px) scale(1);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  70% {
+    transform: translate(0, 0) scale(0.78);
+  }
+  82% {
+    transform: translate(0, 0) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.animate-cursor-click {
+  animation: cursor-click-sequence 2.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes click-ring {
+  0%,
+  66% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  76% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.animate-click-ring {
+  animation: click-ring 2.6s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-in,
   .animate-toast-in,
   .animate-tick-in,
   .animate-drop-in,
-  .animate-pop-in {
+  .animate-pop-in,
+  .animate-cursor-click,
+  .animate-click-ring {
     animation: none;
   }
 }
