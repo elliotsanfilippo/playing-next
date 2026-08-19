@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("song_requests")
       .select(
-        "id, song_title, artist, message, request_type, request_status, queue_position, is_vip, decline_reason"
+        "id, song_title, artist, message, request_type, request_status, queue_position, is_vip, decline_reason, reported_not_played_at"
       )
       .in("id", safeRequestIds)
       .neq("request_status", "archived")

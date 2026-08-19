@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Bell, BellRing, Crown } from "lucide-react";
+import { Bell, BellRing, Crown, Flag } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
@@ -28,7 +28,10 @@ type SongRequest = {
   queue_position: number | null;
   is_vip: boolean;
   decline_reason: string | null;
+  reported_not_played_at: string | null;
 };
+
+const REPORTABLE_STATUSES = ["accepted", "playing_next", "played"];
 
 const STATUS_LABEL: Record<string, string> = {
   checkout_pending: "Confirming Payment",
@@ -48,6 +51,9 @@ export default function MyRequestsPage() {
   const [requests, setRequests] = useState<SongRequest[]>([]);
   const [notifyEnabled, setNotifyEnabled] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reportOpenId, setReportOpenId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportingId, setReportingId] = useState<string | null>(null);
 
   const previousStatusesRef = useRef<Map<string, string> | null>(null);
 
@@ -96,6 +102,39 @@ export default function MyRequestsPage() {
       );
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const submitNotPlayedReport = async (requestId: string) => {
+    if (reportingId) return;
+
+    setReportingId(requestId);
+
+    try {
+      const response = await fetch("/api/request/report-not-played", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, reason: reportReason }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to submit your report right now.");
+      }
+
+      toast.success("Thanks — we've logged this for review.");
+      setReportOpenId(null);
+      setReportReason("");
+      fetchRequests();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit your report right now."
+      );
+    } finally {
+      setReportingId(null);
     }
   };
 
@@ -319,21 +358,90 @@ export default function MyRequestsPage() {
                           : "You have not been charged."}
                       </p>
                     )}
+
+                    {request.reported_not_played_at && (
+                      <p className="mt-4 flex items-center gap-1.5 text-sm text-zinc-400">
+                        <Flag size={14} className="shrink-0" />
+                        Reported as not played — we&apos;re looking into it.
+                      </p>
+                    )}
                   </div>
 
-                  {request.request_status === "pending" && (
-                    <button
-                      type="button"
-                      onClick={() => cancelRequest(request.id)}
-                      disabled={cancellingId === request.id}
-                      className="shrink-0 rounded-control border border-red-500/20 bg-red-500/5 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {cancellingId === request.id
-                        ? "Cancelling..."
-                        : "Cancel"}
-                    </button>
-                  )}
+                  <div className="flex shrink-0 flex-col gap-2">
+                    {request.request_status === "pending" && (
+                      <button
+                        type="button"
+                        onClick={() => cancelRequest(request.id)}
+                        disabled={cancellingId === request.id}
+                        className="rounded-control border border-red-500/20 bg-red-500/5 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {cancellingId === request.id
+                          ? "Cancelling..."
+                          : "Cancel"}
+                      </button>
+                    )}
+
+                    {REPORTABLE_STATUSES.includes(request.request_status) &&
+                      !request.reported_not_played_at && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReportOpenId(
+                              reportOpenId === request.id ? null : request.id
+                            );
+                            setReportReason("");
+                          }}
+                          className="flex items-center gap-1.5 rounded-control border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-white/10"
+                        >
+                          <Flag size={14} />
+                          This wasn&apos;t played
+                        </button>
+                      )}
+                  </div>
                 </div>
+
+                {reportOpenId === request.id && (
+                  <div className="mt-4 rounded-control border border-white/10 bg-black/30 p-4">
+                    <p className="text-sm font-semibold text-white">
+                      Didn&apos;t hear this one play?
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      We&apos;ll flag this DJ&apos;s account for review. Add any
+                      detail that might help (optional).
+                    </p>
+
+                    <textarea
+                      value={reportReason}
+                      onChange={(event) => setReportReason(event.target.value)}
+                      placeholder="Optional details..."
+                      rows={2}
+                      maxLength={500}
+                      className="mt-3 w-full rounded-control border border-white/10 bg-black/40 p-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-accent/40"
+                    />
+
+                    <div className="mt-3 flex gap-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setReportOpenId(null)}
+                        disabled={reportingId === request.id}
+                      >
+                        Never mind
+                      </Button>
+
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => submitNotPlayedReport(request.id)}
+                        disabled={reportingId === request.id}
+                      >
+                        {reportingId === request.id
+                          ? "Submitting..."
+                          : "Submit report"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </Card>
             ))
           )}

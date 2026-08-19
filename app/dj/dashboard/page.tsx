@@ -953,6 +953,7 @@ export default function DJDashboardPage() {
               !djProfile.qr_box_dismissed
           )}
           onQrBoxDismissed={fetchDJProfile}
+          acceptedNotPlayedCount={acceptedRequests.length}
         />
 
         <StatsCards
@@ -969,18 +970,22 @@ export default function DJDashboardPage() {
         />
 
         <div className="grid items-start gap-6 lg:grid-cols-2">
-          <PendingRequests
-            pendingRequests={pendingRequests}
-            acceptRequest={acceptRequest}
-            declineRequest={declineRequest}
-          />
+          <div id="pending-requests" className="scroll-mt-6">
+            <PendingRequests
+              pendingRequests={pendingRequests}
+              acceptRequest={acceptRequest}
+              declineRequest={declineRequest}
+            />
+          </div>
 
-          <AcceptedQueue
-            acceptedRequests={acceptedRequests}
-            currentPlayingNext={currentPlayingNext}
-            moveAcceptedRequest={moveAcceptedRequest}
-            updateRequestStatus={updateRequestStatus}
-          />
+          <div id="accepted-queue" className="scroll-mt-6">
+            <AcceptedQueue
+              acceptedRequests={acceptedRequests}
+              currentPlayingNext={currentPlayingNext}
+              moveAcceptedRequest={moveAcceptedRequest}
+              updateRequestStatus={updateRequestStatus}
+            />
+          </div>
         </div>
 
         {!onboardingComplete && (
@@ -997,12 +1002,14 @@ export default function DJDashboardPage() {
           djSlug={djProfile?.slug ?? ""}
         />
 
-        <HistoryCard
-          showHistory={showHistory}
-          setShowHistory={setShowHistory}
-          playedRequests={playedRequests}
-          clearPlayedHistory={clearPlayedHistory}
-        />
+        <div id="history" className="scroll-mt-6">
+          <HistoryCard
+            showHistory={showHistory}
+            setShowHistory={setShowHistory}
+            playedRequests={playedRequests}
+            clearPlayedHistory={clearPlayedHistory}
+          />
+        </div>
       </div>
     </main>
   );

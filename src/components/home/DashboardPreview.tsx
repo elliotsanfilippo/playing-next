@@ -98,7 +98,7 @@ export default function DashboardPreview() {
         <div className="mt-4">
           <div className="flex items-center justify-between">
             <p className="font-semibold">Accepted queue</p>
-            <p className="text-xs text-zinc-600">4 requests</p>
+            <p className="text-xs text-zinc-600">3 requests</p>
           </div>
 
           <div className="mt-3 space-y-2">

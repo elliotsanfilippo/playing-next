@@ -99,7 +99,7 @@ export default function PublicQueuePage() {
   }
 
   return (
-    <main className="flex h-screen flex-col overflow-hidden bg-canvas px-6 py-8 text-white sm:px-10 sm:py-10">
+    <main className="flex min-h-screen flex-col overflow-y-auto bg-canvas px-6 py-8 text-white sm:h-screen sm:overflow-hidden sm:px-10 sm:py-10">
       <Link
         href="/dj/dashboard"
         className="relative z-10 mb-6 flex w-fit shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-zinc-500 backdrop-blur transition hover:text-zinc-300 sm:fixed sm:left-4 sm:top-4 sm:mb-0"
@@ -108,7 +108,7 @@ export default function PublicQueuePage() {
         Dashboard
       </Link>
 
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col sm:overflow-hidden">
         <div className="flex shrink-0 items-center justify-between">
           <div className="flex items-center gap-4">
             {data.djImage ? (
@@ -166,7 +166,7 @@ export default function PublicQueuePage() {
 
         <div
           className={`mt-10 flex flex-col sm:mt-12 ${
-            data.upNext.length === 0 ? "shrink-0" : "min-h-0 flex-1"
+            data.upNext.length === 0 ? "shrink-0" : "sm:min-h-0 sm:flex-1"
           }`}
         >
           <p className="shrink-0 text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
@@ -178,7 +178,7 @@ export default function PublicQueuePage() {
               The queue is empty. Get your request in.
             </p>
           ) : (
-            <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            <div className="mt-4 space-y-3 sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:pr-1">
               {data.upNext.map((track, index) => (
                 <div
                   key={`${track.songTitle}-${index}`}
@@ -212,14 +212,19 @@ export default function PublicQueuePage() {
         </div>
 
         {qrCodeUrl && (
-          <div className="mt-8 flex shrink-0 items-center gap-4 self-center rounded-card-lg border border-white/10 bg-zinc-900/90 p-4 shadow-2xl backdrop-blur sm:self-end">
-            <div className="rounded-card bg-white p-2">
+          <div className="mt-8 flex shrink-0 flex-col items-center gap-4 self-center rounded-card-lg border border-white/10 bg-zinc-900/90 px-6 py-5 shadow-2xl backdrop-blur sm:mt-10 sm:flex-row sm:gap-5">
+            <div className="rounded-card bg-white p-3">
               <img src={qrCodeUrl} alt="QR code" className="h-20 w-20 sm:h-24 sm:w-24" />
             </div>
 
-            <p className="max-w-[9rem] text-sm font-semibold leading-tight text-zinc-300">
-              Scan to request a song
-            </p>
+            <div className="text-center sm:text-left">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+                Request a song
+              </p>
+              <p className="mt-1 text-lg font-bold text-white">
+                Scan to get started
+              </p>
+            </div>
           </div>
         )}
       </div>

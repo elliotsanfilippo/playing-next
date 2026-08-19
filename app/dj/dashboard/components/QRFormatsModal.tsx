@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { X, Download } from "lucide-react";
 import Button from "@/src/components/ui/Button";
-import { roundRect, wrapSingleLine } from "@/src/lib/canvasArt";
+import {
+  roundRect,
+  wrapSingleLine,
+  fillTextTracked,
+  drawCornerBrackets,
+} from "@/src/lib/canvasArt";
 
 type Format = "table" | "booth" | "lockscreen";
 
@@ -50,6 +55,94 @@ async function loadQrImage(requestLink: string, size: number) {
   return image;
 }
 
+const PASS_ACCENT = "#4ade80";
+const PASS_BG_TOP = "#0c1210";
+const PASS_BG_BOTTOM = "#050605";
+const PASS_MUTED = "#71717a";
+const PASS_MUTED_LIGHT = "#a1a1aa";
+
+/*
+ * Shared look for every printable/wallpaper format: a dark gradient
+ * with a soft accent glow, standing in for a premium event pass rather
+ * than a plain generated image. glowCenterY lets each format place the
+ * glow behind wherever its content actually sits.
+ */
+function paintPassBackground(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  glowCenterY: number,
+  glowRadius: number
+) {
+  const bg = ctx.createLinearGradient(0, 0, 0, height);
+  bg.addColorStop(0, PASS_BG_TOP);
+  bg.addColorStop(1, PASS_BG_BOTTOM);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, width, height);
+
+  const glow = ctx.createRadialGradient(
+    width / 2,
+    glowCenterY,
+    40,
+    width / 2,
+    glowCenterY,
+    glowRadius
+  );
+  glow.addColorStop(0, "rgba(74, 222, 128, 0.16)");
+  glow.addColorStop(1, "rgba(74, 222, 128, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, width, height);
+}
+
+function drawDivider(ctx: CanvasRenderingContext2D, centerX: number, y: number, halfWidth: number) {
+  ctx.strokeStyle = "rgba(74, 222, 128, 0.5)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(centerX - halfWidth, y);
+  ctx.lineTo(centerX + halfWidth, y);
+  ctx.stroke();
+}
+
+/*
+ * The QR sits inside a two-layer "chip": a thin accent frame with a
+ * gap, then a white rounded card the QR itself is drawn onto — reads
+ * as a badge/access-pass credential rather than a bare QR image.
+ */
+function drawQrChip(
+  ctx: CanvasRenderingContext2D,
+  qrImage: HTMLImageElement,
+  qrX: number,
+  qrY: number,
+  qrSize: number,
+  framePad: number,
+  chipPad: number
+) {
+  ctx.strokeStyle = PASS_ACCENT;
+  ctx.lineWidth = 2;
+  roundRect(
+    ctx,
+    qrX - framePad,
+    qrY - framePad,
+    qrSize + framePad * 2,
+    qrSize + framePad * 2,
+    framePad * 0.7
+  );
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffffff";
+  roundRect(
+    ctx,
+    qrX - chipPad,
+    qrY - chipPad,
+    qrSize + chipPad * 2,
+    qrSize + chipPad * 2,
+    chipPad * 0.8
+  );
+  ctx.fill();
+
+  ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+}
+
 async function drawTableCard(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
@@ -61,37 +154,34 @@ async function drawTableCard(
   canvas.width = width;
   canvas.height = height;
 
-  ctx.fillStyle = "#f7f7f5";
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.strokeStyle = "rgba(9, 15, 12, 0.14)";
-  ctx.lineWidth = 3;
-  roundRect(ctx, 44, 44, width - 88, height - 88, 32);
-  ctx.stroke();
+  paintPassBackground(ctx, width, height, 460, 640);
+  drawCornerBrackets(ctx, 56, 56, width - 112, height - 112, 56, "rgba(74, 222, 128, 0.5)", 2);
 
   ctx.textAlign = "center";
 
-  ctx.fillStyle = "#16a34a";
-  ctx.font = "700 30px system-ui, -apple-system, sans-serif";
-  ctx.fillText("PLAYING NEXT", width / 2, 165);
+  ctx.fillStyle = PASS_ACCENT;
+  ctx.font = "700 26px system-ui, -apple-system, sans-serif";
+  fillTextTracked(ctx, "PLAYING NEXT", width / 2, 190, 6);
 
-  ctx.fillStyle = "#0b0f0d";
-  ctx.font = "800 70px system-ui, -apple-system, sans-serif";
-  ctx.fillText(wrapSingleLine(ctx, djName, width - 200), width / 2, 260);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 84px system-ui, -apple-system, sans-serif";
+  ctx.fillText(wrapSingleLine(ctx, djName, width - 260), width / 2, 300);
 
-  ctx.fillStyle = "#3f3f46";
-  ctx.font = "600 34px system-ui, -apple-system, sans-serif";
-  ctx.fillText("Scan to request a song", width / 2, 320);
+  drawDivider(ctx, width / 2, 340, 70);
 
-  const qrSize = 680;
-  const qrImage = await loadQrImage(requestLink, qrSize);
+  const qrSize = 600;
   const qrX = (width - qrSize) / 2;
-  const qrY = 420;
-  ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+  const qrY = 460;
+  const qrImage = await loadQrImage(requestLink, qrSize);
+  drawQrChip(ctx, qrImage, qrX, qrY, qrSize, 50, 30);
 
-  ctx.fillStyle = "#71717a";
-  ctx.font = "500 28px system-ui, -apple-system, sans-serif";
-  ctx.fillText(shortLink(requestLink), width / 2, qrY + qrSize + 80);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 42px system-ui, -apple-system, sans-serif";
+  ctx.fillText("Scan to request a song", width / 2, qrY + qrSize + 110);
+
+  ctx.fillStyle = PASS_MUTED;
+  ctx.font = "500 26px system-ui, -apple-system, sans-serif";
+  ctx.fillText(shortLink(requestLink), width / 2, height - 90);
 }
 
 async function drawBoothSign(
@@ -105,31 +195,33 @@ async function drawBoothSign(
   canvas.width = width;
   canvas.height = height;
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, height);
+  paintPassBackground(ctx, width, height, 380, 660);
+  drawCornerBrackets(ctx, 50, 50, width - 100, height - 100, 60, "rgba(74, 222, 128, 0.5)", 2);
 
   ctx.textAlign = "center";
 
-  ctx.fillStyle = "#16a34a";
-  ctx.font = "800 52px system-ui, -apple-system, sans-serif";
-  ctx.fillText("SCAN TO REQUEST A SONG", width / 2, 170);
+  ctx.fillStyle = PASS_ACCENT;
+  ctx.font = "700 30px system-ui, -apple-system, sans-serif";
+  fillTextTracked(ctx, "SCAN TO REQUEST A SONG", width / 2, 180, 5);
 
-  ctx.fillStyle = "#0b0f0d";
-  ctx.font = "800 86px system-ui, -apple-system, sans-serif";
-  ctx.fillText(wrapSingleLine(ctx, djName, width - 160), width / 2, 290);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 92px system-ui, -apple-system, sans-serif";
+  ctx.fillText(wrapSingleLine(ctx, djName, width - 160), width / 2, 300);
 
-  const qrSize = 820;
-  const qrImage = await loadQrImage(requestLink, qrSize);
+  drawDivider(ctx, width / 2, 340, 80);
+
+  const qrSize = 700;
   const qrX = (width - qrSize) / 2;
-  const qrY = 380;
-  ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+  const qrY = 430;
+  const qrImage = await loadQrImage(requestLink, qrSize);
+  drawQrChip(ctx, qrImage, qrX, qrY, qrSize, 54, 32);
 
-  ctx.fillStyle = "#3f3f46";
-  ctx.font = "600 40px system-ui, -apple-system, sans-serif";
-  ctx.fillText("Point your camera at the code", width / 2, qrY + qrSize + 74);
+  ctx.fillStyle = PASS_MUTED_LIGHT;
+  ctx.font = "600 36px system-ui, -apple-system, sans-serif";
+  ctx.fillText("Point your camera at the code", width / 2, qrY + qrSize + 110);
 
-  ctx.fillStyle = "#a1a1aa";
-  ctx.font = "500 28px system-ui, -apple-system, sans-serif";
+  ctx.fillStyle = PASS_MUTED;
+  ctx.font = "500 26px system-ui, -apple-system, sans-serif";
   ctx.fillText(shortLink(requestLink), width / 2, height - 60);
 }
 
@@ -144,53 +236,29 @@ async function drawLockScreen(
   canvas.width = width;
   canvas.height = height;
 
-  const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-  bgGradient.addColorStop(0, "#0c1210");
-  bgGradient.addColorStop(1, "#070809");
-  ctx.fillStyle = bgGradient;
-  ctx.fillRect(0, 0, width, height);
-
-  const centerY = height * 0.44;
-
-  const glow = ctx.createRadialGradient(
-    width / 2,
-    centerY,
-    40,
-    width / 2,
-    centerY,
-    700
-  );
-  glow.addColorStop(0, "rgba(74, 222, 128, 0.16)");
-  glow.addColorStop(1, "rgba(74, 222, 128, 0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, height);
+  const centerY = height * 0.46;
+  paintPassBackground(ctx, width, height, centerY, 700);
 
   ctx.textAlign = "center";
 
-  ctx.fillStyle = "#4ade80";
-  ctx.font = "600 30px system-ui, -apple-system, sans-serif";
-  ctx.fillText("PLAYING NEXT", width / 2, centerY - 60);
+  ctx.fillStyle = PASS_ACCENT;
+  ctx.font = "700 26px system-ui, -apple-system, sans-serif";
+  fillTextTracked(ctx, "PLAYING NEXT", width / 2, centerY - 70, 6);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "800 60px system-ui, -apple-system, sans-serif";
-  ctx.fillText(wrapSingleLine(ctx, djName, width - 160), width / 2, centerY + 10);
+  ctx.font = "800 58px system-ui, -apple-system, sans-serif";
+  ctx.fillText(wrapSingleLine(ctx, djName, width - 160), width / 2, centerY);
 
-  ctx.fillStyle = "#a1a1aa";
-  ctx.font = "600 32px system-ui, -apple-system, sans-serif";
-  ctx.fillText("Scan to request a song", width / 2, centerY + 65);
+  drawDivider(ctx, width / 2, centerY + 30, 50);
 
-  const qrSize = 380;
-  const qrImage = await loadQrImage(requestLink, qrSize);
+  const qrSize = 340;
   const qrX = (width - qrSize) / 2;
-  const qrY = centerY + 120;
+  const qrY = centerY + 90;
+  const qrImage = await loadQrImage(requestLink, qrSize);
+  drawQrChip(ctx, qrImage, qrX, qrY, qrSize, 34, 20);
 
-  ctx.fillStyle = "#ffffff";
-  roundRect(ctx, qrX - 28, qrY - 28, qrSize + 56, qrSize + 56, 28);
-  ctx.fill();
-  ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
-
-  ctx.fillStyle = "#71717a";
-  ctx.font = "500 26px system-ui, -apple-system, sans-serif";
+  ctx.fillStyle = PASS_MUTED;
+  ctx.font = "500 24px system-ui, -apple-system, sans-serif";
   ctx.fillText(shortLink(requestLink), width / 2, qrY + qrSize + 90);
 }
 

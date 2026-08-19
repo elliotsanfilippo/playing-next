@@ -24,26 +24,32 @@ export default function StatsCards({
 }: Props) {
   return (
     <section className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-5">
-      <StatCard
-        label="Pending"
-        value={pendingCount}
-        icon={<CircleDashed size={20} />}
-        tone="warning"
-      />
+      <a href="#pending-requests" className="block">
+        <StatCard
+          label="Pending"
+          value={pendingCount}
+          icon={<CircleDashed size={20} />}
+          tone="warning"
+        />
+      </a>
 
-      <StatCard
-        label="Queue"
-        value={queueCount}
-        icon={<ListMusic size={20} />}
-        tone="info"
-      />
+      <a href="#accepted-queue" className="block">
+        <StatCard
+          label="Queue"
+          value={queueCount}
+          icon={<ListMusic size={20} />}
+          tone="info"
+        />
+      </a>
 
-      <StatCard
-        label="Played"
-        value={playedCount}
-        icon={<CheckCircle2 size={20} />}
-        tone="accent"
-      />
+      <a href="#history" className="block">
+        <StatCard
+          label="Played"
+          value={playedCount}
+          icon={<CheckCircle2 size={20} />}
+          tone="accent"
+        />
+      </a>
 
       <StatCard
         label="Tonight"

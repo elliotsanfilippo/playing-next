@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ChevronsUp, ChevronUp, ChevronDown } from "lucide-react";
 import { buttonVariants } from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
 
@@ -74,16 +73,12 @@ export default function ProductShowcase() {
                   </div>
 
                   <div className="mt-3 flex gap-2 pl-14">
-                    <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-400">
-                      <ChevronsUp size={13} /> Top
+                    <span className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400">
+                      Decline
                     </span>
 
-                    <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-400">
-                      <ChevronUp size={13} /> Up
-                    </span>
-
-                    <span className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-400">
-                      <ChevronDown size={13} /> Down
+                    <span className="rounded-lg bg-accent-strong px-3 py-1.5 text-xs font-bold text-black">
+                      Accept
                     </span>
                   </div>
                 </div>
