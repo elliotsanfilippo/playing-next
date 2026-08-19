@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Flag, ShieldAlert } from "lucide-react";
+import { Flag } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
+import NotFound from "@/app/not-found";
 import { supabase } from "@/src/lib/supabase";
 
 type DjStat = {
@@ -127,20 +128,15 @@ export default function AdminPage() {
     );
   }
 
+  /*
+   * Deliberately renders the site's normal 404 rather than a "Not
+   * authorized" message — a distinct denial screen would confirm to
+   * anyone who stumbles onto this URL that an admin area exists at
+   * all. The real access control is server-side in each /api/admin/*
+   * route (getAdminUser), not this page shell.
+   */
   if (!authorized) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white">
-        <Card variant="elevated" className="w-full max-w-md p-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-            <ShieldAlert size={24} />
-          </div>
-          <h1 className="mt-5 text-h2">Not authorized</h1>
-          <p className="mt-3 text-zinc-400">
-            This account doesn&apos;t have access to the admin area.
-          </p>
-        </Card>
-      </main>
-    );
+    return <NotFound />;
   }
 
   const pendingReports = reports.filter((r) => r.resolution === "pending");
