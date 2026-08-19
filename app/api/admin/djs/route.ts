@@ -26,20 +26,33 @@ type DjProfileRow = {
 };
 
 type SongRequestRow = {
+  id: string;
   dj_profile_id: string;
   request_status: string;
   dj_earnings: number | null;
   reported_not_played_at: string | null;
 };
 
+type ChargebackRow = {
+  dj_profile_id: string;
+  disputed_amount: number | null;
+  deduction_status: string;
+};
+
+type NotPlayedReportRow = {
+  song_request_id: string;
+  resolution: string;
+};
+
 /*
- * Fetches dj_profiles and song_requests separately and joins in JS,
- * rather than relying on Supabase's automatic relationship embedding
- * (which needs a formally declared foreign key) — this repo has no
- * migration history, so that FK's existence in the live schema isn't
- * guaranteed. Aggregating in JS is fine at the current beta scale (a
- * handful of DJs); worth moving to a real SQL aggregate once request
- * volume grows enough for this to matter.
+ * Fetches dj_profiles, song_requests, chargeback_disputes and
+ * not_played_reports separately and joins in JS, rather than relying
+ * on Supabase's automatic relationship embedding (which needs formally
+ * declared foreign keys) — this repo has no migration history, so
+ * those FKs' existence in the live schema isn't guaranteed. Aggregating
+ * in JS is fine at the current beta scale (a handful of DJs); worth
+ * moving to a real SQL aggregate once request volume grows enough for
+ * this to matter.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -49,15 +62,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
-    const [djProfilesResult, songRequestsResult] = await Promise.all([
-      supabaseAdmin
-        .from("dj_profiles")
-        .select("id, dj_name, slug, plan, request_status, created_at")
-        .order("created_at", { ascending: false }),
-      supabaseAdmin
-        .from("song_requests")
-        .select("dj_profile_id, request_status, dj_earnings, reported_not_played_at"),
-    ]);
+    const [djProfilesResult, songRequestsResult, chargebacksResult, reportsResult] =
+      await Promise.all([
+        supabaseAdmin
+          .from("dj_profiles")
+          .select("id, dj_name, slug, plan, request_status, created_at")
+          .order("created_at", { ascending: false }),
+        supabaseAdmin
+          .from("song_requests")
+          .select("id, dj_profile_id, request_status, dj_earnings, reported_not_played_at"),
+        supabaseAdmin
+          .from("chargeback_disputes")
+          .select("dj_profile_id, disputed_amount, deduction_status")
+          .eq("source_table", "song_requests"),
+        supabaseAdmin.from("not_played_reports").select("song_request_id, resolution"),
+      ]);
 
     if (djProfilesResult.error) {
       console.error("Admin DJs load error:", djProfilesResult.error);
@@ -69,8 +88,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unable to load DJs." }, { status: 500 });
     }
 
+    if (chargebacksResult.error) {
+      console.error("Admin chargebacks load error:", chargebacksResult.error);
+      return NextResponse.json({ error: "Unable to load DJs." }, { status: 500 });
+    }
+
+    if (reportsResult.error) {
+      console.error("Admin reports load error:", reportsResult.error);
+      return NextResponse.json({ error: "Unable to load DJs." }, { status: 500 });
+    }
+
     const djProfiles = (djProfilesResult.data ?? []) as DjProfileRow[];
     const songRequests = (songRequestsResult.data ?? []) as SongRequestRow[];
+    const chargebacks = (chargebacksResult.data ?? []) as ChargebackRow[];
+    const reports = (reportsResult.data ?? []) as NotPlayedReportRow[];
+
+    const songRequestById = new Map(songRequests.map((r) => [r.id, r]));
 
     const requestsByDj = new Map<string, SongRequestRow[]>();
     for (const req of songRequests) {
@@ -80,6 +113,31 @@ export async function GET(request: NextRequest) {
       } else {
         requestsByDj.set(req.dj_profile_id, [req]);
       }
+    }
+
+    // Money actually clawed back via a bank/card chargeback.
+    const deductedByDj = new Map<string, number>();
+    for (const cb of chargebacks) {
+      if (cb.deduction_status !== "deducted") continue;
+      deductedByDj.set(
+        cb.dj_profile_id,
+        (deductedByDj.get(cb.dj_profile_id) ?? 0) + (cb.disputed_amount || 0)
+      );
+    }
+
+    // Money owed back for a guest-reported "wasn't played" claim marked
+    // refunded — not stored with its own amount, so it's looked up via
+    // the original request's dj_earnings.
+    const refundedByDj = new Map<string, number>();
+    for (const report of reports) {
+      if (report.resolution !== "refunded") continue;
+      const sourceRequest = songRequestById.get(report.song_request_id);
+      if (!sourceRequest) continue;
+      refundedByDj.set(
+        sourceRequest.dj_profile_id,
+        (refundedByDj.get(sourceRequest.dj_profile_id) ?? 0) +
+          (sourceRequest.dj_earnings || 0)
+      );
     }
 
     const djs = djProfiles.map((dj) => {
@@ -92,10 +150,15 @@ export async function GET(request: NextRequest) {
       const played = requests.filter((r) => r.request_status === "played").length;
       const notPlayedReports = requests.filter((r) => r.reported_not_played_at).length;
 
-      const totalEarningsPence = requests.reduce(
+      const grossEarningsPence = requests.reduce(
         (sum, r) => sum + (r.dj_earnings || 0),
         0
       );
+
+      const netEarningsPence =
+        grossEarningsPence -
+        (deductedByDj.get(dj.id) ?? 0) -
+        (refundedByDj.get(dj.id) ?? 0);
 
       return {
         id: dj.id,
@@ -108,7 +171,7 @@ export async function GET(request: NextRequest) {
         played,
         not_played_reports: notPlayedReports,
         dispute_rate: acceptedEver > 0 ? notPlayedReports / acceptedEver : 0,
-        total_earnings: totalEarningsPence / 100,
+        net_earnings: netEarningsPence / 100,
       };
     });
 

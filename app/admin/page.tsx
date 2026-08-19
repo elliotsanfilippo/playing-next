@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Flag } from "lucide-react";
+import { Flag, LogOut, Search } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button from "@/src/components/ui/Button";
@@ -22,7 +22,7 @@ type DjStat = {
   played: number;
   not_played_reports: number;
   dispute_rate: number;
-  total_earnings: number;
+  net_earnings: number;
 };
 
 type Report = {
@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [djs, setDjs] = useState<DjStat[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const loadData = async () => {
     const {
@@ -120,6 +121,11 @@ export default function AdminPage() {
     }
   };
 
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/admin/login");
+  };
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-canvas text-white">
@@ -142,18 +148,73 @@ export default function AdminPage() {
   const pendingReports = reports.filter((r) => r.resolution === "pending");
   const resolvedReports = reports.filter((r) => r.resolution !== "pending");
 
+  const filteredDjs = djs.filter((dj) => {
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      dj.dj_name.toLowerCase().includes(query) ||
+      dj.slug.toLowerCase().includes(query)
+    );
+  });
+
+  const liveNow = djs.filter((dj) => dj.request_status === "taking_requests").length;
+
   return (
     <main className="min-h-screen bg-canvas p-5 text-white sm:p-6">
       <div className="mx-auto max-w-6xl">
-        <Eyebrow tone="accent">Admin</Eyebrow>
-        <h1 className="mt-2 text-h1">Platform Overview</h1>
-        <p className="mt-2 text-zinc-400">
-          DJ activity, trust metrics and guest-reported disputes.
-        </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <Eyebrow tone="accent">Admin</Eyebrow>
+            <h1 className="mt-2 text-h1">Platform Overview</h1>
+            <p className="mt-2 text-zinc-400">
+              DJ activity, trust metrics and guest-reported disputes.
+            </p>
+          </div>
+
+          <Button variant="secondary" size="sm" onClick={signOut} className="shrink-0">
+            <LogOut size={15} className="mr-1.5" />
+            Sign Out
+          </Button>
+        </div>
+
+        <div className="mt-8 grid grid-cols-3 gap-4">
+          <Card className="p-4">
+            <p className="text-xs text-zinc-500">Total DJs</p>
+            <p className="mt-2 text-2xl font-bold">{djs.length}</p>
+          </Card>
+
+          <Card className="p-4">
+            <p className="text-xs text-zinc-500">Live Now</p>
+            <p className="mt-2 text-2xl font-bold">{liveNow}</p>
+          </Card>
+
+          <Card className="p-4">
+            <p className="text-xs text-zinc-500">Pending Reports</p>
+            <p
+              className={`mt-2 text-2xl font-bold ${pendingReports.length > 0 ? "text-amber-400" : ""}`}
+            >
+              {pendingReports.length}
+            </p>
+          </Card>
+        </div>
 
         <Card variant="elevated" className="mt-8 overflow-hidden">
-          <div className="border-b border-white/5 p-6">
+          <div className="flex flex-col gap-4 border-b border-white/5 p-6 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-h3">DJs</h2>
+
+            <div className="relative w-full sm:w-64">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search DJs..."
+                className="h-10 w-full rounded-control border border-white/10 bg-black/30 pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-accent/40"
+              />
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -167,18 +228,18 @@ export default function AdminPage() {
                   <th className="px-4 py-3 font-semibold">Played</th>
                   <th className="px-4 py-3 font-semibold">Reports</th>
                   <th className="px-4 py-3 font-semibold">Dispute rate</th>
-                  <th className="px-6 py-3 font-semibold">Earnings</th>
+                  <th className="px-6 py-3 font-semibold">Net earnings</th>
                 </tr>
               </thead>
               <tbody>
-                {djs.length === 0 ? (
+                {filteredDjs.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-8 text-center text-zinc-500">
-                      No DJs yet.
+                      {djs.length === 0 ? "No DJs yet." : "No DJs match your search."}
                     </td>
                   </tr>
                 ) : (
-                  djs.map((dj) => (
+                  filteredDjs.map((dj) => (
                     <tr key={dj.id} className="border-b border-white/5 last:border-0">
                       <td className="px-6 py-4">
                         <p className="font-semibold text-white">{dj.dj_name}</p>
@@ -203,7 +264,7 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-zinc-300">
-                        £{dj.total_earnings.toFixed(2)}
+                        £{dj.net_earnings.toFixed(2)}
                       </td>
                     </tr>
                   ))
