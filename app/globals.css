@@ -94,3 +94,126 @@ html {
     scroll-behavior: auto;
   }
 }
+
+/*
+  Hero entrance fade-up. Plain CSS rather than a JS animation library
+  for this one-shot, non-stateful entrance — runs immediately on paint
+  with no dependency on client JS/hydration timing.
+*/
+@keyframes fade-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up-in 0.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+  Hero dashboard demo loop — the "Playing Next" content swap and the
+  incoming-request toast. Plain CSS + a React `key` remount rather than
+  Motion's AnimatePresence: in testing here, AnimatePresence's
+  exit-then-enter handoff (mode="wait") reliably left elements stuck
+  invisible at their exit/initial values instead of completing, even
+  though the DOM/props looked correct — this pattern doesn't have that
+  failure mode since there's no cross-render exit choreography to get
+  stuck on.
+*/
+@keyframes slide-in-fade {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in-fade 0.35s ease-out both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-78px) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.4s ease-out both;
+}
+
+@keyframes tick-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-tick-in {
+  animation: tick-in 0.25s ease-out both;
+}
+
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-drop-in {
+  animation: drop-in 0.35s ease-out both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in,
+  .animate-toast-in,
+  .animate-tick-in,
+  .animate-drop-in,
+  .animate-pop-in {
+    animation: none;
+  }
+}
