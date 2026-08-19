@@ -7,7 +7,7 @@ import { NextRequest } from "next/server";
  * column/table) would be pure overhead. Extend this array directly when
  * more admins are needed.
  */
-export const ADMIN_EMAILS = ["elliotsanfilippo26@gmail.com"];
+export const ADMIN_EMAILS = ["elliot@playingnextapp.com"];
 
 export async function getAdminUser(
   supabaseAuth: SupabaseClient,

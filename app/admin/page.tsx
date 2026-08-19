@@ -50,7 +50,7 @@ export default function AdminPage() {
     } = await supabase.auth.getSession();
 
     if (!session) {
-      router.push("/login");
+      router.push("/admin/login");
       return;
     }
 
