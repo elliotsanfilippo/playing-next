@@ -1,12 +1,34 @@
+"use client";
+
 import Link from "next/link";
+import { motion, useReducedMotion } from "motion/react";
 import { buttonVariants } from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
 
+const QUEUE = [
+  ["Don't You Worry Child", "Swedish House Mafia", "£5"],
+  ["Titanium", "David Guetta", "£5"],
+  ["Praise You", "Fatboy Slim", "£8"],
+] as const;
+
 export default function ProductShowcase() {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <section className="relative z-10 px-5 py-14 sm:px-6 sm:py-16 lg:px-8">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 overflow-hidden rounded-card-lg border border-white/10 bg-zinc-900/55 p-6 sm:p-10 lg:grid-cols-[0.75fr_1.25fr] lg:p-12">
-          <div className="flex min-w-0 flex-col justify-center">
+        <motion.div
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="relative mx-auto grid max-w-7xl grid-cols-1 gap-8 overflow-hidden rounded-card-lg border border-white/10 bg-zinc-900/40 p-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:p-10 lg:grid-cols-[0.75fr_1.25fr] lg:p-12"
+        >
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-green-500/10 blur-[110px]"
+          />
+
+          <div className="relative flex min-w-0 flex-col justify-center">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
               Built for the booth
             </p>
@@ -30,7 +52,7 @@ export default function ProductShowcase() {
             </Link>
           </div>
 
-          <div className="rounded-card border border-white/10 bg-black/45 p-4 sm:p-6">
+          <div className="relative rounded-card border border-white/10 bg-black/40 p-4 backdrop-blur-md sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
@@ -42,17 +64,23 @@ export default function ProductShowcase() {
                 </h3>
               </div>
 
-              <Badge tone="accent">Live</Badge>
+              <Badge tone="accent" className="relative">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                </span>
+                Live
+              </Badge>
             </div>
 
             <div className="mt-6 space-y-3">
-              {[
-                ["Don't You Worry Child", "Swedish House Mafia", "£5"],
-                ["Titanium", "David Guetta", "£5"],
-                ["Praise You", "Fatboy Slim", "£8"],
-              ].map(([title, artist, price], index) => (
-                <div
+              {QUEUE.map(([title, artist, price], index) => (
+                <motion.div
                   key={title}
+                  initial={shouldReduceMotion ? false : { opacity: 0, x: -16 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: "-60px" }}
+                  transition={{ duration: 0.4, delay: index * 0.12, ease: "easeOut" }}
                   className="rounded-control border border-white/5 bg-white/[0.03] p-4"
                 >
                   <div className="flex items-center gap-4">
@@ -81,11 +109,11 @@ export default function ProductShowcase() {
                       Accept
                     </span>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
       </section>
   );
 }
