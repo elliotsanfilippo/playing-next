@@ -6,7 +6,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalDoc title="Privacy Policy" lastUpdated="7 August 2026">
+    <LegalDoc title="Privacy Policy" lastUpdated="19 August 2026">
       <Note>
         <strong>Draft: not yet legally reviewed.</strong>{" "}The facts below
         (what we collect, who we share it with) are accurate to how the
@@ -46,6 +46,11 @@ export default function PrivacyPolicyPage() {
           An optional message, if you choose &ldquo;Song + Message&rdquo;.
           Whatever you type is stored as-is, so please don&rsquo;t include
           personal details you don&rsquo;t want kept
+        </li>
+        <li>
+          If you report a request as not played, an optional note
+          explaining why, stored as-is and visible to us when reviewing
+          the report
         </li>
       </Ul>
       <P>

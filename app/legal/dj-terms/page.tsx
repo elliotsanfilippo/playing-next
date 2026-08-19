@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function DjTermsPage() {
   return (
-    <LegalDoc title="DJ Terms" lastUpdated="7 August 2026">
+    <LegalDoc title="DJ Terms" lastUpdated="19 August 2026">
       <Note>
         <strong>Draft: not yet legally reviewed.</strong>{" "}The payments
         marketplace structure described here (destination charges via
@@ -73,6 +73,20 @@ export default function DjTermsPage() {
         may deduct it from a future payout instead of requiring separate
         repayment.
       </P>
+      <P>
+        Separately, a guest can report a request as &ldquo;not
+        played&rdquo; if they believe you accepted it but never actually
+        played it. We can&rsquo;t verify what came out of the speakers at
+        your event, so a report on its own doesn&rsquo;t move any money.
+        We look at signals like whether your session ended with the
+        request still unplayed and how often you&rsquo;re reported this
+        way, not just the guest&rsquo;s word. If we determine a report is
+        legitimate, we may refund the guest and reclaim your share of
+        that specific payment from a future payout, the same way a card
+        chargeback is handled above. An isolated report on an otherwise
+        clean account won&rsquo;t put your earnings at risk; a consistent
+        pattern might.
+      </P>
 
       <H2>4. Fees</H2>
       <P>
@@ -122,6 +136,12 @@ export default function DjTermsPage() {
           unsure.
         </li>
         <li>Comply with the rules of any venue you perform at</li>
+        <li>
+          Only accept requests you genuinely intend to play. Accepting
+          requests with no realistic intention or ability to get to them
+          before your set ends is treated as abuse under section 8, not
+          an ordinary business decision
+        </li>
       </Ul>
 
       <H2>7. Independent status</H2>
@@ -134,10 +154,12 @@ export default function DjTermsPage() {
       <H2>8. Prohibited conduct</H2>
       <P>
         Don&rsquo;t misrepresent your identity during Stripe onboarding,
-        set prices intended to defraud guests, or otherwise abuse the
-        platform. We can suspend or terminate accounts found doing so,
-        and Stripe may independently restrict your Connect account under
-        their own terms.
+        set prices intended to defraud guests, repeatedly accept requests
+        you don&rsquo;t play, or otherwise abuse the platform. We track
+        play-through and dispute rates for exactly this reason. We may
+        restrict or terminate accounts where we identify repeated or
+        deliberate abuse, and Stripe may independently restrict your
+        Connect account under their own terms.
       </P>
 
       <H2>9. Liability</H2>
@@ -151,9 +173,12 @@ export default function DjTermsPage() {
 
       <H2>10. Ending this agreement</H2>
       <P>
-        You can stop using Playing Next at any time. We can suspend or
-        terminate your account for breach of these terms, fraud, or if
-        Stripe restricts your connected account.
+        You can stop using Playing Next at any time. We may restrict or
+        terminate your account for breach of these terms, fraud, a
+        pattern of accepting requests without playing them, or if Stripe
+        restricts your connected account. We aim to act proportionately:
+        an isolated dispute won&rsquo;t put your account at risk on its
+        own.
       </P>
 
       <H2>11. Governing law</H2>

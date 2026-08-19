@@ -6,7 +6,7 @@ export const metadata = {
 
 export default function GuestTermsPage() {
   return (
-    <LegalDoc title="Guest Terms" lastUpdated="7 August 2026">
+    <LegalDoc title="Guest Terms" lastUpdated="19 August 2026">
       <Note>
         <strong>Draft: not yet legally reviewed.</strong>{" "}This describes
         how the product actually works today. It should be reviewed by a
@@ -67,11 +67,20 @@ export default function GuestTermsPage() {
         it will play, and we can&rsquo;t guarantee it will play at all if
         the DJ&rsquo;s set ends early, or for other reasons outside the
         DJ&rsquo;s control (venue curfews, technical issues, and similar).
-        See our{" "}
+      </P>
+      <P>
+        You can follow your request&rsquo;s status in real time from{" "}
+        <strong>My Requests</strong>{" "}or your confirmation page: accepted,
+        its position in the queue, &ldquo;Playing Next&rdquo;, and finally
+        &ldquo;Played&rdquo;. If your song is genuinely never played, you
+        can report it as &ldquo;This wasn&rsquo;t played&rdquo; once
+        it&rsquo;s been accepted. We can&rsquo;t verify what a DJ actually
+        plays at their event, so a report isn&rsquo;t an automatic refund
+        — it flags the request for us to look into. See our{" "}
         <a href="/legal/refund-policy" className="text-accent hover:underline">
           Refund &amp; Cancellation Policy
         </a>{" "}
-        for what happens if that occurs.
+        for how that works and what happens next.
       </P>
 
       <H2>4. Messages and content</H2>
