@@ -16,6 +16,19 @@ const supabaseAuth = createClient(
 
 const ACCEPTED_EVER_STATUSES = ["accepted", "playing_next", "played"];
 
+/*
+ * Statuses where the guest's payment was actually captured. dj_earnings
+ * is populated on every request at creation time (the amount the DJ
+ * *would* earn if accepted), including ones that end up declined,
+ * cancelled or expired and were never charged — so summing dj_earnings
+ * across every row overstates earnings badly. "disputed" is included
+ * because that money was captured before the chargeback happened; the
+ * actual clawback is handled separately below via chargeback_disputes.
+ * "refunded" is deliberately excluded — that money went back to the
+ * guest in full, so it was never really kept.
+ */
+const CAPTURED_STATUSES = ["accepted", "playing_next", "played", "disputed"];
+
 type DjProfileRow = {
   id: string;
   dj_name: string;
@@ -150,10 +163,9 @@ export async function GET(request: NextRequest) {
       const played = requests.filter((r) => r.request_status === "played").length;
       const notPlayedReports = requests.filter((r) => r.reported_not_played_at).length;
 
-      const grossEarningsPence = requests.reduce(
-        (sum, r) => sum + (r.dj_earnings || 0),
-        0
-      );
+      const grossEarningsPence = requests
+        .filter((r) => CAPTURED_STATUSES.includes(r.request_status))
+        .reduce((sum, r) => sum + (r.dj_earnings || 0), 0);
 
       const netEarningsPence =
         grossEarningsPence -
