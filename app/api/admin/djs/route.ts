@@ -163,14 +163,32 @@ export async function GET(request: NextRequest) {
       const played = requests.filter((r) => r.request_status === "played").length;
       const notPlayedReports = requests.filter((r) => r.reported_not_played_at).length;
 
-      const grossEarningsPence = requests
-        .filter((r) => CAPTURED_STATUSES.includes(r.request_status))
-        .reduce((sum, r) => sum + (r.dj_earnings || 0), 0);
+      const capturedRequests = requests.filter((r) =>
+        CAPTURED_STATUSES.includes(r.request_status)
+      );
+
+      const grossEarningsPence = capturedRequests.reduce(
+        (sum, r) => sum + (r.dj_earnings || 0),
+        0
+      );
 
       const netEarningsPence =
         grossEarningsPence -
         (deductedByDj.get(dj.id) ?? 0) -
         (refundedByDj.get(dj.id) ?? 0);
+
+      /*
+       * Financial columns (dj_earnings, request_amount, etc.) were only
+       * added to song_requests around 2026-08-08 and were never
+       * backfilled — captured requests from before that date have
+       * dj_earnings = null, even though real money was often taken (the
+       * Stripe payment_intent_id is still there). Surfacing this count
+       * so the earnings figure doesn't look like a complete total when
+       * it may be missing real historical revenue.
+       */
+      const missingEarningsCount = capturedRequests.filter(
+        (r) => r.dj_earnings === null
+      ).length;
 
       return {
         id: dj.id,
@@ -184,6 +202,7 @@ export async function GET(request: NextRequest) {
         not_played_reports: notPlayedReports,
         dispute_rate: acceptedEver > 0 ? notPlayedReports / acceptedEver : 0,
         net_earnings: netEarningsPence / 100,
+        missing_earnings_count: missingEarningsCount,
       };
     });
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Flag, LogOut, Search } from "lucide-react";
+import { Flag, LogOut, Search, AlertTriangle } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button from "@/src/components/ui/Button";
@@ -23,6 +23,7 @@ type DjStat = {
   not_played_reports: number;
   dispute_rate: number;
   net_earnings: number;
+  missing_earnings_count: number;
 };
 
 type Report = {
@@ -265,6 +266,15 @@ export default function AdminPage() {
                       </td>
                       <td className="px-6 py-4 text-zinc-300">
                         £{dj.net_earnings.toFixed(2)}
+                        {dj.missing_earnings_count > 0 && (
+                          <span
+                            title={`${dj.missing_earnings_count} played/accepted request(s) are missing pricing data (from before financial tracking was added on 2026-08-08) and aren't included in this total — the real figure is likely higher.`}
+                            className="ml-1.5 inline-flex cursor-help items-center gap-1 text-xs font-semibold text-amber-400"
+                          >
+                            <AlertTriangle size={12} />
+                            incomplete
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))
