@@ -12,6 +12,7 @@ import Eyebrow from "@/src/components/ui/Eyebrow";
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -21,6 +22,11 @@ export default function SignupPage() {
 
     if (!email || !password) {
       setErrorMessage("Please enter your email and password.");
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setErrorMessage("Please agree to the DJ Terms and Privacy Policy to continue.");
       return;
     }
 
@@ -82,6 +88,7 @@ export default function SignupPage() {
 
     setEmail("");
     setPassword("");
+    setAgreedToTerms(false);
   };
 
   return (
@@ -140,21 +147,33 @@ export default function SignupPage() {
               </div>
             )}
 
-            <Button type="submit" disabled={loading} className="w-full">
+            <label className="flex items-start gap-2 text-xs text-zinc-500">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(event) => setAgreedToTerms(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-transparent accent-accent-strong"
+              />
+              <span>
+                I agree to the{" "}
+                <Link href="/legal/dj-terms" className="underline underline-offset-4 hover:text-zinc-300">
+                  DJ Terms
+                </Link>{" "}
+                and{" "}
+                <Link href="/legal/privacy" className="underline underline-offset-4 hover:text-zinc-300">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+
+            <Button
+              type="submit"
+              disabled={loading || !agreedToTerms}
+              className="w-full"
+            >
               {loading ? "Creating Account..." : "Create Account"}
             </Button>
-
-            <p className="text-center text-xs text-zinc-500">
-              By creating an account you agree to our{" "}
-              <Link href="/legal/dj-terms" className="underline underline-offset-4 hover:text-zinc-300">
-                DJ Terms
-              </Link>{" "}
-              and{" "}
-              <Link href="/legal/privacy" className="underline underline-offset-4 hover:text-zinc-300">
-                Privacy Policy
-              </Link>
-              .
-            </p>
 
             <p className="pt-2 text-center text-sm text-zinc-400">
               Already have an account?{" "}
