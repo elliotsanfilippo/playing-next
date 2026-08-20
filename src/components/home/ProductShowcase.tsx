@@ -90,6 +90,7 @@ export default function ProductShowcase() {
                     position={index + 1}
                     pence={track.pence}
                     size="compact"
+                    interactive={false}
                     actions={
                       <>
                         <span className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400">

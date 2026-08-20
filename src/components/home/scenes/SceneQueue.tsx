@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import RequestCard from "@/src/components/product/RequestCard";
 import Badge from "@/src/components/ui/Badge";
-import MoneyValue from "@/src/components/product/MoneyValue";
 import Reveal from "./Reveal";
 import { SPRING } from "@/src/lib/motion";
 import { OPENING_REQUEST, SCENE_PLAYING_NEXT, SCENE_QUEUE } from "./storyData";
@@ -206,7 +205,8 @@ export default function SceneQueue({ accepted }: Props) {
                       position={1}
                       pence={OPENING_REQUEST.pence}
                       size="compact"
-                      className="border-accent/30 bg-accent/[0.06]"
+                      tone="accepted"
+                      interactive={false}
                       meta={
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-black">
                           <Check size={12} strokeWidth={3} />
@@ -225,6 +225,7 @@ export default function SceneQueue({ accepted }: Props) {
                     pence={track.pence}
                     size="compact"
                     animateLayout
+                    interactive={false}
                   />
                 ))}
               </motion.div>

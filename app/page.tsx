@@ -11,6 +11,7 @@ import SceneQueue from "@/src/components/home/scenes/SceneQueue";
 import SceneGuest from "@/src/components/home/scenes/SceneGuest";
 import SceneEarnings from "@/src/components/home/scenes/SceneEarnings";
 import SceneProduct from "@/src/components/home/scenes/SceneProduct";
+import SceneHowItWorks from "@/src/components/home/scenes/SceneHowItWorks";
 import SearchStation, {
   type HomeDJ,
 } from "@/src/components/home/SearchStation";
@@ -134,7 +135,14 @@ export default function HomePage() {
   }, [djs, search]);
 
   return (
-    <main className="relative min-h-screen bg-canvas text-white">
+    // overflow-x-clip, not overflow-x-hidden: the ambient glow layers
+    // deliberately bleed past their cards, which would otherwise widen
+    // the page and create a horizontal scrollbar on narrower screens.
+    // `hidden` would fix that too, but it silently breaks
+    // `position: sticky` on descendants — and the desktop opening
+    // depends on sticky pinning. `clip` contains the overflow without
+    // creating a scroll container.
+    <main className="relative min-h-screen overflow-x-clip bg-canvas text-white">
       <Navbar revealed={navRevealed || accepted} />
 
       <SceneOpening stage={openingStage} onAccept={handleAccept} />
@@ -146,16 +154,26 @@ export default function HomePage() {
 
         <SceneGuest />
 
-        <SceneEarnings />
-
-        <SceneProduct />
-
+        {/* Straight after the crowd's side: a visitor who has just
+            watched a guest request a song is at peak intent to try it
+            themselves, and this is the one section on the page aimed
+            at guests rather than DJs. Buried near the footer it read
+            as an afterthought. */}
         <SearchStation
           search={search}
           setSearch={setSearch}
           loadingDJs={loadingDJs}
           filteredDJs={filteredDJs}
         />
+
+        <SceneEarnings />
+
+        {/* The practical explainer sits after the story, where the
+            question has shifted from "what is this" to "what do I have
+            to do". */}
+        <SceneHowItWorks />
+
+        <SceneProduct />
 
         <PricingTeaser />
 

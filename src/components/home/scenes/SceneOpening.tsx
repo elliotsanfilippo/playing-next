@@ -16,6 +16,7 @@ import { buttonVariants } from "@/src/components/ui/Button";
 import { ACCEPT, PULLBACK } from "./timings";
 import { SPRING, transition } from "@/src/lib/motion";
 import { OPENING_REQUEST, SCENE_QUEUE, SCENE_PLAYING_NEXT } from "./storyData";
+import { useIsDesktop } from "@/src/lib/useMediaQuery";
 
 export type OpeningStage = "idle" | "accepted" | "landed";
 
@@ -50,7 +51,18 @@ type Props = {
  */
 export default function SceneOpening({ stage, onAccept }: Props) {
   const shouldReduceMotion = useReducedMotion();
+  const isDesktop = useIsDesktop();
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * The scroll-pinned pull-back is desktop-only. On a phone it fights
+   * the platform: mobile browsers resize the viewport as the address
+   * bar hides, which makes any vh-pinned, scroll-scrubbed scene jitter,
+   * and a 175vh pinned section costs a phone user two full screens of
+   * scrolling before the story starts. Mobile plays the same three
+   * beats in normal document flow instead.
+   */
+  const cinematic = isDesktop && !shouldReduceMotion;
 
   const { scrollYProgress } = useScroll({
     target: wrapperRef,
@@ -64,23 +76,21 @@ export default function SceneOpening({ stage, onAccept }: Props) {
   );
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, PULLBACK.opacityTo]);
 
-  const cinematicStyle = shouldReduceMotion
-    ? undefined
-    : { scale, opacity };
+  const cinematicStyle = cinematic ? { scale, opacity } : undefined;
 
   const revealed = stage !== "idle";
 
   return (
     <div
       ref={wrapperRef}
-      className={shouldReduceMotion ? undefined : "relative h-[175vh]"}
+      className={cinematic ? "relative h-[175vh]" : undefined}
     >
       <motion.section
         style={cinematicStyle}
         className={
-          shouldReduceMotion
-            ? "relative overflow-hidden px-5 py-24"
-            : "sticky top-0 flex h-screen items-center overflow-hidden px-5"
+          cinematic
+            ? "sticky top-0 flex h-screen items-center overflow-hidden px-5"
+            : "relative overflow-hidden px-5 pb-14 pt-24 sm:pb-16 sm:pt-28"
         }
       >
         {/* Ambient depth — blurred gradient fields rather than canvas or
@@ -113,7 +123,7 @@ export default function SceneOpening({ stage, onAccept }: Props) {
           }}
         />
 
-        <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
+        <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
           {/* Hero messaging — restrained, present from first paint. */}
           <div className="min-w-0">
             <motion.div
@@ -134,7 +144,7 @@ export default function SceneOpening({ stage, onAccept }: Props) {
               initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
-              className="mt-6 text-4xl font-bold leading-[1.02] tracking-[-0.045em] sm:text-5xl lg:text-6xl"
+              className="mt-5 text-[2rem] font-bold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:mt-6 lg:text-6xl"
             >
               Accept paid
               <br />
@@ -147,7 +157,7 @@ export default function SceneOpening({ stage, onAccept }: Props) {
               initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.32 }}
-              className="mt-6 max-w-md text-base leading-7 text-zinc-400 sm:text-lg sm:leading-8"
+              className="mt-4 max-w-md text-[0.95rem] leading-6 text-zinc-400 sm:text-lg sm:leading-8 lg:mt-6"
             >
               Your crowd pays to hear what they want. You decide what
               actually plays.
@@ -161,7 +171,7 @@ export default function SceneOpening({ stage, onAccept }: Props) {
                   initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
-                  className="mt-8 flex flex-col gap-3 sm:flex-row"
+                  className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-8"
                 >
                   <Link href="/signup" className={buttonVariants({ size: "lg" })}>
                     Start free
@@ -184,12 +194,12 @@ export default function SceneOpening({ stage, onAccept }: Props) {
 
           {/* The stage. Fixed minimum height so the layout never jumps
               as the card gives way to the dashboard. */}
-          <div className="relative min-h-[26rem] min-w-0 sm:min-h-[30rem]">
+          <div className="relative min-w-0 lg:min-h-[30rem]">
             <AnimatePresence mode="popLayout">
               {stage !== "landed" ? (
                 <motion.div
                   key="request"
-                  className="absolute inset-x-0 top-1/2 -translate-y-1/2"
+                  className="lg:absolute lg:inset-x-0 lg:top-1/2 lg:-translate-y-1/2"
                 >
                   <OpeningRequestCard
                     revealed={revealed}
@@ -253,7 +263,7 @@ function OpeningRequestCard({
     <motion.div
       layoutId="hero-request"
       transition={SPRING.soft}
-      className="relative mx-auto max-w-md overflow-hidden rounded-card-lg border border-white/15 bg-surface-raised/80 p-6 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl"
+      className="relative mx-auto max-w-md overflow-hidden rounded-card-lg border border-white/15 bg-surface-raised/80 p-5 sm:p-6 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl"
     >
       <motion.div
         aria-hidden
@@ -262,10 +272,10 @@ function OpeningRequestCard({
         transition={transition.state}
       />
 
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex items-center gap-3.5 sm:gap-4">
         <motion.div
           layout
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500"
+          className="flex h-12 w-12 shrink-0 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500"
         >
           {revealed ? (
             <Music2 size={22} className="text-white" />
@@ -298,14 +308,14 @@ function OpeningRequestCard({
             keeps the real title readable to screen readers and
             crawlers throughout.
           */}
-          <div className="relative mt-1 min-h-[3.25rem]">
+          <div className="relative mt-1 min-h-[3rem] sm:min-h-[3.25rem]">
             <motion.div
               animate={{ opacity: revealed ? 0 : 1 }}
               transition={transition.state}
               aria-hidden={revealed}
               className="absolute inset-x-0 top-0"
             >
-              <p className="text-2xl font-bold">Someone wants a song</p>
+              <p className="text-xl font-bold sm:text-2xl">Someone wants a song</p>
               <p className="text-sm text-zinc-400">Paid, and waiting on you</p>
             </motion.div>
 
@@ -319,7 +329,7 @@ function OpeningRequestCard({
               aria-hidden={!revealed}
               className="absolute inset-x-0 top-0"
             >
-              <p className="truncate text-2xl font-bold">
+              <p className="truncate text-xl font-bold sm:text-2xl">
                 {OPENING_REQUEST.title}
               </p>
               <p className="truncate text-sm text-zinc-400">
@@ -347,7 +357,7 @@ function OpeningRequestCard({
         </AnimatePresence>
       </div>
 
-      <div className="relative mt-6">
+      <div className="relative mt-5 sm:mt-6">
         <motion.button
           type="button"
           onClick={onAccept}
@@ -414,7 +424,7 @@ function MiniDashboard({
   shouldReduceMotion: boolean | null;
 }) {
   return (
-    <div className="relative rounded-card-lg border border-white/15 bg-surface-raised/70 p-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:p-5">
+    <div className="relative rounded-card-lg border border-white/15 bg-surface-raised/70 p-3.5 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:p-5">
       {/* Header strip, mirroring the real dashboard's identity + status */}
       <div className="flex items-center justify-between border-b border-white/5 pb-3">
         <div className="flex items-center gap-2.5">
@@ -520,7 +530,11 @@ function MiniDashboard({
             initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...SPRING.soft, delay: 0.1 + index * 0.06 }}
-            className="rounded-card border border-white/5 bg-surface-base/60 p-2.5"
+            /* Third row is desktop-only: on a phone the dashboard reads
+               as a wall of rows and the Playing Next hierarchy is lost. */
+            className={`rounded-card border border-white/5 bg-surface-base/60 p-2.5 ${
+              index >= 2 ? "hidden lg:block" : ""
+            }`}
           >
             <div className="flex items-center gap-2.5">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-bold tabular-nums text-zinc-400">

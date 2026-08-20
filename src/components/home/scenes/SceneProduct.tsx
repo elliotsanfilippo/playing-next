@@ -44,7 +44,7 @@ export default function SceneProduct() {
   return (
     <section
       id="features"
-      className="relative z-10 px-5 py-24 sm:px-6 sm:py-32 lg:px-8"
+      className="relative z-10 px-5 py-16 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-6xl">
         <div className="max-w-2xl">
@@ -55,7 +55,7 @@ export default function SceneProduct() {
           </Reveal>
 
           <Reveal index={1}>
-            <h2 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+            <h2 className="mt-3 text-[2rem] font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl lg:text-5xl">
               Everything you need.
               <br />
               Nothing you don&apos;t.
@@ -63,33 +63,37 @@ export default function SceneProduct() {
           </Reveal>
         </div>
 
-        <div className="mt-14 grid gap-5 md:grid-cols-2">
+        {/* Two rows, each internally uniform: the hierarchy is the
+            row, not the individual card. Every card in a row shares a
+            height via items-stretch + h-full, so the difference reads
+            as intent rather than as cards that failed to line up. */}
+        <div className="mt-10 grid items-stretch gap-4 md:grid-cols-2">
           {PRIMARY.map((item, index) => (
-            <Reveal key={item.title} index={index}>
-              <article className="group h-full rounded-card-lg border border-white/10 bg-surface-base/50 p-8 backdrop-blur-md transition duration-300 hover:border-accent/25 hover:bg-surface-base/80">
+            <Reveal key={item.title} index={index} className="h-full">
+              <article className="group flex h-full flex-col rounded-card-lg border border-white/10 bg-surface-base/50 p-6 backdrop-blur-md transition duration-300 hover:border-accent/25 hover:bg-surface-base/80 sm:p-7">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 text-accent transition duration-300 group-hover:scale-110">
                   <item.Icon size={22} />
                 </div>
 
-                <h3 className="mt-6 text-2xl font-bold tracking-tight">
+                <h3 className="mt-5 text-xl font-bold tracking-tight sm:text-2xl">
                   {item.title}
                 </h3>
 
-                <p className="mt-3 leading-7 text-zinc-400">{item.body}</p>
+                <p className="mt-2.5 leading-7 text-zinc-400">{item.body}</p>
               </article>
             </Reveal>
           ))}
         </div>
 
-        <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {SECONDARY.map((item, index) => (
-            <Reveal key={item.title} index={index}>
-              <article className="h-full rounded-card border border-white/10 bg-surface-base/40 p-6 backdrop-blur-md transition duration-300 hover:border-white/20">
+            <Reveal key={item.title} index={index} className="h-full">
+              <article className="flex h-full flex-col rounded-card border border-white/10 bg-surface-base/40 p-5 backdrop-blur-md transition duration-300 hover:border-white/20">
                 <item.Icon size={18} className="text-accent" />
 
-                <h3 className="mt-4 font-bold">{item.title}</h3>
+                <h3 className="mt-3.5 font-bold">{item.title}</h3>
 
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
+                <p className="mt-1.5 text-sm leading-6 text-zinc-500">
                   {item.body}
                 </p>
               </article>

@@ -26,7 +26,7 @@ export default function SearchStation({
   return (
     <section
       id="find-dj"
-      className="relative z-10 px-5 py-8 sm:px-6 lg:px-8"
+      className="relative z-10 px-5 py-12 sm:px-6 sm:py-16 lg:px-8"
     >
       <div className="mx-auto max-w-7xl rounded-card-lg border border-white/10 bg-zinc-900/55 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-10 lg:p-12">
         <div className="mx-auto max-w-3xl text-center">

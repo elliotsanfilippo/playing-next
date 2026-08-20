@@ -30,7 +30,47 @@ type Props = {
   /** Enables Framer layout animation for reorder. Off by default so
    *  static lists don't pay for layout measurement they never use. */
   animateLayout?: boolean;
+  /**
+   * Visual state of the row. `accepted` keeps its green treatment
+   * stable on hover — see TONE_CLASSES.
+   */
+  tone?: RequestTone;
+  /**
+   * Whether the row responds to hover. Rows are only hover-highlighted
+   * where the whole row is a target; a row whose actions are buttons
+   * shouldn't imply the row itself is clickable.
+   */
+  interactive?: boolean;
   className?: string;
+};
+
+export type RequestTone = "default" | "accepted";
+
+/*
+ * Base and hover colours are declared together per tone, never split
+ * between the component and a caller's className.
+ *
+ * This is what caused the accepted-row hover bug: the component set
+ * `hover:bg-surface-base` while the caller passed `bg-accent/[0.06]`.
+ * `cn()` uses tailwind-merge, which only dedupes conflicts within the
+ * same variant — a base class and a `hover:` class are different
+ * variants, so both survived and hovering swapped the green accepted
+ * state for the neutral surface, reading as a press.
+ */
+const TONE_CLASSES: Record<
+  RequestTone,
+  { base: string; hover: string }
+> = {
+  default: {
+    base: "border-white/5 bg-surface-base/60",
+    hover: "hover:border-white/10 hover:bg-surface-base",
+  },
+  accepted: {
+    base: "border-status-accepted/30 bg-status-accepted/[0.06]",
+    // Deliberately brightens rather than neutralises: an accepted row
+    // stays unmistakably accepted whatever the pointer is doing.
+    hover: "hover:border-status-accepted/45 hover:bg-status-accepted/[0.1]",
+  },
 };
 
 /*
@@ -60,15 +100,20 @@ export default function RequestCard({
   children,
   size = "default",
   animateLayout = false,
+  tone = "default",
+  interactive = true,
   className,
 }: Props) {
+  const toneClasses = TONE_CLASSES[tone];
+
   return (
     <motion.div
       layout={animateLayout ? "position" : false}
       transition={animateLayout ? SPRING.soft : transition.state}
       className={cn(
-        "rounded-card border border-white/5 bg-surface-base/60 p-3 transition-colors",
-        "hover:border-white/10 hover:bg-surface-base",
+        "rounded-card border p-3 transition-colors",
+        toneClasses.base,
+        interactive && toneClasses.hover,
         className
       )}
     >

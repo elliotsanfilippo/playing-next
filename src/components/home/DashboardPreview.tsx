@@ -304,6 +304,7 @@ export default function DashboardPreview() {
                 pence={track.pence}
                 size="compact"
                 animateLayout
+                interactive={false}
                 actions={REORDER_CONTROLS.map(({ label, Icon }) => (
                   <span
                     key={label}

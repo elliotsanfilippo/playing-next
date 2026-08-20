@@ -8,7 +8,7 @@ export default function PricingTeaser() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section className="relative z-10 px-5 py-14 sm:px-6 sm:py-16 lg:px-8">
+    <section className="relative z-10 px-5 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="mx-auto max-w-5xl">
         <motion.div
           className="text-center"

@@ -83,7 +83,7 @@ export default function SceneEarnings() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section className="relative z-10 px-5 py-24 sm:px-6 sm:py-32 lg:px-8">
+    <section className="relative z-10 px-5 py-16 sm:px-6 sm:py-20 lg:px-8">
       <div className="mx-auto max-w-3xl text-center">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
@@ -92,7 +92,7 @@ export default function SceneEarnings() {
         </Reveal>
 
         <Reveal index={1}>
-          <h2 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+          <h2 className="mt-3 text-[2rem] font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl lg:text-5xl">
             Your crowd was already
             <br />
             requesting songs.
@@ -100,28 +100,28 @@ export default function SceneEarnings() {
         </Reveal>
 
         <Reveal index={2}>
-          <p className="mx-auto mt-5 max-w-md text-lg leading-8 text-zinc-400">
+          <p className="mx-auto mt-4 max-w-md text-[0.95rem] leading-6 text-zinc-400 sm:text-lg sm:leading-8">
             Now those requests can pay.
           </p>
         </Reveal>
 
         <Reveal index={3}>
-          <div className="relative mx-auto mt-14 max-w-md">
+          <div className="relative mx-auto mt-10 max-w-md">
             <div
               aria-hidden
               className="pointer-events-none absolute -inset-10 rounded-full bg-green-500/12 blur-[110px]"
             />
 
-            <div className="relative rounded-card-lg border border-white/15 bg-surface-raised/70 p-8 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+            <div className="relative rounded-card-lg border border-white/15 bg-surface-raised/70 p-6 sm:p-8 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 One night
               </p>
 
-              <p className="mt-3 text-6xl font-bold tracking-[-0.03em] text-white sm:text-7xl">
+              <p className="mt-3 text-5xl font-bold tracking-[-0.03em] text-white sm:text-6xl lg:text-7xl">
                 <AnimatedTotal target={TOTAL_PENCE / 100} />
               </p>
 
-              <div className="mt-8 space-y-3 text-left">
+              <div className="mt-6 space-y-2.5 text-left">
                 {CONTRIBUTORS.map((c, index) => (
                   <motion.div
                     key={c.id}
