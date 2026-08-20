@@ -8,7 +8,11 @@ import StatusBadge from "@/src/components/product/StatusBadge";
 import Reveal from "./Reveal";
 import { GUEST } from "./timings";
 import { SPRING, transition } from "@/src/lib/motion";
-import { GUEST_REQUEST, GUEST_SEARCH_RESULTS } from "./storyData";
+import {
+  GUEST_REQUEST,
+  GUEST_SEARCH_QUERY,
+  GUEST_SEARCH_RESULTS,
+} from "./storyData";
 
 /*
  * Scene 4 — the crowd's side.
@@ -19,10 +23,10 @@ import { GUEST_REQUEST, GUEST_SEARCH_RESULTS } from "./storyData";
  * shared StatusBadge, so the wording and colour match what a guest
  * genuinely sees.
  *
- * The frame is deliberately phone-proportioned (roughly 9:19.5, the
- * modern handset ratio) rather than a squat rounded box — at shorter
- * ratios it reads as a watch and the interface inside has no room to
- * behave like a real screen.
+ * The device is shown in a compact frame sized by min-height rather
+ * than a fixed aspect ratio, so whichever step has the most content
+ * (the status screen, with its View my requests action) sets the
+ * height and nothing clips.
  */
 const STEPS = [
   { id: "scan", label: "Scan the QR" },
@@ -114,21 +118,26 @@ export default function SceneGuest() {
         </div>
 
         <Reveal index={1} className="min-w-0 lg:order-1">
-          {/* Phone frame at a true handset ratio. */}
-          <div className="relative mx-auto w-full max-w-[17rem] sm:max-w-[18.5rem]">
+          {/*
+            Compact device presentation, reverted from the taller
+            true-handset ratio. Sized by min-height, not aspect-ratio:
+            a fixed ratio clipped the status step's "View my requests"
+            action, whereas a min-height lets the screen grow to fit
+            whichever step is longest.
+          */}
+          <div className="relative mx-auto w-full max-w-[19rem]">
             <div
               aria-hidden
               className="pointer-events-none absolute -inset-10 rounded-full bg-green-500/10 blur-[100px]"
             />
 
-            <div className="relative aspect-[9/19] overflow-hidden rounded-[2.5rem] border-[3px] border-white/15 bg-surface-raised/80 p-2.5 shadow-[0_35px_80px_-20px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
-              {/* Notch / speaker bar */}
+            <div className="relative overflow-hidden rounded-[2.25rem] border border-white/15 bg-surface-raised/80 p-3 shadow-[0_35px_80px_-20px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
               <div
                 aria-hidden
-                className="absolute left-1/2 top-3 z-10 h-1.5 w-20 -translate-x-1/2 rounded-full bg-black/60"
+                className="mx-auto mb-3 h-1 w-16 rounded-full bg-white/15"
               />
 
-              <div className="relative h-full overflow-hidden rounded-[2rem] bg-canvas/90 px-4 pb-4 pt-8">
+              <div className="relative min-h-[24rem] rounded-[1.6rem] bg-canvas/80 p-4">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={step}
@@ -205,7 +214,7 @@ function GuestSearchStep() {
 
       <div className="mt-3 flex items-center gap-2 rounded-control border border-white/10 bg-black/50 px-3 py-2.5">
         <Search size={15} className="shrink-0 text-zinc-500" />
-        <span className="truncate text-sm text-white">Massive Attack</span>
+        <span className="truncate text-sm text-white">{GUEST_SEARCH_QUERY}</span>
       </div>
 
       <div className="mt-3 space-y-2">
@@ -273,7 +282,7 @@ function GuestSendStep() {
         </div>
       </div>
 
-      <div className="mt-auto">
+      <div className="mt-5">
         <div className="flex h-12 items-center justify-center rounded-control bg-accent-strong text-sm font-bold text-black">
           Send request
         </div>
@@ -313,8 +322,9 @@ function GuestStatusStep({
       <p className="mt-4 text-xs text-zinc-600">You&apos;re #4 in the queue</p>
 
       {/* The real guest product has a My Requests page — this is the
-          action a guest actually takes from here. */}
-      <div className="mt-auto w-full">
+          action a guest actually takes from here. Sits in normal flow
+          so it can never be pushed outside the device frame. */}
+      <div className="mt-6 w-full">
         <div className="flex h-11 items-center justify-center gap-1.5 rounded-control border border-white/10 bg-white/5 text-[13px] font-semibold text-white">
           View my requests
           <ChevronRight size={15} />

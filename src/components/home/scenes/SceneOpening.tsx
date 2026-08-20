@@ -15,10 +15,22 @@ import Badge from "@/src/components/ui/Badge";
 import { buttonVariants } from "@/src/components/ui/Button";
 import { ACCEPT, PULLBACK } from "./timings";
 import { SPRING, transition } from "@/src/lib/motion";
-import { OPENING_REQUEST, SCENE_QUEUE, SCENE_PLAYING_NEXT } from "./storyData";
+import {
+  OPENING_REQUEST,
+  OPENING_QUEUE,
+  OPENING_PLAYING_NEXT,
+} from "./storyData";
 import { useIsDesktop } from "@/src/lib/useMediaQuery";
 
 export type OpeningStage = "idle" | "accepted" | "landed";
+
+/*
+ * The compact dashboard shows the accepted request plus two more, so
+ * the "N requests" label always matches the rows on screen — at three
+ * rows the Playing Next block above still reads as the hierarchy,
+ * which a longer list buries, especially on a phone.
+ */
+const OPENING_MINI_QUEUE = OPENING_QUEUE.slice(0, 2);
 
 type Props = {
   stage: OpeningStage;
@@ -316,7 +328,9 @@ function OpeningRequestCard({
               className="absolute inset-x-0 top-0"
             >
               <p className="text-xl font-bold sm:text-2xl">Someone wants a song</p>
-              <p className="text-sm text-zinc-400">Paid, and waiting on you</p>
+              <p className="text-sm text-zinc-400">
+                Accept it to step inside Playing Next
+              </p>
             </motion.div>
 
             <motion.div
@@ -456,10 +470,10 @@ function MiniDashboard({
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold">
-              {SCENE_PLAYING_NEXT.title}
+              {OPENING_PLAYING_NEXT.title}
             </p>
             <p className="truncate text-xs text-zinc-500">
-              {SCENE_PLAYING_NEXT.artist}
+              {OPENING_PLAYING_NEXT.artist}
             </p>
           </div>
 
@@ -481,7 +495,7 @@ function MiniDashboard({
           Accepted queue
         </p>
         <p className="text-[11px] text-zinc-600">
-          {SCENE_QUEUE.length + 1} requests
+          {OPENING_MINI_QUEUE.length + 1} requests
         </p>
       </div>
 
@@ -523,18 +537,14 @@ function MiniDashboard({
           </div>
         </motion.div>
 
-        {SCENE_QUEUE.map((track, index) => (
+        {OPENING_MINI_QUEUE.map((track, index) => (
           <motion.div
             key={track.id}
             layout
             initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...SPRING.soft, delay: 0.1 + index * 0.06 }}
-            /* Third row is desktop-only: on a phone the dashboard reads
-               as a wall of rows and the Playing Next hierarchy is lost. */
-            className={`rounded-card border border-white/5 bg-surface-base/60 p-2.5 ${
-              index >= 2 ? "hidden lg:block" : ""
-            }`}
+            className="rounded-card border border-white/5 bg-surface-base/60 p-2.5"
           >
             <div className="flex items-center gap-2.5">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-bold tabular-nums text-zinc-400">

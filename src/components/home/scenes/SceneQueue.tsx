@@ -14,7 +14,11 @@ import RequestCard from "@/src/components/product/RequestCard";
 import Badge from "@/src/components/ui/Badge";
 import Reveal from "./Reveal";
 import { SPRING } from "@/src/lib/motion";
-import { OPENING_REQUEST, SCENE_PLAYING_NEXT, SCENE_QUEUE } from "./storyData";
+import {
+  OPENING_REQUEST,
+  DASHBOARD_PLAYING_NEXT,
+  DASHBOARD_QUEUE,
+} from "./storyData";
 
 type Props = {
   /** True once the visitor accepted the opening request, so their
@@ -44,7 +48,7 @@ const NAV_CONTROLS = [
 export default function SceneQueue({ accepted }: Props) {
   const shouldReduceMotion = useReducedMotion();
 
-  const queueCount = SCENE_QUEUE.length + (accepted ? 1 : 0);
+  const queueCount = DASHBOARD_QUEUE.length + (accepted ? 1 : 0);
 
   const stats = [
     { label: "Pending", value: "3", tone: "text-status-pending" },
@@ -152,10 +156,10 @@ export default function SceneQueue({ accepted }: Props) {
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">
-                    {SCENE_PLAYING_NEXT.title}
+                    {DASHBOARD_PLAYING_NEXT.title}
                   </p>
                   <p className="truncate text-sm text-zinc-500">
-                    {SCENE_PLAYING_NEXT.artist}
+                    {DASHBOARD_PLAYING_NEXT.artist}
                   </p>
                 </div>
 
@@ -216,7 +220,7 @@ export default function SceneQueue({ accepted }: Props) {
                   </motion.div>
                 )}
 
-                {SCENE_QUEUE.map((track, index) => (
+                {DASHBOARD_QUEUE.map((track, index) => (
                   <RequestCard
                     key={track.id}
                     title={track.title}
