@@ -10,7 +10,6 @@ import {
 } from "motion/react";
 import Link from "next/link";
 import { ArrowRight, Bell, Check, ChevronDown, Music2 } from "lucide-react";
-import MoneyValue from "@/src/components/product/MoneyValue";
 import Badge from "@/src/components/ui/Badge";
 import { buttonVariants } from "@/src/components/ui/Button";
 import { ACCEPT, ENTRANCE, PULLBACK } from "./timings";
@@ -486,42 +485,20 @@ function OpeningRequestCard({
 
         <div className="min-w-0 flex-1">
           {/*
-            The amount sits on the label line rather than at the far
-            right of the whole row. Out there it took 41px off the
-            headline's measure, which pushed the desktop headline onto
-            two ragged lines and left the right third of the card empty;
-            here the headline gets the column's full width and lands on
-            one line, and the amount pairs with the status label, which
-            is the thing it actually qualifies.
-          */}
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-              {revealed ? "Accepted request" : "New request"}
-            </p>
+            No amount anywhere in this sequence. DJs set their own
+            request price, so a concrete figure in the signature opener
+            would read as a standard Playing Next price rather than as
+            one DJ's setting. The opener sells the interaction; the
+            product examples further down the page carry the money.
 
-            {/*
-              Always mounted, revealed by opacity and scale rather than
-              by being added to the layout. Mounting it on accept
-              changed the space around it and grew the card by 27px at
-              the exact moment of the interaction. The pop is unchanged.
-            */}
-            <motion.div
-              initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.6 }}
-              animate={{
-                opacity: revealed ? 1 : 0,
-                scale: revealed ? 1 : 0.6,
-              }}
-              transition={SPRING.tight}
-              aria-hidden={!revealed}
-              className="shrink-0"
-            >
-              <MoneyValue
-                pence={OPENING_REQUEST.pence}
-                size="prominent"
-                className="leading-none text-accent"
-              />
-            </motion.div>
-          </div>
+            With nothing to its right the label is a plain block again
+            rather than a two-column row — there is no reserved slot
+            left behind, and the headline below keeps the column's full
+            measure, which is what lets it hold one line on desktop.
+          */}
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            {revealed ? "Accepted request" : "New request"}
+          </p>
 
           {/*
             The song is withheld until acceptance — the concept lands
@@ -760,11 +737,6 @@ function MiniDashboard({
               </p>
             </div>
 
-            <MoneyValue
-              pence={OPENING_REQUEST.pence}
-              className="shrink-0 text-zinc-400"
-            />
-
             <motion.span
               initial={shouldReduceMotion ? false : { scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -794,8 +766,6 @@ function MiniDashboard({
                 <p className="truncate text-sm font-semibold">{track.title}</p>
                 <p className="truncate text-xs text-zinc-500">{track.artist}</p>
               </div>
-
-              <MoneyValue pence={track.pence} className="shrink-0 text-zinc-400" />
             </div>
           </motion.div>
         ))}
