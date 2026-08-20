@@ -400,6 +400,15 @@ function OpeningRequestCard({
     <motion.div
       layoutId="hero-request"
       transition={SPRING.soft}
+      /*
+        Padding is even on all four sides and slightly more generous
+        than before. Dropping the closing caption removed the card's
+        only asymmetric element, so the composition is now two blocks —
+        the notification and the action — sitting in equal margins,
+        with the optical centre of gravity between them. Less content
+        buys the room to give what is left more air, which is what
+        stops it reading as a line having been deleted.
+      */
       className="relative mx-auto max-w-md overflow-hidden rounded-card-lg border border-white/15 bg-surface-raised/80 p-5 sm:p-6 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl"
     >
       <motion.div
@@ -409,6 +418,14 @@ function OpeningRequestCard({
         transition={transition.state}
       />
 
+      {/*
+        The gap is what buys the headline its single line on desktop:
+        at sm and up the text column is 326px and the headline measures
+        313px, so it sits on one line with a little room to spare. If
+        the copy ever grows past that it wraps to two balanced lines and
+        the block below simply gets taller — nothing overflows, because
+        the text block sizes itself.
+      */}
       <div className="relative flex items-center gap-3.5 sm:gap-4">
         <motion.div
           layout
@@ -468,9 +485,43 @@ function OpeningRequestCard({
         </motion.div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-            {revealed ? "Accepted request" : "New request"}
-          </p>
+          {/*
+            The amount sits on the label line rather than at the far
+            right of the whole row. Out there it took 41px off the
+            headline's measure, which pushed the desktop headline onto
+            two ragged lines and left the right third of the card empty;
+            here the headline gets the column's full width and lands on
+            one line, and the amount pairs with the status label, which
+            is the thing it actually qualifies.
+          */}
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+              {revealed ? "Accepted request" : "New request"}
+            </p>
+
+            {/*
+              Always mounted, revealed by opacity and scale rather than
+              by being added to the layout. Mounting it on accept
+              changed the space around it and grew the card by 27px at
+              the exact moment of the interaction. The pop is unchanged.
+            */}
+            <motion.div
+              initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.6 }}
+              animate={{
+                opacity: revealed ? 1 : 0,
+                scale: revealed ? 1 : 0.6,
+              }}
+              transition={SPRING.tight}
+              aria-hidden={!revealed}
+              className="shrink-0"
+            >
+              <MoneyValue
+                pence={OPENING_REQUEST.pence}
+                size="prominent"
+                className="leading-none text-accent"
+              />
+            </motion.div>
+          </div>
 
           {/*
             The song is withheld until acceptance — the concept lands
@@ -485,32 +536,30 @@ function OpeningRequestCard({
             crawlers throughout.
           */}
           {/*
-            The reserved height fits the idle headline's two balanced
-            lines, and both states are centred inside it rather than
-            top-aligned, so the shorter revealed state (one line of
-            title, one of artist) sits level with the tile instead of
-            leaving a gap underneath. The height is fixed either way —
-            nothing may reflow when the card flips to its revealed
-            state.
+            The idle copy stays in normal flow and is what sets this
+            block's height; only the revealed copy is overlaid on top of
+            it. That means the box is always exactly as tall as the
+            longer of the two states, at any breakpoint, without a
+            hand-tuned min-height to keep in sync with the type scale —
+            an earlier version used one and the desktop headline
+            outgrew it, spilling the supporting line toward the button.
+            Nothing reflows on accept either: the in-flow layer keeps
+            its box when it fades out.
           */}
-          <div className="relative mt-1 min-h-[4.5rem] sm:min-h-[3.5rem]">
+          <div className="relative mt-1">
             <motion.div
               animate={{ opacity: revealed ? 0 : 1 }}
               transition={transition.state}
               aria-hidden={revealed}
-              className="absolute inset-0 flex flex-col justify-center"
             >
               {/*
-                Three lines with three jobs and no overlap between them:
-                what happened, who decides, and (on the button) what
-                accepting actually does. An earlier draft said "step
-                inside Playing Next" here as well as on the button,
-                which made the card read as if it were asking twice.
+                Three lines, three jobs, no overlap: what happened, who
+                decides, and (on the button) what accepting does.
               */}
-              <p className="text-lg font-bold leading-snug text-balance sm:text-2xl">
-                A paid request just came in.
+              <p className="text-lg font-bold leading-snug text-balance sm:text-xl">
+                Someone just requested a song.
               </p>
-              <p className="mt-0.5 text-[13px] text-zinc-400 sm:text-sm">
+              <p className="mt-1 text-[13px] text-zinc-400 sm:text-sm">
                 You&apos;re the DJ. It&apos;s your call.
               </p>
             </motion.div>
@@ -525,36 +574,24 @@ function OpeningRequestCard({
               aria-hidden={!revealed}
               className="absolute inset-0 flex flex-col justify-center"
             >
-              <p className="truncate text-lg font-bold leading-snug sm:text-2xl">
+              <p className="truncate text-lg font-bold leading-snug sm:text-xl">
                 {OPENING_REQUEST.title}
               </p>
-              <p className="mt-0.5 truncate text-[13px] text-zinc-400 sm:text-sm">
+              <p className="mt-1 truncate text-[13px] text-zinc-400 sm:text-sm">
                 {OPENING_REQUEST.artist}
               </p>
             </motion.div>
           </div>
         </div>
 
-        <AnimatePresence>
-          {revealed && (
-            <motion.div
-              initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={SPRING.tight}
-              className="shrink-0"
-            >
-              <MoneyValue
-                pence={OPENING_REQUEST.pence}
-                size="prominent"
-                className="text-accent"
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <motion.div
-        className="relative mt-5 sm:mt-6"
+        /* The action is now the card's closing element rather than the
+           middle of three, so it gets a clearer gap above it: enough
+           that it reads as its own zone, not so much that the card
+           splits into two unrelated halves. */
+        className="relative mt-6 sm:mt-7"
         initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{
@@ -616,13 +653,16 @@ function OpeningRequestCard({
         )}
       </motion.div>
 
-      <p
-        aria-live="polite"
-        className="relative mt-3.5 text-xs text-zinc-500"
-      >
-        {accepted
-          ? `${OPENING_REQUEST.title} added to your queue.`
-          : "Nothing plays unless you say so."}
+      {/*
+        Kept as a screen-reader-only live region rather than deleted
+        outright. It used to carry a visible caption; without one there
+        is nothing in the DOM to announce that accepting worked, and a
+        visible line that appears only after accepting would change the
+        card's height mid-transition. Sighted users get the same
+        confirmation from the button state and the revealed amount.
+      */}
+      <p aria-live="polite" className="sr-only">
+        {accepted ? `${OPENING_REQUEST.title} added to your queue.` : ""}
       </p>
     </motion.div>
     </motion.div>

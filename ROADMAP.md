@@ -18,7 +18,7 @@ so they moved to the end.
 
 - [x] 50p Guest Service Fee decided
 - [x] Free plan = 15% platform fee
-- [x] Pro = £14.99/month / 0% platform fee
+- [x] Pro = £49.99/month / 0% platform fee
 - [x] Financial columns added to `song_requests`
 - [x] `src/lib/pricing.ts` created
 - [x] Replace/finalise the secure Stripe checkout route
@@ -325,14 +325,19 @@ launch rather than hunting through this file for costs.
 
 ## 5. 💳 Pro subscriptions — done
 
-Built the actual £14.99/month product.
+Built the actual paid product. Now £49.99/month — the source of truth
+is `PRO_MONTHLY_PRICE_GBP` in `src/lib/pricing.ts`, which both `/plans`
+and the homepage pricing teaser read from, so this file should never be
+the place anyone checks the price. It was £14.99 when this section was
+originally written, which is why the Stripe notes below mention that
+figure.
 
 - [x] Add DJ plan/subscription state to database — `dj_profiles.plan`
       already existed; added `stripe_customer_id`, `stripe_subscription_id`,
       `stripe_subscription_status`
-- [x] Create Stripe subscription product/price — real recurring
-      £14.99/month GBP price created in Stripe test mode
-      (`STRIPE_PRO_PRICE_ID`)
+- [x] Create Stripe subscription product/price — real recurring GBP
+      price created in Stripe test mode (`STRIPE_PRO_PRICE_ID`), at
+      £14.99 at the time; the live price is now £49.99
 - [x] Upgrade to Pro flow — `/api/stripe/subscribe`: creates a Stripe
       Customer for the DJ (separate from their Connect payout account),
       then a subscription Checkout Session
