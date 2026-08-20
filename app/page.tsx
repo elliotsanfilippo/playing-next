@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { supabase } from "../src/lib/supabase";
 import Navbar from "@/src/components/home/Navbar";
-import SceneOpening from "@/src/components/home/scenes/SceneOpening";
+import SceneOpening, {
+  type OpeningStage,
+} from "@/src/components/home/scenes/SceneOpening";
 import SceneQueue from "@/src/components/home/scenes/SceneQueue";
 import SceneGuest from "@/src/components/home/scenes/SceneGuest";
 import SceneEarnings from "@/src/components/home/scenes/SceneEarnings";
@@ -35,7 +37,14 @@ export default function HomePage() {
   const [djs, setDjs] = useState<HomeDJ[]>([]);
   const [loadingDJs, setLoadingDJs] = useState(true);
 
-  const [accepted, setAccepted] = useState(false);
+  /*
+   * The opening runs idle → accepted → landed. It only ever moves
+   * forward: once landed, scrolling back up shows a completed
+   * dashboard rather than resetting the invitation, so the visitor
+   * can revisit the opening without being re-prompted.
+   */
+  const [openingStage, setOpeningStage] = useState<OpeningStage>("idle");
+  const accepted = openingStage !== "idle";
   const [scrolledPastOpening, setScrolledPastOpening] = useState(false);
   const afterOpeningRef = useRef<HTMLDivElement>(null);
 
@@ -89,26 +98,26 @@ export default function HomePage() {
   }, [shouldReduceMotion]);
 
   const handleAccept = useCallback(() => {
-    if (accepted) return;
-    setAccepted(true);
+    if (openingStage !== "idle") return;
 
+    setOpeningStage("accepted");
+
+    /*
+     * Hold on the revealed song before the dashboard builds around it,
+     * so the reveal reads as the payoff for accepting rather than a
+     * frame the visitor blinks past. Under reduced motion the whole
+     * sequence resolves immediately.
+     */
     if (shouldReduceMotion) {
-      afterOpeningRef.current?.scrollIntoView({ block: "start" });
+      setOpeningStage("landed");
       return;
     }
 
-    /*
-     * Hold on the confirmed state before moving, so the accept reads
-     * as a completed action rather than something that got
-     * interrupted by a scroll.
-     */
-    window.setTimeout(() => {
-      afterOpeningRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, ACCEPT.holdAfterAcceptMs);
-  }, [accepted, shouldReduceMotion]);
+    window.setTimeout(
+      () => setOpeningStage("landed"),
+      ACCEPT.holdAfterAcceptMs
+    );
+  }, [openingStage, shouldReduceMotion]);
 
   const filteredDJs = useMemo(() => {
     const normalisedSearch = search.trim().toLowerCase();
@@ -128,7 +137,7 @@ export default function HomePage() {
     <main className="relative min-h-screen bg-canvas text-white">
       <Navbar revealed={navRevealed || accepted} />
 
-      <SceneOpening accepted={accepted} onAccept={handleAccept} />
+      <SceneOpening stage={openingStage} onAccept={handleAccept} />
 
       {/* Everything past the opening sits above the pinned scene, so
           the recede/pull-back reads as the page arriving over it. */}
