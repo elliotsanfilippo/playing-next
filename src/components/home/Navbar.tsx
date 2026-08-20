@@ -25,17 +25,51 @@ export default function Navbar({ revealed = true }: Props) {
    */
   const isInteractive = revealed || shouldReduceMotion;
 
+  /*
+   * The fixed element and the animated element are deliberately two
+   * different nodes.
+   *
+   * The reveal used to be applied to the <header> itself, which left a
+   * transform on a position:fixed box. That is fine on paper, but on
+   * iOS Safari a transformed fixed element gets promoted to its own
+   * compositing layer and visibly detaches from the top of the screen
+   * during momentum and rubber-band scrolling — the bar drifts and
+   * page content shows above it, which reads exactly as the header
+   * having come unpinned. Keeping the transform on an ordinary child
+   * means the fixed box is never transformed and has nothing to
+   * detach.
+   *
+   * The <header> is also the only thing that has to stay at the top;
+   * because it is fixed it is out of flow, so nothing below it ever
+   * shifts when the bar appears or disappears.
+   */
   return (
-    <motion.header
-      initial={false}
-      animate={{
-        opacity: isInteractive ? 1 : 0,
-        y: isInteractive ? 0 : -12,
-      }}
-      transition={shouldReduceMotion ? { duration: 0 } : transition.structural}
+    <header
       style={{ pointerEvents: isInteractive ? "auto" : "none" }}
-      className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-black/50 backdrop-blur-xl"
+      className="fixed inset-x-0 top-0 z-50"
     >
+      <motion.div
+        initial={false}
+        animate={{
+          opacity: isInteractive ? 1 : 0,
+          y: isInteractive ? 0 : -12,
+        }}
+        transition={shouldReduceMotion ? { duration: 0 } : transition.structural}
+        /*
+         * The bar's own surface: it carries the background, so nothing
+         * is painted while the bar is hidden, and the safe-area padding,
+         * so on a notched phone the background extends up behind the
+         * status bar while the content sits below it.
+         *
+         * The background is close to opaque by default and only becomes
+         * glassy where backdrop-filter is actually supported. At 50%
+         * black with no working blur — which is what a good number of
+         * Android browsers give you — the page is plainly legible
+         * through the bar, and content sliding past behind a header is
+         * indistinguishable from a header that is not pinned.
+         */
+        className="border-b border-white/5 bg-canvas/95 pt-[env(safe-area-inset-top)] supports-[backdrop-filter]:bg-canvas/65 supports-[backdrop-filter]:backdrop-blur-xl"
+      >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <img
@@ -90,6 +124,7 @@ export default function Navbar({ revealed = true }: Props) {
           </Link>
         </div>
       </div>
-    </motion.header>
+      </motion.div>
+    </header>
   );
 }
