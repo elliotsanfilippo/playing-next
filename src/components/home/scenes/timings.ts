@@ -39,43 +39,74 @@ import { EASE, SPRING } from "@/src/lib/motion";
  * waits for the visitor.
  */
 export const ENTRANCE = {
-  /** Copy settles first: badge, then headline, then subheading. */
-  badgeAt: 0.06,
-  headlineAt: 0.16,
-  subheadAt: 0.28,
-  copyDuration: 0.62,
+  /* Copy settles first: badge, then headline, then subheading. Tight
+     overlaps — the copy is supporting cast here, not the event. */
+  badgeAt: 0.04,
+  headlineAt: 0.11,
+  subheadAt: 0.19,
+  copyDuration: 0.42,
 
-  /** Dead air before the request lands. This beat is what makes the
-   *  card read as *arriving* rather than fading in with the page. */
-  pause: 0.34,
+  /* Dead air between the copy settling (~0.61s) and the request
+     landing. Short, but non-zero on purpose: without a gap the card
+     reads as part of the page load rather than as something that just
+     came in. This is the beat to lengthen if the arrival ever stops
+     feeling like an event. */
+  pause: 0.19,
 
-  /** The request card itself. */
-  cardAt: 1.18,
-  /** Travel distance in px. Mobile uses the reduced value — the same
-   *  distance on a small screen reads as the card flying in. */
-  cardTravel: 30,
-  cardTravelMobile: 18,
-  cardScaleFrom: 0.965,
+  /* ── The notification arrival ─────────────────────────────────── */
+  cardAt: 0.8,
 
-  /** One spring settle, no overshoot loop. Lower damping = more
-   *  visible settle; below ~24 it starts to read as a bounce. */
-  cardSpring: { type: "spring", stiffness: 260, damping: 28, mass: 0.9 } as const,
+  /** Travel in px. Mobile is reduced — identical distance on a small
+   *  screen reads as the card flying in from off-canvas. */
+  cardTravel: 26,
+  cardTravelMobile: 16,
 
-  /** The status dot reacts once, shortly after the card lands. */
-  indicatorAt: 1.42,
-  indicatorDuration: 0.85,
+  /*
+   * Scale is keyframed rather than sprung so the overshoot is exact.
+   * A spring's overshoot is a proportion of its travel, and over a
+   * scale delta this small it's imperceptible — you'd have to drop
+   * damping far enough that the *position* starts wobbling too, which
+   * is where it turns cartoony. Explicit keyframes give one clean pop
+   * and one settle, independent of the y spring.
+   */
+  cardScaleKeyframes: [0.88, 1.025, 1] as number[],
+  cardScaleTimes: [0, 0.58, 1] as number[],
+  cardScaleDuration: 0.44,
 
-  /** Accept becomes available a beat after the card, so it reads as
-   *  the next step rather than arriving with it. */
-  acceptAt: 1.52,
-  acceptDuration: 0.42,
+  /** Position spring. Near-critically damped (zeta ~0.95) so y snaps
+   *  in without adding a second wobble on top of the scale pop. */
+  cardSpring: { type: "spring", stiffness: 520, damping: 34, mass: 0.85 } as const,
 
-  /** Everything is still from here. Used to enable the button, so it
-   *  can never be clicked before it's visually available. */
-  still: 1.94,
+  /** Opacity leads slightly so the card is legible as it travels. */
+  cardFadeDuration: 0.2,
 
-  /** Scroll affordance comes last and does not move afterwards. */
-  scrollHintAt: 2.3,
+  /** One-shot red glow behind the card as it lands, then gone.
+   *  Duration is set so the glow has fully faded by `still` — nothing
+   *  should still be moving when the button becomes clickable. */
+  arrivalGlowDuration: 0.54,
+  arrivalGlowPeak: 0.55,
+
+  /* ── Attention + action ───────────────────────────────────────── */
+
+  /** The indicator reacts once, overlapping the card's settle tail so
+   *  the two read as a single event rather than two beats. Short on
+   *  purpose: a notification ping is a flick, not a shake, and it also
+   *  has to be finished by `still`. */
+  indicatorAt: 0.94,
+  indicatorDuration: 0.4,
+
+  /** Accept arrives right behind the reaction. */
+  acceptAt: 1.0,
+  acceptDuration: 0.3,
+
+  /** Everything still. This is the number to move if the opening ever
+   *  feels slow or rushed — but keep it at or above the last thing to
+   *  come to rest (currently the indicator and glow, both at ~1.34s),
+   *  so the button never becomes clickable mid-motion. */
+  still: 1.35,
+
+  /** Scroll affordance last, and static once shown. */
+  scrollHintAt: 1.6,
 } as const;
 
 /** Scene 1: the Accept Request interaction — the hero moment. */

@@ -51,6 +51,16 @@
   --color-status-declined-surface: var(--color-red-500);
 
   /*
+    "Needs attention" — distinct from `declined`, which is an outcome.
+    This is the unresolved-and-waiting-on-you state: a request that has
+    just arrived. Used as a restrained semantic accent on the
+    notification indicator only, never as a surface for a whole card,
+    and it resolves to the accent green once the request is accepted.
+  */
+  --color-attention: var(--color-red-400);
+  --color-attention-strong: var(--color-red-500);
+
+  /*
     Surface elevation scale. Replaces the ad-hoc bg-zinc-900/40,
     bg-zinc-950/60, bg-white/[0.03] values that had drifted across
     components. `glass` is the translucent + backdrop-blur treatment

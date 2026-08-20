@@ -317,17 +317,59 @@ function OpeningRequestCard({
    *
    * Only opacity and transform animate, so the card occupies its final
    * space from first paint and nothing reflows as it lands.
+   *
+   * y, scale and opacity each get their own transition: y springs in
+   * near-critically damped, while scale runs explicit keyframes for a
+   * single controlled pop. Springing the scale instead would either
+   * overshoot imperceptibly or, at the damping needed to make the pop
+   * visible, start wobbling the position too — which is the difference
+   * between "physical" and "cartoony".
    */
   return (
     <motion.div
+      className="relative"
       initial={
         shouldReduceMotion
           ? false
-          : { opacity: 0, y: travel, scale: ENTRANCE.cardScaleFrom }
+          : { opacity: 0, y: travel, scale: ENTRANCE.cardScaleKeyframes[0] }
       }
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ ...ENTRANCE.cardSpring, delay: ENTRANCE.cardAt }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        scale: shouldReduceMotion ? 1 : ENTRANCE.cardScaleKeyframes,
+      }}
+      transition={{
+        y: { ...ENTRANCE.cardSpring, delay: ENTRANCE.cardAt },
+        opacity: {
+          duration: ENTRANCE.cardFadeDuration,
+          delay: ENTRANCE.cardAt,
+          ease: "easeOut",
+        },
+        scale: {
+          duration: ENTRANCE.cardScaleDuration,
+          delay: ENTRANCE.cardAt,
+          times: ENTRANCE.cardScaleTimes,
+          ease: [0.22, 1, 0.36, 1],
+        },
+      }}
     >
+      {/* One-shot attention glow behind the card as it lands. Opacity
+          only, on its own layer, so it costs nothing to composite and
+          leaves no residue once it has played. */}
+      {!shouldReduceMotion && !revealed && (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute -inset-4 rounded-card-lg bg-attention/25 blur-[42px]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, ENTRANCE.arrivalGlowPeak, 0] }}
+          transition={{
+            duration: ENTRANCE.arrivalGlowDuration,
+            delay: ENTRANCE.cardAt,
+            times: [0, 0.35, 1],
+            ease: "easeOut",
+          }}
+        />
+      )}
     <motion.div
       layoutId="hero-request"
       transition={SPRING.soft}
@@ -343,10 +385,25 @@ function OpeningRequestCard({
       <div className="relative flex items-center gap-3.5 sm:gap-4">
         <motion.div
           layout
-          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 sm:h-14 sm:w-14"
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-visible rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 sm:h-14 sm:w-14"
         >
+          {/*
+            The attention state is a layer over the product tile, not a
+            replacement for it. Red says "new, unresolved, waiting on
+            you"; fading this layer out on accept resolves the tile back
+            to the ordinary track artwork treatment used everywhere else
+            in the product, so the colour change reads as the request
+            being handled rather than as a different component.
+          */}
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-attention-strong to-red-600"
+            animate={{ opacity: revealed ? 0 : 1 }}
+            transition={transition.state}
+          />
+
           {revealed ? (
-            <Music2 size={22} className="text-white" />
+            <Music2 size={22} className="relative text-white" />
           ) : (
             <motion.span
               /* Reacts exactly once as the request lands. No repeat:
@@ -360,6 +417,7 @@ function OpeningRequestCard({
                 delay: ENTRANCE.indicatorAt,
                 ease: "easeOut",
               }}
+              className="relative"
             >
               <Bell size={22} className="text-white" />
             </motion.span>
@@ -370,7 +428,7 @@ function OpeningRequestCard({
           {!revealed && !shouldReduceMotion && (
             <motion.span
               aria-hidden
-              className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-white/50"
+              className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-attention"
               initial={{ opacity: 0, scale: 1 }}
               animate={{ opacity: [0, 0.65, 0], scale: [1, 1.35, 1.5] }}
               transition={{
