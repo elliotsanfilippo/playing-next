@@ -46,7 +46,26 @@ export default function Navbar({ revealed = true }: Props) {
   return (
     <header
       style={{ pointerEvents: isInteractive ? "auto" : "none" }}
-      className="fixed inset-x-0 top-0 z-50"
+      /*
+       * z-[10000] puts the bar above the film grain, which is a fixed
+       * full-viewport layer at z-index 9999 in globals.css.
+       *
+       * That is not only cosmetic. The grain uses mix-blend-mode, so
+       * everything it covers has to be rasterised together with it as
+       * one blending group in order to be blended against. A fixed
+       * header inside that group cannot be promoted to its own
+       * compositing layer, which is what lets it lag behind the page
+       * during scrolling on mobile — the bar gets painted with the
+       * content it is supposed to be sitting still above. Lifting it
+       * out of the grain's group frees it to composite on its own, and
+       * incidentally gives the navigation the crisp chrome look.
+       *
+       * Nothing else in the app goes above z-50, so this cannot be
+       * overtaken by a card, a glow or a modal. Toasts keep their own
+       * (much higher) stacking from sonner and stay above the bar,
+       * which is correct.
+       */
+      className="fixed inset-x-0 top-0 z-[10000]"
     >
       <motion.div
         initial={false}
@@ -68,7 +87,23 @@ export default function Navbar({ revealed = true }: Props) {
          * through the bar, and content sliding past behind a header is
          * indistinguishable from a header that is not pinned.
          */
-        className="border-b border-white/5 bg-canvas/95 pt-[env(safe-area-inset-top)] supports-[backdrop-filter]:bg-canvas/65 supports-[backdrop-filter]:backdrop-blur-xl"
+        /*
+         * Opaque, and deliberately no backdrop-filter.
+         *
+         * backdrop-filter re-samples and re-blurs whatever is behind
+         * the element every frame. On mobile that update routinely
+         * lands a frame or more late during fast scrolling, so the bar
+         * shows the content that *was* behind it — which is exactly the
+         * "I can see what I scrolled past above the header" symptom.
+         * Behind a solid fill the blur was invisible anyway, so there
+         * is nothing to trade away: a solid bar cannot show anything
+         * through it, late or otherwise.
+         *
+         * The safe-area padding lets the background run up behind a
+         * notch while the contents sit below it; it resolves to 0
+         * everywhere else.
+         */
+        className="border-b border-white/5 bg-canvas pt-[env(safe-area-inset-top)]"
       >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">

@@ -135,16 +135,33 @@ export default function HomePage() {
   }, [djs, search]);
 
   return (
-    // overflow-x-clip, not overflow-x-hidden: the ambient glow layers
-    // deliberately bleed past their cards, which would otherwise widen
-    // the page and create a horizontal scrollbar on narrower screens.
-    // `hidden` would fix that too, but it silently breaks
-    // `position: sticky` on descendants — and the desktop opening
-    // depends on sticky pinning. `clip` contains the overflow without
-    // creating a scroll container.
-    <main className="relative min-h-screen overflow-x-clip bg-canvas text-white">
+    <>
+      {/*
+        The header is a sibling of <main>, not a child of it, so in the
+        DOM it is a direct child of <body>. Nothing in the homepage
+        scene tree can therefore reach it: not <main>'s overflow clip,
+        not the opening scene's sticky pinning, not the pull-back's
+        scroll-driven transform, and not anything added to those later.
+        A position:fixed box is out of flow, so being a child of the
+        body flex column costs no layout either.
+
+        It stays rendered here rather than in the root layout because
+        its links are homepage anchors and its reveal is driven by
+        homepage state — moving it up a level would put it on every
+        route. Rendering it as a sibling gets the same containment
+        without that, and keeps it in the server-rendered HTML, which a
+        portal would not.
+      */}
       <Navbar revealed={navRevealed || accepted} />
 
+    {/* overflow-x-clip, not overflow-x-hidden: the ambient glow layers
+        deliberately bleed past their cards, which would otherwise widen
+        the page and create a horizontal scrollbar on narrower screens.
+        `hidden` would fix that too, but it silently breaks
+        `position: sticky` on descendants — and the desktop opening
+        depends on sticky pinning. `clip` contains the overflow without
+        creating a scroll container. */}
+    <main className="relative min-h-screen overflow-x-clip bg-canvas text-white">
       <SceneOpening stage={openingStage} onAccept={handleAccept} />
 
       {/* Everything past the opening sits above the pinned scene, so
@@ -182,5 +199,6 @@ export default function HomePage() {
         <Footer />
       </div>
     </main>
+    </>
   );
 }

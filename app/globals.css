@@ -143,6 +143,25 @@ body {
   react to whatever's underneath (cards, gradients, canvas) instead of sitting
   as a flat layer. This is what keeps large flat dark surfaces from looking
   like a plain color fill.
+
+  Layer contract, bottom to top:
+
+      page content and its glows      z-0 .. z-40
+      modals, consent banner          z-50
+      film grain (this)               z-9999
+      site header / navigation        z-10000
+      toasts                          sonner's own, above everything
+
+  The header sits deliberately ABOVE the grain. Cosmetically that keeps the
+  navigation chrome crisp while everything it floats over stays textured.
+  Structurally it matters more than that: mix-blend-mode means every element
+  this overlay covers has to be rasterised with it as a single blending group,
+  and a position:fixed header trapped inside that group cannot be promoted to
+  its own compositing layer. On mobile that is what made the header lag behind
+  during scrolling instead of staying pinned. Keep the header above 9999.
+
+  Do not lower this z-index to solve a layering problem elsewhere — everything
+  else in the app tops out at z-50, so raising that element is the safe fix.
 */
 body::after {
   content: "";
