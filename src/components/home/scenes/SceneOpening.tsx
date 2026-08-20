@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AnimatePresence,
   motion,
@@ -13,7 +13,7 @@ import { ArrowRight, Bell, Check, ChevronDown, Music2 } from "lucide-react";
 import MoneyValue from "@/src/components/product/MoneyValue";
 import Badge from "@/src/components/ui/Badge";
 import { buttonVariants } from "@/src/components/ui/Button";
-import { ACCEPT, PULLBACK } from "./timings";
+import { ACCEPT, ENTRANCE, PULLBACK } from "./timings";
 import { SPRING, transition } from "@/src/lib/motion";
 import {
   OPENING_REQUEST,
@@ -65,6 +65,23 @@ export default function SceneOpening({ stage, onAccept }: Props) {
   const shouldReduceMotion = useReducedMotion();
   const isDesktop = useIsDesktop();
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Gates the Accept button until the entrance has visually finished,
+   * so it can never be clicked while still fading in. The timer is the
+   * only stored state; the reduced-motion case is derived, since there
+   * is no entrance to wait for in that branch.
+   */
+  const [entranceTimerElapsed, setEntranceTimerElapsed] = useState(false);
+  const entranceDone = entranceTimerElapsed || Boolean(shouldReduceMotion);
+
+  useEffect(() => {
+    const id = window.setTimeout(
+      () => setEntranceTimerElapsed(true),
+      ENTRANCE.still * 1000
+    );
+    return () => window.clearTimeout(id);
+  }, []);
 
   /*
    * The scroll-pinned pull-back is desktop-only. On a phone it fights
@@ -141,7 +158,11 @@ export default function SceneOpening({ stage, onAccept }: Props) {
             <motion.div
               initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
+              transition={{
+                duration: ENTRANCE.copyDuration,
+                delay: ENTRANCE.badgeAt,
+                ease: [0.22, 1, 0.36, 1],
+              }}
             >
               <Badge
                 tone="accent"
@@ -155,7 +176,11 @@ export default function SceneOpening({ stage, onAccept }: Props) {
             <motion.h1
               initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
+              transition={{
+                duration: ENTRANCE.copyDuration,
+                delay: ENTRANCE.headlineAt,
+                ease: [0.22, 1, 0.36, 1],
+              }}
               className="mt-5 text-[2rem] font-bold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:mt-6 lg:text-6xl"
             >
               Accept paid
@@ -168,7 +193,11 @@ export default function SceneOpening({ stage, onAccept }: Props) {
             <motion.p
               initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.32 }}
+              transition={{
+                duration: ENTRANCE.copyDuration,
+                delay: ENTRANCE.subheadAt,
+                ease: [0.22, 1, 0.36, 1],
+              }}
               className="mt-4 max-w-md text-[0.95rem] leading-6 text-zinc-400 sm:text-lg sm:leading-8 lg:mt-6"
             >
               Your crowd pays to hear what they want. You decide what
@@ -218,6 +247,8 @@ export default function SceneOpening({ stage, onAccept }: Props) {
                     accepted={stage === "accepted"}
                     onAccept={onAccept}
                     shouldReduceMotion={shouldReduceMotion}
+                    isDesktop={isDesktop}
+                    entranceDone={entranceDone}
                   />
                 </motion.div>
               ) : (
@@ -240,18 +271,16 @@ export default function SceneOpening({ stage, onAccept }: Props) {
           aria-hidden
           initial={shouldReduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: stage === "idle" ? 1 : 0 }}
-          transition={{ delay: stage === "idle" ? 1.8 : 0, duration: 0.6 }}
+          transition={{
+            delay: stage === "idle" ? ENTRANCE.scrollHintAt : 0,
+            duration: 0.6,
+          }}
           className="absolute inset-x-0 bottom-8 hidden flex-col items-center gap-2 text-zinc-600 lg:flex"
         >
           <span className="text-[11px] uppercase tracking-[0.2em]">
             or scroll to explore
           </span>
-          <motion.span
-            animate={shouldReduceMotion ? undefined : { y: [0, 5, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <ChevronDown size={18} />
-          </motion.span>
+          <ChevronDown size={18} />
         </motion.div>
       </motion.section>
     </div>
@@ -265,13 +294,40 @@ function OpeningRequestCard({
   accepted,
   onAccept,
   shouldReduceMotion,
+  isDesktop,
+  entranceDone,
 }: {
   revealed: boolean;
   accepted: boolean;
   onAccept: () => void;
   shouldReduceMotion: boolean | null;
+  isDesktop: boolean;
+  entranceDone: boolean;
 }) {
+  const travel = isDesktop
+    ? ENTRANCE.cardTravel
+    : ENTRANCE.cardTravelMobile;
+
+  /*
+   * The arrival is applied to an outer wrapper rather than to the
+   * layoutId element itself. Mixing an entrance transform into a
+   * shared-element transition makes Motion fight itself over the same
+   * transform when the card later morphs into the queue row — this
+   * keeps the two concerns on separate elements.
+   *
+   * Only opacity and transform animate, so the card occupies its final
+   * space from first paint and nothing reflows as it lands.
+   */
   return (
+    <motion.div
+      initial={
+        shouldReduceMotion
+          ? false
+          : { opacity: 0, y: travel, scale: ENTRANCE.cardScaleFrom }
+      }
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ ...ENTRANCE.cardSpring, delay: ENTRANCE.cardAt }}
+    >
     <motion.div
       layoutId="hero-request"
       transition={SPRING.soft}
@@ -287,19 +343,42 @@ function OpeningRequestCard({
       <div className="relative flex items-center gap-3.5 sm:gap-4">
         <motion.div
           layout
-          className="flex h-12 w-12 shrink-0 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500"
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 sm:h-14 sm:w-14"
         >
           {revealed ? (
             <Music2 size={22} className="text-white" />
           ) : (
             <motion.span
+              /* Reacts exactly once as the request lands. No repeat:
+                 after the arrival the scene holds completely still. */
+              initial={shouldReduceMotion ? false : { rotate: 0 }}
               animate={
-                shouldReduceMotion ? undefined : { rotate: [0, -12, 12, -8, 0] }
+                shouldReduceMotion ? undefined : { rotate: [0, -14, 10, -5, 0] }
               }
-              transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 1.6 }}
+              transition={{
+                duration: ENTRANCE.indicatorDuration,
+                delay: ENTRANCE.indicatorAt,
+                ease: "easeOut",
+              }}
             >
               <Bell size={22} className="text-white" />
             </motion.span>
+          )}
+
+          {/* Single expanding ring, timed with the bell — the visual
+              "ping" of a notification landing. Fires once. */}
+          {!revealed && !shouldReduceMotion && (
+            <motion.span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-white/50"
+              initial={{ opacity: 0, scale: 1 }}
+              animate={{ opacity: [0, 0.65, 0], scale: [1, 1.35, 1.5] }}
+              transition={{
+                duration: ENTRANCE.indicatorDuration,
+                delay: ENTRANCE.indicatorAt,
+                ease: "easeOut",
+              }}
+            />
           )}
         </motion.div>
 
@@ -371,20 +450,36 @@ function OpeningRequestCard({
         </AnimatePresence>
       </div>
 
-      <div className="relative mt-5 sm:mt-6">
+      <motion.div
+        className="relative mt-5 sm:mt-6"
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: ENTRANCE.acceptDuration,
+          delay: ENTRANCE.acceptAt,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+      >
         <motion.button
           type="button"
           onClick={onAccept}
-          disabled={accepted}
+          /* Not clickable until the entrance has visually finished. */
+          disabled={accepted || !entranceDone}
           aria-label={
             accepted
               ? "Request accepted"
               : "Accept the incoming song request"
           }
           whileHover={
-            shouldReduceMotion || accepted ? undefined : { scale: 1.02 }
+            shouldReduceMotion || accepted || !entranceDone
+              ? undefined
+              : { scale: 1.02 }
           }
-          whileTap={shouldReduceMotion || accepted ? undefined : { scale: 0.98 }}
+          whileTap={
+            shouldReduceMotion || accepted || !entranceDone
+              ? undefined
+              : { scale: 0.98 }
+          }
           transition={SPRING.tight}
           className={`flex h-14 w-full items-center justify-center gap-2 rounded-card text-base font-bold transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
             accepted
@@ -416,7 +511,7 @@ function OpeningRequestCard({
             transition={{ duration: 0.7, ease: "easeOut" }}
           />
         )}
-      </div>
+      </motion.div>
 
       <p
         aria-live="polite"
@@ -426,6 +521,7 @@ function OpeningRequestCard({
           ? `${OPENING_REQUEST.title} added to your queue.`
           : "You're the DJ. It's your call."}
       </p>
+    </motion.div>
     </motion.div>
   );
 }

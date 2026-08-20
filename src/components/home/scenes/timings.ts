@@ -19,11 +19,67 @@ import { EASE, SPRING } from "@/src/lib/motion";
  *   "too much movement"     → lower REVEAL.distance toward 0
  */
 
+/*
+ * Scene 1 entrance — the "a request just arrived" choreography.
+ *
+ * Reads as a notification landing rather than a card that was already
+ * sitting there: the page settles first, pauses, then the request
+ * arrives with one spring and stops. Every value is a start time in
+ * seconds from first paint, so the order is readable top to bottom and
+ * retiming is arithmetic rather than guesswork.
+ *
+ * To retune:
+ *   snappier    → scale every `at` down (try x0.7) and raise the
+ *                 spring stiffness in ENTRANCE.cardSpring
+ *   softer      → raise `settle` and lower cardSpring stiffness
+ *   more drama  → lengthen `pause`, raise cardTravel, lower stiffness
+ *
+ * There is deliberately no looping motion on the card after `still` —
+ * once the request has landed the scene holds completely still and
+ * waits for the visitor.
+ */
+export const ENTRANCE = {
+  /** Copy settles first: badge, then headline, then subheading. */
+  badgeAt: 0.06,
+  headlineAt: 0.16,
+  subheadAt: 0.28,
+  copyDuration: 0.62,
+
+  /** Dead air before the request lands. This beat is what makes the
+   *  card read as *arriving* rather than fading in with the page. */
+  pause: 0.34,
+
+  /** The request card itself. */
+  cardAt: 1.18,
+  /** Travel distance in px. Mobile uses the reduced value — the same
+   *  distance on a small screen reads as the card flying in. */
+  cardTravel: 30,
+  cardTravelMobile: 18,
+  cardScaleFrom: 0.965,
+
+  /** One spring settle, no overshoot loop. Lower damping = more
+   *  visible settle; below ~24 it starts to read as a bounce. */
+  cardSpring: { type: "spring", stiffness: 260, damping: 28, mass: 0.9 } as const,
+
+  /** The status dot reacts once, shortly after the card lands. */
+  indicatorAt: 1.42,
+  indicatorDuration: 0.85,
+
+  /** Accept becomes available a beat after the card, so it reads as
+   *  the next step rather than arriving with it. */
+  acceptAt: 1.52,
+  acceptDuration: 0.42,
+
+  /** Everything is still from here. Used to enable the button, so it
+   *  can never be clicked before it's visually available. */
+  still: 1.94,
+
+  /** Scroll affordance comes last and does not move afterwards. */
+  scrollHintAt: 2.3,
+} as const;
+
 /** Scene 1: the Accept Request interaction — the hero moment. */
 export const ACCEPT = {
-  /** Card arrival after page load. Long enough to feel deliberate. */
-  cardEntranceDelay: 0.35,
-  cardEntranceDuration: 0.75,
 
   /** Pause on "Accepted" before the camera pulls back, in ms.
    *  This is the beat that makes the click feel satisfying — too
