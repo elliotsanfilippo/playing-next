@@ -83,7 +83,7 @@ export default function SceneEarnings() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section className="relative z-10 px-5 py-16 sm:px-6 sm:py-20 lg:px-8">
+    <section className="relative z-10 px-5 py-14 sm:px-6 sm:py-20 lg:px-8">
       <div className="mx-auto max-w-3xl text-center">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
@@ -92,9 +92,13 @@ export default function SceneEarnings() {
         </Reveal>
 
         <Reveal index={1}>
-          <h2 className="mt-3 text-[2rem] font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl lg:text-5xl">
+          {/* The hard break is desktop-only. At phone widths it forced
+              "Your crowd was already" into its own measure, which wrapped
+              again and stranded "already" alone on a line; text-balance
+              distributes the words evenly instead. */}
+          <h2 className="mt-3 text-[1.75rem] font-bold leading-[1.1] tracking-[-0.03em] text-balance sm:text-4xl lg:text-5xl">
             Your crowd was already
-            <br />
+            <br className="hidden sm:block" />{" "}
             requesting songs.
           </h2>
         </Reveal>
@@ -106,22 +110,30 @@ export default function SceneEarnings() {
         </Reveal>
 
         <Reveal index={3}>
-          <div className="relative mx-auto mt-10 max-w-md">
+          <div className="relative mx-auto mt-9 max-w-md sm:mt-10">
             <div
               aria-hidden
               className="pointer-events-none absolute -inset-10 rounded-full bg-green-500/12 blur-[110px]"
             />
 
-            <div className="relative rounded-card-lg border border-white/15 bg-surface-raised/70 p-6 sm:p-8 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+            {/*
+              Left-aligned throughout: this card is a readout of what a
+              night earned, mirroring the real /dj/earnings screen, and
+              product surfaces behave like an interface rather than like
+              marketing copy. The section heading above it stays centred,
+              so the switch marks where the story stops and the product
+              starts.
+            */}
+            <div className="relative rounded-card-lg border border-white/15 bg-surface-raised/70 p-5 text-left shadow-[0_30px_70px_-20px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:p-8">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 One night
               </p>
 
-              <p className="mt-3 text-5xl font-bold tracking-[-0.03em] text-white sm:text-6xl lg:text-7xl">
+              <p className="mt-2 text-[2.75rem] font-bold leading-none tracking-[-0.03em] text-white sm:mt-3 sm:text-6xl lg:text-7xl">
                 <AnimatedTotal target={TOTAL_PENCE / 100} />
               </p>
 
-              <div className="mt-6 space-y-2.5 text-left">
+              <div className="mt-5 space-y-2 sm:mt-6 sm:space-y-2.5">
                 {CONTRIBUTORS.map((c, index) => (
                   <motion.div
                     key={c.id}
@@ -136,7 +148,7 @@ export default function SceneEarnings() {
                         EARNINGS.contributorDelay +
                         index * EARNINGS.contributorStagger,
                     }}
-                    className="flex items-center gap-3 rounded-control border border-white/5 bg-white/[0.03] px-4 py-3"
+                    className="flex items-center gap-3 rounded-control border border-white/5 bg-white/[0.03] px-3.5 py-2.5 sm:px-4 sm:py-3"
                   >
                     <c.Icon size={16} className={`shrink-0 ${c.tone}`} />
                     <span className="flex-1 text-sm text-zinc-300">
@@ -149,7 +161,7 @@ export default function SceneEarnings() {
                 ))}
               </div>
 
-              <p className="mt-6 text-[11px] leading-relaxed text-zinc-600">
+              <p className="mt-5 text-[11px] leading-relaxed text-zinc-600 sm:mt-6">
                 Illustrative example, not live data. Free plan takes 15%
                 of request revenue; Pro takes 0%. Tips always pay out
                 100% to the DJ.

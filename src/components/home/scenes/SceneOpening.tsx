@@ -119,12 +119,33 @@ export default function SceneOpening({ stage, onAccept }: Props) {
         className={
           cinematic
             ? "sticky top-0 flex h-screen items-center overflow-hidden px-5"
-            : "relative overflow-hidden px-5 pb-14 pt-24 sm:pb-16 sm:pt-28"
+            : "relative overflow-hidden px-5 pb-16 pt-24 sm:pt-28"
         }
       >
-        {/* Ambient depth — blurred gradient fields rather than canvas or
-            video. Cheap, GPU-friendly, and enough to stop a dark
-            background reading as a flat fill. */}
+        {/*
+          Ambient depth — blurred gradient fields rather than canvas or
+          video. Cheap, GPU-friendly, and enough to stop a dark
+          background reading as a flat fill.
+
+          On the mobile branch this layer is masked to fade out before
+          the section ends. The desktop scene is a sticky, full-height
+          stage that the rest of the page scrolls over, so its light
+          never meets a hard boundary. The mobile section is only as
+          tall as its content and the next section paints an opaque
+          canvas directly beneath it, so an unmasked glow gets sliced by
+          a razor-straight horizontal line at the seam — which is what
+          was reading as an outer container drawn around the whole
+          opener. Fading the light out first lets it dissolve into the
+          page instead of ending at an edge.
+        */}
+        <div
+          aria-hidden
+          className={
+            cinematic
+              ? "pointer-events-none absolute inset-0"
+              : "pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_bottom,black_40%,transparent_88%)]"
+          }
+        >
         <motion.div
           aria-hidden
           className="pointer-events-none absolute left-[8%] top-1/4 h-[34rem] w-[34rem] rounded-full bg-green-500/12 blur-[130px]"
@@ -151,8 +172,9 @@ export default function SceneOpening({ stage, onAccept }: Props) {
             ease: "easeInOut",
           }}
         />
+        </div>
 
-        <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
+        <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-7 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
           {/* Hero messaging — restrained, present from first paint. */}
           <div className="min-w-0">
             <motion.div
@@ -181,7 +203,7 @@ export default function SceneOpening({ stage, onAccept }: Props) {
                 delay: ENTRANCE.headlineAt,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="mt-5 text-[2rem] font-bold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:mt-6 lg:text-6xl"
+              className="mt-5 text-[2.125rem] font-bold leading-[1.03] tracking-[-0.04em] sm:text-5xl sm:leading-[1.05] lg:mt-6 lg:text-6xl"
             >
               Accept paid
               <br />
@@ -359,7 +381,12 @@ function OpeningRequestCard({
       {!shouldReduceMotion && !revealed && (
         <motion.div
           aria-hidden
-          className="pointer-events-none absolute -inset-4 rounded-card-lg bg-attention/25 blur-[42px]"
+          /* Deliberately tight. A wider, softer glow looked better in
+             isolation but its blur reached the bottom of the mobile
+             section, where overflow clipping turned it into a straight
+             lit edge for the half second it was on screen — the same
+             thing that made the whole opener read as a box. */
+          className="pointer-events-none absolute -inset-2 rounded-card-lg bg-attention/25 blur-[24px] sm:-inset-4 sm:blur-[42px]"
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, ENTRANCE.arrivalGlowPeak, 0] }}
           transition={{
@@ -457,16 +484,34 @@ function OpeningRequestCard({
             keeps the real title readable to screen readers and
             crawlers throughout.
           */}
-          <div className="relative mt-1 min-h-[3rem] sm:min-h-[3.25rem]">
+          {/*
+            The reserved height fits the idle headline's two balanced
+            lines, and both states are centred inside it rather than
+            top-aligned, so the shorter revealed state (one line of
+            title, one of artist) sits level with the tile instead of
+            leaving a gap underneath. The height is fixed either way —
+            nothing may reflow when the card flips to its revealed
+            state.
+          */}
+          <div className="relative mt-1 min-h-[4.5rem] sm:min-h-[3.5rem]">
             <motion.div
               animate={{ opacity: revealed ? 0 : 1 }}
               transition={transition.state}
               aria-hidden={revealed}
-              className="absolute inset-x-0 top-0"
+              className="absolute inset-0 flex flex-col justify-center"
             >
-              <p className="text-xl font-bold sm:text-2xl">Someone wants a song</p>
-              <p className="text-sm text-zinc-400">
-                Accept it to step inside Playing Next
+              {/*
+                Three lines with three jobs and no overlap between them:
+                what happened, who decides, and (on the button) what
+                accepting actually does. An earlier draft said "step
+                inside Playing Next" here as well as on the button,
+                which made the card read as if it were asking twice.
+              */}
+              <p className="text-lg font-bold leading-snug text-balance sm:text-2xl">
+                A paid request just came in.
+              </p>
+              <p className="mt-0.5 text-[13px] text-zinc-400 sm:text-sm">
+                You&apos;re the DJ. It&apos;s your call.
               </p>
             </motion.div>
 
@@ -478,12 +523,12 @@ function OpeningRequestCard({
               }}
               transition={transition.state}
               aria-hidden={!revealed}
-              className="absolute inset-x-0 top-0"
+              className="absolute inset-0 flex flex-col justify-center"
             >
-              <p className="truncate text-xl font-bold sm:text-2xl">
+              <p className="truncate text-lg font-bold leading-snug sm:text-2xl">
                 {OPENING_REQUEST.title}
               </p>
-              <p className="truncate text-sm text-zinc-400">
+              <p className="mt-0.5 truncate text-[13px] text-zinc-400 sm:text-sm">
                 {OPENING_REQUEST.artist}
               </p>
             </motion.div>
@@ -526,7 +571,7 @@ function OpeningRequestCard({
           aria-label={
             accepted
               ? "Request accepted"
-              : "Accept the incoming song request"
+              : "Accept the incoming song request and enter Playing Next"
           }
           whileHover={
             shouldReduceMotion || accepted || !entranceDone
@@ -539,7 +584,7 @@ function OpeningRequestCard({
               : { scale: 0.98 }
           }
           transition={SPRING.tight}
-          className={`flex h-14 w-full items-center justify-center gap-2 rounded-card text-base font-bold transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
+          className={`flex h-14 w-full items-center justify-center gap-2 rounded-card text-[15px] font-bold transition-colors duration-300 sm:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
             accepted
               ? "bg-accent text-black"
               : "bg-accent-strong text-black shadow-[0_0_40px_-8px_rgba(74,222,128,0.55)] hover:brightness-110"
@@ -556,7 +601,7 @@ function OpeningRequestCard({
               Accepted
             </motion.span>
           ) : (
-            "Accept Request"
+            "Accept & enter Playing Next"
           )}
         </motion.button>
 
@@ -573,11 +618,11 @@ function OpeningRequestCard({
 
       <p
         aria-live="polite"
-        className="relative mt-4 text-center text-xs text-zinc-500"
+        className="relative mt-3.5 text-xs text-zinc-500"
       >
         {accepted
           ? `${OPENING_REQUEST.title} added to your queue.`
-          : "You're the DJ. It's your call."}
+          : "Nothing plays unless you say so."}
       </p>
     </motion.div>
     </motion.div>

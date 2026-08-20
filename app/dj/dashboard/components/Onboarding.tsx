@@ -7,7 +7,6 @@ import AddToHomeScreen from "./AddToHomeScreen";
 
 type Props = {
   djProfile: DJProfile;
-  qrCodeUrl: string;
   onboardingComplete: boolean;
   router: {
     push: (path: string) => void;
@@ -17,7 +16,6 @@ type Props = {
 
 export default function Onboarding({
   djProfile,
-  qrCodeUrl,
   onboardingComplete,
   router,
   onContinue,
@@ -61,7 +59,11 @@ export default function Onboarding({
     {
       title: "Prepare your QR code",
       description: "Your crowd will scan this to open your request page.",
-      complete: Boolean(qrCodeUrl),
+      /* Matches the dashboard's onboardingComplete check: the QR is
+         derived from the profile slug, so the step is done once there
+         is a link to encode. Testing the generated image instead made
+         this tick flicker while the data URL was still being produced. */
+      complete: Boolean(djProfile.slug),
       action: "View QR code",
       onClick: () => router.push("/dj/dashboard"),
     },

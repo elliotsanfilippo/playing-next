@@ -49,7 +49,7 @@ export default function SceneHowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="relative z-10 px-5 py-16 sm:px-6 sm:py-20 lg:px-8"
+      className="relative z-10 px-5 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
@@ -60,16 +60,30 @@ export default function SceneHowItWorks() {
           </Reveal>
 
           <Reveal index={1}>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 text-[1.75rem] font-bold tracking-tight sm:text-4xl">
               How it works
             </h2>
           </Reveal>
         </div>
 
-        <div className="relative mt-10 grid gap-3 sm:grid-cols-2 md:grid-cols-5 md:gap-4">
-          {/* Connecting line, drawn once as the section enters view.
-              Desktop only — with five stacked cards on a phone there's
-              no horizontal run for it to trace. */}
+        {/*
+          Two genuinely different compositions, not one squeezed to fit.
+
+          On desktop this is five centred cards in a row with a
+          horizontal line running through them. Stacking that same
+          treatment on a phone produced five tall boxes with a big
+          centred medallion each, ~180px apiece, for one short line of
+          text — a lot of scrolling that read as a desktop grid folded
+          up rather than something designed for the screen.
+
+          At phone widths it is instead a compact numbered list: the
+          step number sits in the left rail, the text runs beside it,
+          and a vertical line threads the numbers together. Same five
+          steps, same information, about a third of the height.
+        */}
+        <div className="relative mt-9 grid grid-cols-1 gap-y-5 md:mt-10 md:grid-cols-5 md:gap-4">
+          {/* The rail. Horizontal across the desktop row, vertical down
+              the phone list — drawn once as the section enters view. */}
           <motion.div
             aria-hidden
             className="absolute left-[10%] right-[10%] top-7 hidden h-px origin-left bg-gradient-to-r from-transparent via-green-500/60 to-transparent md:block"
@@ -79,18 +93,31 @@ export default function SceneHowItWorks() {
             transition={{ duration: 1.1, ease: "easeInOut" }}
           />
 
+          <motion.div
+            aria-hidden
+            className="absolute bottom-6 left-[1.375rem] top-6 w-px origin-top bg-gradient-to-b from-transparent via-green-500/40 to-transparent md:hidden"
+            initial={shouldReduceMotion ? false : { scaleY: 0 }}
+            whileInView={{ scaleY: 1 }}
+            viewport={{ once: true, margin: REVEAL.viewportMargin }}
+            transition={{ duration: 1.1, ease: "easeInOut" }}
+          />
+
           {STEPS.map((step, index) => (
             <Reveal key={step.number} index={index}>
-              <article className="relative h-full rounded-card border border-white/10 bg-surface-base/40 p-5 text-center backdrop-blur-md md:border-0 md:bg-transparent md:p-2 md:backdrop-blur-none">
-                <div className="relative z-10 mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent/30 bg-[#0b130e] text-sm font-bold text-accent shadow-lg shadow-green-500/10">
+              <article className="relative flex h-full items-start gap-4 text-left md:flex-col md:items-stretch md:gap-0 md:p-2 md:text-center">
+                {/* Opaque fill, so the rail passes behind the numbers
+                    rather than through them. */}
+                <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-[#0b130e] text-sm font-bold text-accent shadow-lg shadow-green-500/10 md:mx-auto md:h-14 md:w-14">
                   {step.number}
                 </div>
 
-                <h3 className="mt-4 font-bold">{step.title}</h3>
+                <div className="min-w-0 flex-1 md:flex-none">
+                  <h3 className="font-bold md:mt-4">{step.title}</h3>
 
-                <p className="mt-1.5 text-sm leading-6 text-zinc-500">
-                  {step.description}
-                </p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-500 md:mt-1.5">
+                    {step.description}
+                  </p>
+                </div>
               </article>
             </Reveal>
           ))}

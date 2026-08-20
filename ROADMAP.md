@@ -593,3 +593,89 @@ shipped):
 The honest lesson: should have confirmed the specific in-page-vs-
 page-to-page reading of "slide/fade transitions between views" before
 building three different technical approaches to it.
+
+---
+
+## 10. ✉️ Playing Next email design system — future phase
+
+Audited 2026-08-20 during the mobile/homepage pass. **Nothing here has
+been implemented or rewritten yet** — this is the scope, plus what the
+audit actually found.
+
+### What exists today
+
+Emails reach a Playing Next user from three different places, and we
+only control the markup of one of them.
+
+**1. Sent by our own code (Resend), 2 templates:**
+
+| Trigger | Recipient | Where | Current state |
+| --- | --- | --- | --- |
+| Free QR display block claimed | DJ | `app/api/stripe/qr-box-success/route.ts` | Bare `<p>` tags built inline in the route. No layout, no logo, no footer, no unsubscribe. |
+| Same order, ops copy | `QR_BOX_OPS_EMAIL` | same file | Same. Internal, so lower priority. |
+
+`src/lib/email.ts` is the only sender: a single `fetch` to Resend's
+`/emails` endpoint taking `{ to, subject, html }`. It has no concept of
+a layout, so every caller hand-writes raw HTML. That is the natural
+place for a `renderEmail(...)` layout function to live.
+
+**2. Sent by Supabase Auth (templates live in the Supabase dashboard,
+not in this repo):**
+
+| Trigger | Called from |
+| --- | --- |
+| Signup confirmation | `supabase.auth.signUp()` — `app/signup/page.tsx` |
+| Confirmation resend | `supabase.auth.resend()` — `app/login/page.tsx` |
+| Password reset | `supabase.auth.resetPasswordForEmail()` — `app/forgot-password/page.tsx` |
+
+These are currently Supabase's stock templates. We control their content
+and styling, but only through the Supabase dashboard, so they need to be
+kept in sync with whatever design system we build here — worth keeping a
+copy of the HTML in the repo for that reason.
+
+Magic link, email change and invite templates also exist in Supabase but
+no flow in the app triggers them yet.
+
+**3. Sent by Stripe (Stripe dashboard):** guest payment receipts,
+Connect onboarding and payout notifications, Pro subscription invoices.
+Branding for these is the Stripe business profile, which is a separate
+setting per environment — see the note about Live vs Sandbox profiles
+not syncing.
+
+### The real finding
+
+Almost every email a DJ or guest would expect **does not exist at all**.
+There is no email for: request accepted, request declined, payout sent,
+welcome/onboarding, nightly or weekly earnings summary, dispute opened
+or resolved, Pro upgrade confirmed, or subscription payment failed.
+Those journeys are currently push-notification and in-app only. So this
+phase is mostly *building* the email experience, not restyling it.
+
+### Scope for the phase
+
+- [ ] A shared email layout in `src/lib/email.ts` (or a new
+      `src/lib/email/` module): table-based, inlined styles, 600px
+      body, tested for the usual clients.
+- [ ] Design system inside that layout: branding and logo, type scale,
+      spacing scale, button component, status treatments matching
+      `requestStatus.ts`, a request/song presentation block, monetary
+      value formatting consistent with `MoneyValue`, footer and legal
+      treatment.
+- [ ] Mobile email rendering and dark/light client resilience —
+      including the fact that many clients invert or recolour dark
+      backgrounds, so the dark-first product palette cannot simply be
+      reused.
+- [ ] Restyle the 2 existing QR box emails onto the layout.
+- [ ] Port the 3 Supabase Auth templates onto the same design, and keep
+      a copy of the HTML in the repo.
+- [ ] Build the missing transactional emails listed under "The real
+      finding" above, with the DJ-facing and guest-facing sets styled
+      consistently but distinguishable.
+- [ ] A professional Playing Next email signature for direct/manual
+      email from `info@playingnextapp.com`.
+- [ ] Decide sending domain and authentication (SPF/DKIM/DMARC) before
+      volume goes up, and add an unsubscribe/preferences story for
+      anything that isn't strictly transactional.
+
+Goal: someone opens a Playing Next email and thinks "even their emails
+feel premium."

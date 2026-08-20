@@ -26,25 +26,34 @@ export default function SearchStation({
   return (
     <section
       id="find-dj"
-      className="relative z-10 px-5 py-12 sm:px-6 sm:py-16 lg:px-8"
+      className="relative z-10 px-5 py-14 sm:px-6 sm:py-16 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl rounded-card-lg border border-white/10 bg-zinc-900/55 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-10 lg:p-12">
+      {/*
+        The panel treatment starts at sm. On a phone the section already
+        has its own gutter, so a bordered card inside it just nests one
+        box in another and squeezes the search field between two sets of
+        padding — the compressed-desktop look. Below sm this is plain
+        content on the page.
+      */}
+      <div className="mx-auto max-w-7xl sm:rounded-card-lg sm:border sm:border-white/10 sm:bg-zinc-900/55 sm:p-10 sm:shadow-2xl sm:shadow-black/30 sm:backdrop-blur-xl lg:p-12">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">
             For guests
           </p>
 
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+          {/* text-balance stops "DJ?" being stranded alone on its own
+              line at phone widths. */}
+          <h2 className="mt-3 text-pretty text-[1.75rem] font-bold leading-[1.15] tracking-tight text-balance sm:text-4xl">
             Looking for your{" "}
             <span className="text-accent">DJ?</span>
           </h2>
 
-          <p className="mt-3 text-zinc-400">
+          <p className="mx-auto mt-3 max-w-sm text-[0.95rem] leading-6 text-zinc-400 sm:max-w-none sm:text-base">
             Search for the DJ or event you want to send a request to.
           </p>
 
-          <div className="relative mt-8">
-            <div className="flex items-center rounded-card border border-white/10 bg-black/50 px-5 transition focus-within:border-accent/40">
+          <div className="mt-7 sm:mt-8">
+            <div className="flex items-center rounded-card border border-white/10 bg-black/50 px-4 transition focus-within:border-accent/40 sm:px-5">
               <Search size={20} className="mr-3 shrink-0 text-zinc-500" />
 
               <input
@@ -52,12 +61,22 @@ export default function SearchStation({
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search DJs..."
-                className="h-16 w-full bg-transparent text-base text-white outline-none placeholder:text-zinc-600"
+                className="h-14 w-full bg-transparent text-base text-white outline-none placeholder:text-zinc-600 sm:h-16"
               />
             </div>
 
+            {/*
+              Results sit in normal flow rather than in an absolutely
+              positioned dropdown. As an overlay they contributed no
+              height, so the section kept its collapsed size and the
+              panel painted straight over the section below it —
+              measured at 245px of overlap with six results. In flow the
+              section grows to contain them, which is also the better
+              behaviour on a phone, where a floating panel would cover
+              most of the next screenful.
+            */}
             {search.trim().length > 0 && (
-              <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-40 overflow-hidden rounded-card border border-white/10 bg-zinc-950 p-2 text-left shadow-2xl shadow-black">
+              <div className="mt-3 overflow-hidden rounded-card border border-white/10 bg-zinc-950 p-2 text-left shadow-2xl shadow-black">
                 {loadingDJs ? (
                   <div className="p-5 text-sm text-zinc-500">
                     Searching DJs...

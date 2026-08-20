@@ -32,7 +32,15 @@ const PRO_FEATURES = [
 export default function PlansPage() {
   const router = useRouter();
 
-  const [loggedIn, setLoggedIn] = useState(false);
+  /*
+   * null while the session check is still in flight. The back link
+   * previously started as "not logged in", so a DJ who clicked it in
+   * the first moments on the page was sent to the marketing homepage
+   * instead of their dashboard. Rendering the link disabled-looking
+   * until the answer is known keeps its position and size stable while
+   * making it impossible to click through to the wrong destination.
+   */
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [subscribing, setSubscribing] = useState(false);
   const [qrBoxAvailable, setQrBoxAvailable] = useState(false);
 
@@ -85,12 +93,21 @@ export default function PlansPage() {
   return (
     <main className="min-h-screen bg-canvas px-5 py-10 text-white sm:px-6 sm:py-14">
       <div className="mx-auto max-w-4xl">
-        <Link
-          href={loggedIn ? "/dj/dashboard" : "/"}
-          className="text-sm font-semibold text-zinc-400 transition hover:text-white"
-        >
-          ← {loggedIn ? "Back to Dashboard" : "Back to Playing Next"}
-        </Link>
+        {loggedIn === null ? (
+          <span
+            aria-hidden
+            className="text-sm font-semibold text-zinc-600"
+          >
+            ← Back
+          </span>
+        ) : (
+          <Link
+            href={loggedIn ? "/dj/dashboard" : "/"}
+            className="text-sm font-semibold text-zinc-400 transition hover:text-white"
+          >
+            ← {loggedIn ? "Back to Dashboard" : "Back to Playing Next"}
+          </Link>
+        )}
 
         <div className="mt-8 text-center">
           <Eyebrow tone="accent" className="justify-center">
@@ -140,7 +157,7 @@ export default function PlansPage() {
               ))}
             </ul>
 
-            {!loggedIn && (
+            {loggedIn === false && (
               <Link
                 href="/signup"
                 className="mt-7 inline-flex h-12 items-center justify-center rounded-control border border-white/10 bg-white/5 px-6 font-semibold text-white transition hover:bg-white/10"

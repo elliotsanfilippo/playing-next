@@ -792,12 +792,32 @@ export default function DJDashboardPage() {
       .reduce((total, request) => total + (request.dj_earnings ?? 0), 0) /
     100;
 
+  /*
+   * Every condition here is a fact about the DJ's saved profile, not
+   * about what the browser has finished rendering.
+   *
+   * The QR step used to test `Boolean(qrCodeUrl)`, which is a data URL
+   * produced client-side by QRCode.toDataURL() in an effect further
+   * down. That made an onboarding decision depend on an image having
+   * finished generating: `loadingDashboard` flips false the moment the
+   * profile row arrives, but qrCodeUrl is still "" for at least a
+   * render after that, so onboardingComplete was briefly false on every
+   * single load. Any DJ whose stored `onboarding_complete` flag hadn't
+   * been healed yet therefore got the Onboarding screen instead of
+   * their dashboard during that window.
+   *
+   * There was never a real requirement behind it either: the QR code is
+   * derived from the profile slug, which exists from signup, so the
+   * step is complete as soon as the DJ has a request link to encode.
+   * The image is generated on demand for display, and whether it has
+   * rendered yet says nothing about onboarding.
+   */
   const onboardingComplete =
     Boolean(djProfile) &&
     djProfile!.dj_name !== "New DJ" &&
     (djProfile!.request_price || 0) > 0 &&
     Boolean(djProfile!.profile_image_url) &&
-    Boolean(qrCodeUrl) &&
+    Boolean(djProfile!.slug) &&
     Boolean(djProfile!.stripe_connected);
 
   /*
@@ -898,7 +918,6 @@ export default function DJDashboardPage() {
     return (
       <Onboarding
         djProfile={djProfile}
-        qrCodeUrl={qrCodeUrl}
         router={router}
         onboardingComplete={onboardingComplete}
         onContinue={continueToDashboard}
@@ -989,7 +1008,7 @@ export default function DJDashboardPage() {
         </div>
 
         {!onboardingComplete && (
-          <SetupChecklist djProfile={djProfile} qrCodeUrl={qrCodeUrl} />
+          <SetupChecklist djProfile={djProfile} />
         )}
 
         <QRCard

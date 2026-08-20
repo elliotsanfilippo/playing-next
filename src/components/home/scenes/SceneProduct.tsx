@@ -67,7 +67,7 @@ export default function SceneProduct() {
   return (
     <section
       id="features"
-      className="relative z-10 px-5 py-16 sm:px-6 sm:py-20 lg:px-8"
+      className="relative z-10 px-5 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-6xl">
         {/* Marketing heading block: centred, matching the other
@@ -80,7 +80,7 @@ export default function SceneProduct() {
           </Reveal>
 
           <Reveal index={1}>
-            <h2 className="mt-3 text-[2rem] font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl lg:text-5xl">
+            <h2 className="mt-3 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.03em] sm:text-4xl lg:text-5xl">
               Everything you need.
               <br />
               Nothing you don&apos;t.
@@ -88,7 +88,15 @@ export default function SceneProduct() {
           </Reveal>
         </div>
 
-        <div className="mt-10 grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/*
+          auto-rows-fr starts at sm. It exists to equalise the height of
+          cards sitting side by side in a row, which is a multi-column
+          problem — applied to the single-column phone layout it stretched
+          every card to the height of the wordiest one, leaving six tall
+          boxes padded out with empty space. In one column each card
+          sizes to its own content.
+        */}
+        <div className="mt-9 grid grid-cols-1 gap-3 sm:mt-10 sm:auto-rows-fr sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {FEATURES.map((item, index) => (
             <motion.article
               key={item.title}
@@ -106,13 +114,13 @@ export default function SceneProduct() {
               }}
               /* Card content is product information, so it stays
                  left-aligned even though the section heading is centred. */
-              className="group flex h-full flex-col rounded-card border border-white/10 bg-surface-base/50 p-6 text-left backdrop-blur-md transition-colors duration-300 hover:border-accent/25 hover:bg-surface-base/80"
+              className="group flex h-full flex-col rounded-card border border-white/10 bg-surface-base/50 p-5 text-left backdrop-blur-md transition-colors duration-300 hover:border-accent/25 hover:bg-surface-base/80 sm:p-6"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 text-accent">
                 <item.Icon size={20} />
               </div>
 
-              <h3 className="mt-5 text-lg font-bold tracking-tight">
+              <h3 className="mt-4 text-lg font-bold tracking-tight sm:mt-5">
                 {item.title}
               </h3>
 

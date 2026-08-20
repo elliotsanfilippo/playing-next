@@ -5,12 +5,10 @@ import Eyebrow from "@/src/components/ui/Eyebrow";
 
 type Props = {
   djProfile: DJProfile | null;
-  qrCodeUrl: string;
 };
 
 export default function SetupChecklist({
   djProfile,
-  qrCodeUrl,
 }: Props) {
   if (!djProfile) return null;
 
@@ -31,7 +29,7 @@ export default function SetupChecklist({
       description: "Add your DJ image",
     },
     {
-      complete: Boolean(qrCodeUrl),
+      complete: Boolean(djProfile.slug),
       title: "QR Code",
       description: "Ready to share",
     },

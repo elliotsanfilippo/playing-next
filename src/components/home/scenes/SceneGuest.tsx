@@ -67,9 +67,9 @@ export default function SceneGuest() {
   return (
     <section
       ref={sectionRef}
-      className="relative z-10 px-5 py-16 sm:px-6 sm:py-20 lg:px-8"
+      className="relative z-10 px-5 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
-      <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1fr_0.95fr] lg:gap-16">
+      <div className="mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[1fr_0.95fr] lg:gap-16">
         <div className="min-w-0 lg:order-2">
           <Reveal>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
@@ -78,7 +78,7 @@ export default function SceneGuest() {
           </Reveal>
 
           <Reveal index={1}>
-            <h2 className="mt-3 text-[2rem] font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl lg:text-5xl">
+            <h2 className="mt-3 text-[1.75rem] font-bold leading-[1.1] tracking-[-0.03em] sm:text-4xl lg:text-5xl">
               Your crowd requests
               <br className="hidden sm:block" /> in seconds.
             </h2>
@@ -93,7 +93,7 @@ export default function SceneGuest() {
           </Reveal>
 
           <Reveal index={3}>
-            <ol className="mt-7 space-y-2.5">
+            <ol className="mt-6 space-y-2.5 sm:mt-7">
               {STEPS.map((s) => {
                 const isActive = s.id === step;
                 return (
@@ -137,7 +137,7 @@ export default function SceneGuest() {
                 className="mx-auto mb-3 h-1 w-16 rounded-full bg-white/15"
               />
 
-              <div className="relative min-h-[24rem] rounded-[1.6rem] bg-canvas/80 p-4">
+              <div className="relative min-h-[22rem] rounded-[1.6rem] bg-canvas/80 p-4 sm:min-h-[24rem]">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={step}
@@ -286,7 +286,12 @@ function GuestSendStep() {
         <div className="flex h-12 items-center justify-center rounded-control bg-accent-strong text-sm font-bold text-black">
           Send request
         </div>
-        <p className="mt-2 text-center text-[10px] leading-tight text-zinc-600">
+        {/* Left-aligned, matching both the rest of this product screen
+            and the equivalent reassurance line on the real confirmation
+            page. The scan and status screens further down stay centred
+            because they are centred in the real product too — a QR
+            splash and a success state, not a form. */}
+        <p className="mt-2 text-[10px] leading-tight text-zinc-600">
           You&apos;re only charged if the DJ accepts
         </p>
       </div>
