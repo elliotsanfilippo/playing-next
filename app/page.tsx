@@ -1,75 +1,50 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { PoundSterling, Radio, QrCode } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useReducedMotion } from "motion/react";
 import { supabase } from "../src/lib/supabase";
-import DashboardPreview from "@/src/components/home/DashboardPreview";
 import Navbar from "@/src/components/home/Navbar";
-import Hero from "@/src/components/home/Hero";
+import SceneOpening from "@/src/components/home/scenes/SceneOpening";
+import SceneQueue from "@/src/components/home/scenes/SceneQueue";
+import SceneGuest from "@/src/components/home/scenes/SceneGuest";
+import SceneEarnings from "@/src/components/home/scenes/SceneEarnings";
+import SceneProduct from "@/src/components/home/scenes/SceneProduct";
 import SearchStation, {
   type HomeDJ,
 } from "@/src/components/home/SearchStation";
-import FeatureCards from "@/src/components/home/FeatureCards";
-import HowItWorks from "@/src/components/home/HowItWorks";
-import ProductShowcase from "@/src/components/home/ProductShowcase";
 import PricingTeaser from "@/src/components/home/PricingTeaser";
 import CTA from "@/src/components/home/CTA";
 import Footer from "@/src/components/home/Footer";
+import { ACCEPT } from "@/src/components/home/scenes/timings";
 
-const featureCards = [
-  {
-    icon: <PoundSterling size={22} />,
-    title: "Get paid for requests",
-    description:
-      "Guests authorise payment when they submit. You decide which requests to accept.",
-  },
-  {
-    icon: <Radio size={22} />,
-    title: "Manage your queue live",
-    description:
-      "Accept, decline and reorder requests in real time from one simple dashboard.",
-  },
-  {
-    icon: <QrCode size={22} />,
-    title: "Share one QR code",
-    description:
-      "Give your crowd one link for song requests, shoutouts and live status updates.",
-  },
-];
-
-const howItWorks = [
-  {
-    number: "01",
-    title: "Create your account",
-    description: "Set up your DJ profile in minutes.",
-  },
-  {
-    number: "02",
-    title: "Connect Stripe",
-    description: "Securely receive payments and payouts.",
-  },
-  {
-    number: "03",
-    title: "Display your QR",
-    description: "Share it at your venue, party or event.",
-  },
-  {
-    number: "04",
-    title: "Manage requests",
-    description: "Stay in control of what enters your queue.",
-  },
-  {
-    number: "05",
-    title: "Get paid",
-    description: "Accepted requests are captured automatically.",
-  },
-];
-
+/*
+ * The homepage as a single continuous story:
+ *
+ *   Request → Accept → Queue → Playing Next → Guest → Earnings
+ *   → Product → Find a DJ → Pricing → CTA
+ *
+ * The opening Accept Request interaction is an invitation, not a gate.
+ * Clicking it plays the strongest transition in the page, but every
+ * scene below is in the DOM from first paint and reachable by simply
+ * scrolling — nothing is conditionally mounted behind an interaction.
+ */
 export default function HomePage() {
+  const shouldReduceMotion = useReducedMotion();
+
   const [search, setSearch] = useState("");
   const [djs, setDjs] = useState<HomeDJ[]>([]);
   const [loadingDJs, setLoadingDJs] = useState(true);
+
+  const [accepted, setAccepted] = useState(false);
+  const [scrolledPastOpening, setScrolledPastOpening] = useState(false);
+  const afterOpeningRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Derived rather than stored: the nav is visible once the visitor
+   * has scrolled past the opening beat, or accepted, or has reduced
+   * motion on (in which case there's no cinematic opening to protect).
+   */
+  const navRevealed = scrolledPastOpening || accepted || Boolean(shouldReduceMotion);
 
   useEffect(() => {
     const fetchDJs = async () => {
@@ -97,6 +72,44 @@ export default function HomePage() {
     fetchDJs();
   }, []);
 
+  /*
+   * The nav stays out of the way during the opening beat so nothing
+   * competes with the Accept Request moment, then comes in once the
+   * visitor scrolls past it.
+   */
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+
+    const onScroll = () => {
+      setScrolledPastOpening(window.scrollY > window.innerHeight * 0.35);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [shouldReduceMotion]);
+
+  const handleAccept = useCallback(() => {
+    if (accepted) return;
+    setAccepted(true);
+
+    if (shouldReduceMotion) {
+      afterOpeningRef.current?.scrollIntoView({ block: "start" });
+      return;
+    }
+
+    /*
+     * Hold on the confirmed state before moving, so the accept reads
+     * as a completed action rather than something that got
+     * interrupted by a scroll.
+     */
+    window.setTimeout(() => {
+      afterOpeningRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, ACCEPT.holdAfterAcceptMs);
+  }, [accepted, shouldReduceMotion]);
+
   const filteredDJs = useMemo(() => {
     const normalisedSearch = search.trim().toLowerCase();
 
@@ -112,40 +125,35 @@ export default function HomePage() {
   }, [djs, search]);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-canvas text-white">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-[-160px] top-[-160px] h-[420px] w-[420px] rounded-full bg-green-500/10 blur-[140px]" />
+    <main className="relative min-h-screen bg-canvas text-white">
+      <Navbar revealed={navRevealed || accepted} />
 
-        <div className="absolute right-[-220px] top-[260px] h-[520px] w-[520px] rounded-full bg-green-500/10 blur-[160px]" />
+      <SceneOpening accepted={accepted} onAccept={handleAccept} />
+
+      {/* Everything past the opening sits above the pinned scene, so
+          the recede/pull-back reads as the page arriving over it. */}
+      <div ref={afterOpeningRef} className="relative z-10 bg-canvas">
+        <SceneQueue accepted={accepted} />
+
+        <SceneGuest />
+
+        <SceneEarnings />
+
+        <SceneProduct />
+
+        <SearchStation
+          search={search}
+          setSearch={setSearch}
+          loadingDJs={loadingDJs}
+          filteredDJs={filteredDJs}
+        />
+
+        <PricingTeaser />
+
+        <CTA />
+
+        <Footer />
       </div>
-
-      <Navbar />
-
-      <Hero />
-
-      <SearchStation
-  search={search}
-  setSearch={setSearch}
-  loadingDJs={loadingDJs}
-  filteredDJs={filteredDJs}
-/>
-
-      <FeatureCards
-  features={featureCards}
-/>
-
-      <HowItWorks
-  steps={howItWorks}
-/>
-
-      <ProductShowcase />
-
-      <PricingTeaser />
-
-      <CTA />
-
-      <Footer />
     </main>
   );
 }
-
