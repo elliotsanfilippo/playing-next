@@ -3,20 +3,34 @@ import { cn } from "@/src/lib/cn";
 
 export type Tone = "accent" | "danger" | "warning" | "info" | "neutral";
 
+/*
+ * Tones resolve to the semantic status tokens in globals.css rather
+ * than raw palette colours. `requestStatusTone()` maps a request's
+ * status onto one of these, so changing what "pending" looks like is a
+ * one-line token edit that lands everywhere at once — DJ dashboard,
+ * guest pages, venue display and the marketing demo.
+ *
+ * Tones stay generically named because Badge is also used for
+ * non-status labels (VIP, Paid, Live); the status meaning lives in the
+ * token, not the tone name.
+ */
 export const toneSurfaceClasses: Record<Tone, string> = {
-  accent: "border-accent/20 bg-accent/10 text-accent",
-  danger: "border-red-500/20 bg-red-500/10 text-red-400",
-  warning: "border-amber-500/20 bg-amber-500/10 text-amber-300",
-  info: "border-sky-500/20 bg-sky-500/10 text-sky-300",
-  neutral: "border-white/10 bg-white/5 text-zinc-400",
+  accent:
+    "border-status-accepted-surface/20 bg-status-accepted-surface/10 text-status-accepted",
+  danger:
+    "border-status-declined-surface/20 bg-status-declined-surface/10 text-status-declined",
+  warning:
+    "border-status-pending-surface/20 bg-status-pending-surface/10 text-status-pending",
+  info: "border-status-playing-surface/20 bg-status-playing-surface/10 text-status-playing",
+  neutral: "border-white/10 bg-white/5 text-status-played",
 };
 
 export const toneDotClasses: Record<Tone, string> = {
-  accent: "bg-accent",
-  danger: "bg-red-400",
-  warning: "bg-amber-400",
-  info: "bg-sky-400",
-  neutral: "bg-zinc-400",
+  accent: "bg-status-accepted",
+  danger: "bg-status-declined",
+  warning: "bg-status-pending-dot",
+  info: "bg-status-playing-dot",
+  neutral: "bg-status-played",
 };
 
 type Props = HTMLAttributes<HTMLSpanElement> & {

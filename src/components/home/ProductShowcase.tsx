@@ -4,12 +4,14 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { buttonVariants } from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
+import RequestCard from "@/src/components/product/RequestCard";
+import { transition } from "@/src/lib/motion";
 
 const QUEUE = [
-  ["Don't You Worry Child", "Swedish House Mafia", "£5"],
-  ["Titanium", "David Guetta", "£5"],
-  ["Praise You", "Fatboy Slim", "£8"],
-] as const;
+  { title: "Don't You Worry Child", artist: "Swedish House Mafia", pence: 500 },
+  { title: "Titanium", artist: "David Guetta", pence: 500 },
+  { title: "Praise You", artist: "Fatboy Slim", pence: 800 },
+];
 
 export default function ProductShowcase() {
   const shouldReduceMotion = useReducedMotion();
@@ -74,41 +76,32 @@ export default function ProductShowcase() {
             </div>
 
             <div className="mt-6 space-y-3">
-              {QUEUE.map(([title, artist, price], index) => (
+              {QUEUE.map((track, index) => (
                 <motion.div
-                  key={title}
+                  key={track.title}
                   initial={shouldReduceMotion ? false : { opacity: 0, x: -16 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true, margin: "-60px" }}
-                  transition={{ duration: 0.4, delay: index * 0.12, ease: "easeOut" }}
-                  className="rounded-control border border-white/5 bg-white/[0.03] p-4"
+                  transition={{ ...transition.state, delay: index * 0.12 }}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-sm font-bold text-zinc-500">
-                      {index + 1}
-                    </div>
+                  <RequestCard
+                    title={track.title}
+                    artist={track.artist}
+                    position={index + 1}
+                    pence={track.pence}
+                    size="compact"
+                    actions={
+                      <>
+                        <span className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400">
+                          Decline
+                        </span>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{title}</p>
-                      <p className="truncate text-sm text-zinc-500">
-                        {artist}
-                      </p>
-                    </div>
-
-                    <span className="text-sm text-zinc-400">
-                      {price}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex gap-2 pl-14">
-                    <span className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400">
-                      Decline
-                    </span>
-
-                    <span className="rounded-lg bg-accent-strong px-3 py-1.5 text-xs font-bold text-black">
-                      Accept
-                    </span>
-                  </div>
+                        <span className="rounded-lg bg-accent-strong px-3 py-1.5 text-xs font-bold text-black">
+                          Accept
+                        </span>
+                      </>
+                    }
+                  />
                 </motion.div>
               ))}
             </div>

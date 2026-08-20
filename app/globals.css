@@ -17,6 +17,50 @@
   --color-accent: var(--color-green-400);
   --color-accent-strong: var(--color-green-500);
 
+  /*
+    Semantic status colours — the single source of truth for what a
+    request's state looks like anywhere in the product. DJ dashboard,
+    guest pages, venue display screen and the marketing demo all
+    resolve through src/lib/requestStatus.ts -> Badge tone -> these
+    tokens, so "pending" is the same amber everywhere and changing it
+    is a one-line edit.
+
+    Two roles per status, because on a near-black canvas the colour
+    that's legible as text is too light to tint a surface with:
+      (base)     text and icons — the lighter step
+      `-surface` background and border tints — the deeper step, always
+                 used with an opacity modifier (/10 for fills, /20 for
+                 borders)
+    `-dot` exists where a status indicator dot needs more punch than
+    the text colour gives it.
+  */
+  --color-status-pending: var(--color-amber-300);
+  --color-status-pending-surface: var(--color-amber-500);
+  --color-status-pending-dot: var(--color-amber-400);
+
+  --color-status-accepted: var(--color-green-400);
+  --color-status-accepted-surface: var(--color-green-400);
+
+  --color-status-playing: var(--color-sky-300);
+  --color-status-playing-surface: var(--color-sky-500);
+  --color-status-playing-dot: var(--color-sky-400);
+
+  --color-status-played: var(--color-zinc-400);
+
+  --color-status-declined: var(--color-red-400);
+  --color-status-declined-surface: var(--color-red-500);
+
+  /*
+    Surface elevation scale. Replaces the ad-hoc bg-zinc-900/40,
+    bg-zinc-950/60, bg-white/[0.03] values that had drifted across
+    components. `glass` is the translucent + backdrop-blur treatment
+    used for floating/overlay surfaces.
+  */
+  --color-surface-base: #0d0f11;
+  --color-surface-raised: #131619;
+  --color-surface-overlay: #1b1d21;
+  --color-surface-inset: rgb(255 255 255 / 0.03);
+
   --radius-control: 1rem;
   --radius-card: 1.75rem;
   --radius-card-lg: 2rem;
@@ -44,6 +88,28 @@
   --text-eyebrow--line-height: 1.4;
   --text-eyebrow--letter-spacing: 0.2em;
   --text-eyebrow--font-weight: 600;
+
+  /*
+    Monetary values get their own role: tabular figures so digits don't
+    jitter when an animated counter ticks, and tighter tracking so a
+    large "£86" reads as one confident unit rather than loose glyphs.
+  */
+  --text-money: 2.25rem;
+  --text-money--line-height: 1;
+  --text-money--letter-spacing: -0.03em;
+  --text-money--font-weight: 700;
+
+  /*
+    Motion durations. Three tiers matching how much of the interface
+    is changing — see src/lib/motion.ts for the TS mirror used by
+    Framer, and for the shared easing curves.
+  */
+  --duration-micro: 140ms;
+  --duration-state: 280ms;
+  --duration-structural: 520ms;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring-soft: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 @theme inline {
@@ -96,183 +162,21 @@ html {
 }
 
 /*
-  Hero entrance fade-up. Plain CSS rather than a JS animation library
-  for this one-shot, non-stateful entrance — runs immediately on paint
-  with no dependency on client JS/hydration timing.
+  Motion note: this file deliberately contains no keyframe animations.
+
+  An earlier iteration reimplemented Framer Motion's enter/exit
+  animations as CSS keyframes, believing AnimatePresence was broken —
+  elements appeared permanently stuck at their `initial` values. That
+  diagnosis was wrong. The dev preview environment runs the page with
+  document.visibilityState === "hidden", which suspends
+  requestAnimationFrame (measured: 0 frames in 6s). Motion drives all
+  interpolation through rAF, so it correctly applied `initial` inline
+  styles and then had no frames in which to progress. CSS animations
+  freeze under exactly the same condition, so the workaround never
+  actually worked either — it only looked like it did when the preview
+  pane happened to be composited.
+
+  All product animation therefore lives in Framer Motion via
+  src/lib/motion.ts, where it can be composed and interrupted properly.
+  Keep it that way.
 */
-@keyframes fade-up-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-up {
-  animation: fade-up-in 0.6s ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-fade-up {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/*
-  Hero dashboard demo loop — the "Playing Next" content swap and the
-  incoming-request toast. Plain CSS + a React `key` remount rather than
-  Motion's AnimatePresence: in testing here, AnimatePresence's
-  exit-then-enter handoff (mode="wait") reliably left elements stuck
-  invisible at their exit/initial values instead of completing, even
-  though the DOM/props looked correct — this pattern doesn't have that
-  failure mode since there's no cross-render exit choreography to get
-  stuck on.
-*/
-@keyframes slide-in-fade {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-slide-in {
-  animation: slide-in-fade 0.35s ease-out both;
-}
-
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(-16px) scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-78px) scale(1);
-  }
-}
-
-.animate-toast-in {
-  animation: toast-in 0.4s ease-out both;
-}
-
-@keyframes tick-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-tick-in {
-  animation: tick-in 0.25s ease-out both;
-}
-
-@keyframes drop-in {
-  from {
-    opacity: 0;
-    transform: translateY(-16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-drop-in {
-  animation: drop-in 0.35s ease-out both;
-}
-
-@keyframes pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-pop-in {
-  animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-/*
-  Simulated cursor click on the hero demo's incoming-request toast —
-  travels to the Accept button then does a small press pulse, plus a
-  separate expanding "click ring" sibling. One unified keyframe per
-  element rather than stacking two animations on the same `transform`,
-  since CSS animations don't compose transforms across each other.
-*/
-@keyframes cursor-click-sequence {
-  0% {
-    opacity: 0;
-    transform: translate(34px, -38px) scale(1);
-  }
-  18% {
-    opacity: 1;
-    transform: translate(34px, -38px) scale(1);
-  }
-  62% {
-    opacity: 1;
-    transform: translate(0, 0) scale(1);
-  }
-  70% {
-    transform: translate(0, 0) scale(0.78);
-  }
-  82% {
-    transform: translate(0, 0) scale(1.08);
-  }
-  100% {
-    opacity: 1;
-    transform: translate(0, 0) scale(1);
-  }
-}
-
-.animate-cursor-click {
-  animation: cursor-click-sequence 2.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes click-ring {
-  0%,
-  66% {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  76% {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-  96%,
-  100% {
-    opacity: 0;
-    transform: scale(1.9);
-  }
-}
-
-.animate-click-ring {
-  animation: click-ring 2.6s ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-slide-in,
-  .animate-toast-in,
-  .animate-tick-in,
-  .animate-drop-in,
-  .animate-pop-in,
-  .animate-cursor-click,
-  .animate-click-ring {
-    animation: none;
-  }
-}

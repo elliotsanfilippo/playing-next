@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import DashboardPreview from "./DashboardPreview";
 import { buttonVariants } from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
+import { fadeUp, staggerContainer, transition } from "@/src/lib/motion";
 
 export default function Hero() {
   const shouldReduceMotion = useReducedMotion();
@@ -13,16 +14,21 @@ export default function Hero() {
   return (
     <section className="relative z-10">
         <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 py-16 sm:px-6 sm:py-24 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-32">
-          <div className="min-w-0">
-            <div className="animate-fade-up" style={{ animationDelay: "0.1s" }}>
+          <motion.div
+            className="min-w-0"
+            variants={staggerContainer(0.1, 0.08)}
+            initial={shouldReduceMotion ? false : "hidden"}
+            animate="visible"
+          >
+            <motion.div variants={fadeUp}>
               <Badge tone="accent" dot className="text-xs font-bold uppercase tracking-[0.18em]">
                 Built for working DJs
               </Badge>
-            </div>
+            </motion.div>
 
-            <h1
-              className="animate-fade-up mt-7 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-7xl"
-              style={{ animationDelay: "0.22s" }}
+            <motion.h1
+              variants={fadeUp}
+              className="mt-7 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-7xl"
             >
               Accept paid
               <br />
@@ -31,21 +37,18 @@ export default function Hero() {
               <span className="text-accent">
                 Earn more every set.
               </span>
-            </h1>
+            </motion.h1>
 
-            <p
-              className="animate-fade-up mt-7 max-w-xl text-lg leading-8 text-zinc-400"
-              style={{ animationDelay: "0.34s" }}
+            <motion.p
+              variants={fadeUp}
+              className="mt-7 max-w-xl text-lg leading-8 text-zinc-400"
             >
               Playing Next gives DJs one place to receive paid song
               requests, manage their queue and stay in control of the
               music.
-            </p>
+            </motion.p>
 
-            <div
-              className="animate-fade-up mt-9 flex flex-col gap-3 sm:flex-row"
-              style={{ animationDelay: "0.46s" }}
-            >
+            <motion.div variants={fadeUp} className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/signup"
                 className={buttonVariants({ size: "lg" })}
@@ -60,23 +63,23 @@ export default function Hero() {
               >
                 Find your DJ
               </a>
-            </div>
+            </motion.div>
 
-            <div
-              className="animate-fade-up mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500"
-              style={{ animationDelay: "0.56s" }}
+            <motion.div
+              variants={fadeUp}
+              className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500"
             >
               <span>No credit card required</span>
               <span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" />
               <span>Set up in minutes</span>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           <motion.div
             className="min-w-0"
             initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
+            transition={{ ...transition.cinematic, delay: 0.25 }}
           >
             <DashboardPreview />
           </motion.div>

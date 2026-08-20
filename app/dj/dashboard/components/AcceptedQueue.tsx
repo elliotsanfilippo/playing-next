@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Headphones, ChevronsUp, ChevronUp, ChevronDown, Play, Mic2, Crown } from "lucide-react";
+import { Headphones, ChevronsUp, ChevronUp, ChevronDown, Play } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
+import RequestCard from "@/src/components/product/RequestCard";
 
 type Props = {
   acceptedRequests: SongRequest[];
@@ -91,46 +92,19 @@ export default function AcceptedQueue({
         ) : (
           <div>
             {acceptedRequests.map((request, index) => (
-              <div
+              <RequestCard
                 key={request.id}
-                className="group rounded-control border border-transparent bg-zinc-950/50 p-3 transition hover:border-white/10 hover:bg-zinc-950"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                  <div className="flex flex-1 items-center gap-4">
-                    <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-bold ${
-                        request.is_vip
-                          ? "bg-amber-400/15 text-amber-300"
-                          : "bg-white/5 text-zinc-400"
-                      }`}
-                    >
-                      {index + 1}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <h3 className="flex items-center gap-2 truncate text-lg font-semibold">
-                        {request.is_vip && (
-                          <Crown
-                            size={16}
-                            className="shrink-0 text-amber-400"
-                          />
-                        )}
-                        {request.song_title}
-                      </h3>
-
-                      <p className="truncate text-sm text-zinc-400">
-                        {request.artist}
-                      </p>
-
-                      {request.request_type === "song_message" &&
-                        request.message && (
-                          <p className="mt-2 flex items-center gap-1.5 truncate text-xs uppercase tracking-[0.2em] text-zinc-500">
-                            <Mic2 size={12} /> Includes shoutout
-                          </p>
-                        )}
-                    </div>
-                  </div>
-
+                title={request.song_title}
+                artist={request.artist}
+                isVip={request.is_vip}
+                hasShoutout={
+                  request.request_type === "song_message" &&
+                  Boolean(request.message)
+                }
+                position={index + 1}
+                animateLayout
+                className="border-transparent"
+                actions={
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
@@ -198,8 +172,8 @@ export default function AcceptedQueue({
                       </Button>
                     )}
                   </div>
-                </div>
-              </div>
+                }
+              />
             ))}
           </div>
         )}

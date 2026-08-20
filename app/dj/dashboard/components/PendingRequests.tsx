@@ -8,6 +8,7 @@ import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
 import Eyebrow from "@/src/components/ui/Eyebrow";
+import RequestCard from "@/src/components/product/RequestCard";
 
 type Props = {
   pendingRequests: SongRequest[];
@@ -87,46 +88,27 @@ export default function PendingRequests({
             const processing = processingId === request.id;
 
             return (
-              <div
+              <RequestCard
                 key={request.id}
-                className="rounded-card border border-white/5 bg-zinc-950/60 p-3 transition hover:border-white/10 hover:bg-zinc-950"
-              >
-                <div className="flex flex-col gap-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-lg font-bold">
-                        {request.song_title}
-                      </h3>
-
-                      <p className="mt-1 text-zinc-400">{request.artist}</p>
-                    </div>
-
-                    <div className="flex shrink-0 gap-2">
-                      {request.is_vip && (
-                        <Badge tone="warning">
-                          <Crown size={12} /> VIP
-                        </Badge>
-                      )}
-
-                      {request.stripe_payment_intent_id && (
-                        <Badge tone="accent">Paid</Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {request.request_type === "song_message" &&
-                    request.message && (
-                      <div className="rounded-control border border-white/5 bg-white/5 p-4">
-                        <Eyebrow>Shoutout</Eyebrow>
-
-                        <p className="mt-2 italic text-zinc-200">
-                          “{request.message}”
-                        </p>
-                      </div>
+                title={request.song_title}
+                artist={request.artist}
+                isVip={request.is_vip}
+                meta={
+                  <>
+                    {request.is_vip && (
+                      <Badge tone="warning">
+                        <Crown size={12} /> VIP
+                      </Badge>
                     )}
 
-                  {choosingReasonId === request.id ? (
-                    <div>
+                    {request.stripe_payment_intent_id && (
+                      <Badge tone="accent">Paid</Badge>
+                    )}
+                  </>
+                }
+                actions={
+                  choosingReasonId === request.id ? (
+                    <div className="w-full">
                       <div className="flex items-center justify-between">
                         <Eyebrow>Why? (optional)</Eyebrow>
 
@@ -164,7 +146,7 @@ export default function PendingRequests({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex gap-3">
+                    <div className="flex w-full gap-3">
                       <Button
                         variant="danger"
                         className="flex-1"
@@ -192,9 +174,20 @@ export default function PendingRequests({
                         {processing ? "Accepting..." : "Accept"}
                       </Button>
                     </div>
+                  )
+                }
+              >
+                {request.request_type === "song_message" &&
+                  request.message && (
+                    <div className="mt-4 rounded-control border border-white/5 bg-white/5 p-4">
+                      <Eyebrow>Shoutout</Eyebrow>
+
+                      <p className="mt-2 italic text-zinc-200">
+                        “{request.message}”
+                      </p>
+                    </div>
                   )}
-                </div>
-              </div>
+              </RequestCard>
             );
           })
         )}

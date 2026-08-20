@@ -1,0 +1,69 @@
+import { Crown, Mic2 } from "lucide-react";
+import { cn } from "@/src/lib/cn";
+
+type Size = "compact" | "default" | "feature";
+
+const titleClasses: Record<Size, string> = {
+  compact: "text-sm font-semibold",
+  default: "text-lg font-semibold",
+  feature: "text-4xl font-black tracking-tight sm:text-6xl",
+};
+
+const artistClasses: Record<Size, string> = {
+  compact: "text-xs text-zinc-500",
+  default: "text-sm text-zinc-400",
+  feature: "mt-3 text-lg text-zinc-400 sm:text-xl",
+};
+
+type Props = {
+  title: string;
+  artist: string;
+  size?: Size;
+  isVip?: boolean;
+  /** Shows a "includes shoutout" affordance without the message body. */
+  hasShoutout?: boolean;
+  className?: string;
+};
+
+/*
+ * A song's identity — the title/artist pair that appears in every
+ * request surface: the DJ's pending list and queue, the guest's own
+ * request list, the venue display screen, and the marketing demo.
+ *
+ * Always truncates rather than wrapping. Real track titles are long
+ * ("Don't You Worry Child - Radio Edit"), and a wrapping title
+ * silently changes a queue row's height, which breaks the layout
+ * animation when rows reorder. min-w-0 on the wrapper is what actually
+ * makes truncate work inside a flex row.
+ */
+export default function SongIdentity({
+  title,
+  artist,
+  size = "default",
+  isVip = false,
+  hasShoutout = false,
+  className,
+}: Props) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <h3 className={cn("flex items-center gap-2 truncate", titleClasses[size])}>
+        {isVip && (
+          <Crown
+            size={size === "compact" ? 12 : 16}
+            className="shrink-0 text-amber-400"
+            aria-label="VIP request"
+          />
+        )}
+        {title}
+      </h3>
+
+      <p className={cn("truncate", artistClasses[size])}>{artist}</p>
+
+      {hasShoutout && (
+        <p className="mt-2 flex items-center gap-1.5 truncate text-xs uppercase tracking-[0.2em] text-zinc-500">
+          <Mic2 size={12} className="shrink-0" /> Includes shoutout
+        </p>
+      )}
+    </div>
+  );
+}
