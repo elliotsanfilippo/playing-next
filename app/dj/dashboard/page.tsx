@@ -33,6 +33,13 @@ import LaunchComplete from "./components/LaunchComplete";
 import PostGigRecapModal from "./components/PostGigRecapModal";
 import DashboardSkeleton from "./components/DashboardSkeleton";
 
+/**
+ * How long to wait for more realtime events before refetching. Short
+ * enough to still feel live, long enough that one logical change which
+ * touches several rows costs one refresh instead of one per row.
+ */
+const REALTIME_COALESCE_MS = 120;
+
 export default function DJDashboardPage() {
   const router = useRouter();
 
@@ -725,25 +732,84 @@ export default function DJDashboardPage() {
     };
 
     checkAuth();
+  }, [router]);
+
+  /*
+   * Realtime, scoped to this DJ.
+   *
+   * The subscription used to live in the auth effect above, listening
+   * to every row in song_requests and dj_profiles with no filter — so
+   * a request for any DJ on the platform triggered a full refetch on
+   * every open dashboard. It also could not be filtered from there,
+   * because that effect runs before the profile id is known.
+   *
+   * It now waits for djProfile.id and filters server-side on it, and
+   * the channel is named per profile so a remount cannot end up with
+   * two subscriptions sharing one topic.
+   *
+   * Events are coalesced on a short trailing timer. A single reorder
+   * currently issues one UPDATE per queued row, and Postgres emits a
+   * change event for each, which previously meant one full refetch per
+   * row. 120ms is long enough to collapse a burst into one refresh and
+   * short enough that a single arriving request still feels instant.
+   * It delays the *reaction* to a change, never the change itself.
+   */
+  const djProfileId = djProfile?.id;
+
+  const realtimeHandlers = useRef({ fetchRequests, fetchDJProfile });
+
+  useEffect(() => {
+    realtimeHandlers.current = { fetchRequests, fetchDJProfile };
+  });
+
+  useEffect(() => {
+    if (!djProfileId) return;
+
+    let requestsTimer: ReturnType<typeof setTimeout> | undefined;
+    let profileTimer: ReturnType<typeof setTimeout> | undefined;
 
     const channel = supabase
-      .channel("dashboard_changes")
+      .channel(`dashboard:${djProfileId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "song_requests" },
-        () => fetchRequests()
+        {
+          event: "*",
+          schema: "public",
+          table: "song_requests",
+          filter: `dj_profile_id=eq.${djProfileId}`,
+        },
+        () => {
+          clearTimeout(requestsTimer);
+          requestsTimer = setTimeout(
+            () => realtimeHandlers.current.fetchRequests(),
+            REALTIME_COALESCE_MS
+          );
+        }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "dj_profiles" },
-        () => fetchDJProfile()
+        {
+          event: "*",
+          schema: "public",
+          table: "dj_profiles",
+          filter: `id=eq.${djProfileId}`,
+        },
+        () => {
+          clearTimeout(profileTimer);
+          profileTimer = setTimeout(
+            () => realtimeHandlers.current.fetchDJProfile(),
+            REALTIME_COALESCE_MS
+          );
+        }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(requestsTimer);
+      clearTimeout(profileTimer);
       supabase.removeChannel(channel);
     };
-  }, [router]);
+  }, [djProfileId]);
 
   useEffect(() => {
     const qrBoxResult = new URLSearchParams(window.location.search).get(

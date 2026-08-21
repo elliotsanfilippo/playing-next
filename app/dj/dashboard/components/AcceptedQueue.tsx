@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronsUp,
+  Clock,
   Headphones,
   MoreVertical,
   Play,
@@ -257,25 +258,36 @@ export default function AcceptedQueue({
           Contextual, inside the thing it is about, with no link back to
           the list the DJ is already looking at.
 
-          Deliberately neutral in both colour and wording. A long queue
-          or a track deliberately held back for later in the set are
-          both normal, so age alone does not mean anything is wrong —
-          this is a nudge about housekeeping, not a warning. An amber
-          treatment and "not yet marked as played" read as a telling-off
-          for something a DJ may be doing on purpose.
+          Amber, per the semantic scale: red is a new unresolved request
+          needing immediate attention, amber is something worth checking,
+          green is accepted or live. This is the middle one — it should
+          be noticeable without reading as an alarm.
+
+          The wording stays neutral. A long queue, or a track
+          deliberately held for later in the set, are both normal, so
+          age alone does not mean anything is wrong; the colour makes it
+          visible, the copy keeps it a nudge rather than a telling-off.
         */}
         {staleCount > 0 && (
-          <div className="mt-3 border-t border-white/5 px-1 pt-3">
-            <p className="text-xs font-semibold text-zinc-300">
-              Still in your queue
-            </p>
-            <p className="mt-1 text-xs leading-5 text-zinc-500">
+          <div className="mt-3 flex items-start gap-2.5 rounded-control border border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-3 py-2.5">
+            <Clock
+              size={14}
+              className="mt-0.5 shrink-0 text-status-pending"
+              aria-hidden
+            />
+
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-status-pending">
+                Still in your queue
+              </p>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">
               {staleCount === 1
                 ? "One request has"
                 : `${staleCount} requests have`}{" "}
-              been waiting a while. Mark tracks as played when you spin
-              them to keep your count and guest updates right.
-            </p>
+                been waiting a while. Mark tracks as played when you spin
+                them to keep your count and guest updates right.
+              </p>
+            </div>
           </div>
         )}
       </div>
