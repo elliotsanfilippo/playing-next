@@ -104,8 +104,8 @@ export default function QRCard({
 
   return (
     <Card variant="elevated" className="overflow-hidden">
-      <div className="p-5 sm:p-8">
-        <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-center lg:justify-between">
+      <div className="p-4 sm:p-8">
+        <div className="flex flex-col gap-5 sm:gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg">
             <Eyebrow tone="accent">Share</Eyebrow>
 
@@ -141,17 +141,35 @@ export default function QRCard({
                 disabled={!qrCodeUrl || saving}
               >
                 <Download size={16} />
-                {saving ? "Saving..." : "Download QR"}
+                {/*
+                 * "Download QR" wraps onto a second line in a half-width
+                 * button at 375-430px while "Copy Link" stays on one, which
+                 * made the pair look accidental. "Save" is also the more
+                 * honest verb on a phone, where this opens the share sheet
+                 * and the guest-facing action is Save Image.
+                 */}
+                <span className="whitespace-nowrap">
+                  {saving ? (
+                    "Saving..."
+                  ) : (
+                    <>
+                      <span className="sm:hidden">Save QR</span>
+                      <span className="hidden sm:inline">Download QR</span>
+                    </>
+                  )}
+                </span>
               </Button>
 
               <Button className="w-full" onClick={handleCopyLink}>
                 {copied ? (
                   <>
-                    <Check size={16} /> Copied
+                    <Check size={16} />{" "}
+                    <span className="whitespace-nowrap">Copied</span>
                   </>
                 ) : (
                   <>
-                    <Copy size={16} /> Copy Link
+                    <Copy size={16} />{" "}
+                    <span className="whitespace-nowrap">Copy Link</span>
                   </>
                 )}
               </Button>
@@ -198,12 +216,20 @@ export default function QRCard({
           </div>
 
           <div className="flex justify-center">
+            {/*
+              Smaller on a phone. At w-56 plus padding the code alone
+              was 256px, and the whole card 648px — the largest section
+              on the mobile dashboard, for secondary content sitting
+              below the live workspace. A 160px code is still
+              comfortably scannable from a table, and a DJ who needs it
+              larger has Print and Download right above.
+            */}
             {qrCodeUrl && (
-              <div className="rounded-card bg-white p-4 shadow-2xl sm:p-5">
+              <div className="rounded-card bg-white p-3 shadow-2xl sm:p-5">
                 <img
                   src={qrCodeUrl}
                   alt="QR Code"
-                  className="w-56 max-w-full sm:w-72"
+                  className="w-40 max-w-full sm:w-72"
                 />
               </div>
             )}

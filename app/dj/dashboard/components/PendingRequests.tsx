@@ -361,7 +361,7 @@ export default function PendingRequests({
                     {message && (
                       <p
                         title={message}
-                        className="mt-2.5 line-clamp-3 rounded-control border border-white/5 bg-white/[0.04] px-3 py-2 text-[13px] italic leading-5 text-zinc-200"
+                        className="mt-2 line-clamp-3 rounded-control border border-white/5 bg-white/[0.04] px-3 py-2 text-[13px] italic leading-5 text-zinc-200"
                       >
                         &ldquo;{message}&rdquo;
                       </p>
@@ -369,7 +369,7 @@ export default function PendingRequests({
 
                     {request.dj_earnings !== null &&
                       request.dj_earnings > 0 && (
-                        <p className="mt-2.5 flex items-baseline gap-1.5 text-xs text-zinc-500">
+                        <p className="mt-2 flex items-baseline gap-1.5 text-xs text-zinc-500">
                           You earn
                           <MoneyValue
                             pence={request.dj_earnings}

@@ -101,7 +101,7 @@ export default function PlayingNextCard({
       aria-label="Playing next"
       className="overflow-hidden rounded-card border border-accent/25 bg-accent/[0.06]"
     >
-      <div className="p-4 sm:p-5">
+      <div className="p-3.5 sm:p-5">
         <div className="flex items-center gap-2">
           <span
             aria-hidden
@@ -133,7 +133,13 @@ export default function PlayingNextCard({
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
               Shoutout
             </p>
-            <p className="mt-1.5 text-sm leading-6 text-zinc-100">
+            {/* Clamped, like the pending card. Unbounded, one chatty
+                guest turned this into a 375px hero card that took half
+                a phone screen for a section meant to be glanceable. */}
+            <p
+              title={message}
+              className="mt-1.5 line-clamp-3 text-sm leading-6 text-zinc-100"
+            >
               &ldquo;{message}&rdquo;
             </p>
           </div>

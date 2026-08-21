@@ -74,7 +74,7 @@ export default function TonightStrip({
   return (
     <section
       aria-label="Tonight so far"
-      className="rounded-card border border-white/10 bg-surface-raised/70 p-4 sm:p-5"
+      className="rounded-card border border-white/10 bg-surface-raised/70 px-4 py-3.5 sm:p-5"
     >
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
@@ -115,7 +115,16 @@ export default function TonightStrip({
             <a
               key={count.label}
               href={count.href}
-              className="group flex items-baseline gap-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              /*
+               * The visible text is 24px tall, which is right for a
+               * secondary count but well under a usable touch target.
+               * Vertical padding plus a matching negative margin gives
+               * a 44px hit area while the row's layout height is
+               * unchanged — the alternative, making them physically
+               * taller, would have pushed this strip from 127px to
+               * ~147px to fix a problem the DJ cannot see.
+               */
+              className="group -my-2.5 flex items-baseline gap-1.5 rounded py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
             >
               <span className="text-base font-bold tabular-nums text-white group-hover:text-accent">
                 {count.value}

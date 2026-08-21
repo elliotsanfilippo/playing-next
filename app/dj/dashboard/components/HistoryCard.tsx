@@ -84,25 +84,39 @@ export default function HistoryCard({
           ) : (
             <div className="space-y-2">
               {playedRequests.map((request) => (
+                /*
+                 * One row at every width. This was flex-col until lg, so on
+                 * a phone the Badge became a stretched full-width block on
+                 * its own line, which read as a bar rather than a status
+                 * chip, and each played track cost roughly twice the height
+                 * it needed in what is secondary content.
+                 */
                 <div
                   key={request.id}
-                  className="flex flex-col gap-4 rounded-control border border-white/5 bg-zinc-950/50 p-3 transition hover:border-white/10 hover:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between"
+                  className="flex items-center justify-between gap-3 rounded-control border border-white/5 bg-zinc-950/50 p-3 transition hover:border-white/10 hover:bg-zinc-950 sm:gap-4"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-strong text-black">
+                  <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-strong text-black sm:h-12 sm:w-12">
                       <Check size={20} strokeWidth={3} />
                     </div>
 
-                    <div>
-                      <h3 className="text-lg font-semibold">
+                    <div className="min-w-0">
+                      <h3
+                        className="truncate text-base font-semibold sm:text-lg"
+                        title={request.song_title}
+                      >
                         {request.song_title}
                       </h3>
 
-                      <p className="text-zinc-400">{request.artist}</p>
+                      <p className="truncate text-sm text-zinc-400 sm:text-base">
+                        {request.artist}
+                      </p>
                     </div>
                   </div>
 
-                  <Badge tone="accent">Played</Badge>
+                  <Badge tone="accent" className="shrink-0">
+                    Played
+                  </Badge>
                 </div>
               ))}
             </div>

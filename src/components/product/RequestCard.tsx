@@ -155,7 +155,7 @@ export default function RequestCard({
 
       {children}
 
-      {actions && <div className="mt-3 flex gap-2">{actions}</div>}
+      {actions && <div className="mt-2.5 flex gap-2 sm:mt-3">{actions}</div>}
     </motion.div>
   );
 }

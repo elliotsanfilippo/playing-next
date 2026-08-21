@@ -157,7 +157,15 @@ export default function DashboardHeader({
            border, and pausing requests is a consequential one-handed
            action that should clear the 44px touch-target minimum
            comfortably rather than by 0px. */
-        "inline-flex h-12 shrink-0 items-center overflow-hidden rounded-full border sm:h-11",
+        /*
+         * h-12 up to lg, not sm. The inner Pause button is h-full inside
+         * a bordered group, so it loses 2px to the border: at h-11 that
+         * left it 42px, which is under the target minimum on a tablet —
+         * still a touch device. Desktop drops to h-11 because a mouse
+         * does not need the same margin and it keeps the pill level with
+         * the icon buttons beside it.
+         */
+        "inline-flex h-12 shrink-0 items-center overflow-hidden rounded-full border lg:h-11",
         isTakingRequests
           ? "border-accent/25 bg-accent/10"
           : "border-status-declined/25 bg-status-declined/10"
@@ -177,8 +185,22 @@ export default function DashboardHeader({
             isTakingRequests ? "bg-accent" : "bg-status-declined"
           )}
         />
+        {/*
+         * "Requests paused" made the status group 251px wide, and with the
+         * icon buttons beside it the sticky bar overflowed the viewport by
+         * 12px at 375px. Nothing in the bar may shrink, so the label has to
+         * give. "Paused" next to a red dot and a Resume button is not
+         * ambiguous, and the full wording returns from sm upward.
+         */}
         <span className="whitespace-nowrap">
-          {isTakingRequests ? "Taking requests" : "Requests paused"}
+          {isTakingRequests ? (
+            "Taking requests"
+          ) : (
+            <>
+              <span className="sm:hidden">Paused</span>
+              <span className="hidden sm:inline">Requests paused</span>
+            </>
+          )}
         </span>
       </span>
 
@@ -205,7 +227,7 @@ export default function DashboardHeader({
   );
 
   const iconButton =
-    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 sm:h-11 sm:w-11 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60";
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 lg:h-11 lg:w-11 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60";
 
   return (
     /*
