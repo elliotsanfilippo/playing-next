@@ -1,6 +1,16 @@
 -- =====================================================================
 -- reorder_dj_queue: invariant + security suite
 --
+-- STATUS: passed 28/28 on 2026-08-21 against the dj-elliot-test scratch
+-- profile. Kept as the record of how the RPC's ordering and security
+-- guarantees were verified, and as the suite to re-run if the function
+-- or the queue rules ever change.
+--
+-- A companion measurement script existed briefly and was deleted: it
+-- never ran successfully in the SQL editor and Task B was closed on the
+-- functional evidence instead. Performance is covered by the before
+-- figures in the Perf B commit message.
+--
 -- Run AFTER applying 20260821_reorder_dj_queue.sql.
 -- Uses the dj-elliot-test scratch profile, creates its own rows, and
 -- deletes them at the end. Touches no real DJ's data.
