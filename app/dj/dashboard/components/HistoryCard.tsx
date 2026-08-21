@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Music2, Check } from "lucide-react";
+import {Check} from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
@@ -68,15 +68,16 @@ export default function HistoryCard({
       {showHistory && (
         <div className="max-h-80 space-y-2 overflow-y-auto p-4">
           {playedRequests.length === 0 ? (
-            <div className="rounded-card border border-dashed border-white/10 p-10 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-zinc-400">
-                <Music2 size={24} />
-              </div>
+            /* Compact, matching Needs You and Queue. A 14x14 icon in a
+               dashed box with p-10 is a marketing empty state, not one
+               for a live tool. */
+            <div className="px-6 py-9 text-center">
+              <p className="text-sm font-semibold text-zinc-300">
+                Nothing played yet
+              </p>
 
-              <h3 className="text-lg font-semibold">Nothing here yet</h3>
-
-              <p className="mt-2 text-sm text-zinc-500">
-                Songs marked as played will appear here.
+              <p className="mt-1 text-[13px] text-zinc-600">
+                Tracks you mark as played appear here.
               </p>
             </div>
           ) : (

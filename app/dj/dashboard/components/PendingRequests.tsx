@@ -7,7 +7,7 @@ import {
   useReducedMotion,
   type Variants,
 } from "motion/react";
-import { Check, Crown, Music2 } from "lucide-react";
+import { Check, Crown, Inbox, ListChecks, Music2, PauseCircle } from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
 import { DECLINE_REASONS } from "@/src/lib/declineReasons";
 import { SPRING, transition } from "@/src/lib/motion";
@@ -24,6 +24,21 @@ type Props = {
     request: SongRequest,
     declineReason?: string | null
   ) => Promise<void>;
+  /** Whether guests can submit right now. */
+  isTakingRequests: boolean;
+  /** True when auto-close ended the session rather than the DJ pausing. */
+  autoClosed: boolean;
+  /**
+   * The two caps are different things and the dashboard has never said
+   * so. max_pending_requests caps unanswered requests and is what turns
+   * guests away; max_queue_requests caps the accepted queue and is what
+   * stops the DJ accepting. A full accepted queue does not close the
+   * door to guests, and a full pending list does not stop the DJ
+   * accepting — so they get separate messages.
+   */
+  pendingCap: number;
+  queueCount: number;
+  queueCap: number;
 };
 
 type Action = { id: string; kind: "accept" | "decline" };
@@ -63,6 +78,11 @@ export default function PendingRequests({
   pendingRequests,
   acceptRequest,
   declineRequest,
+  isTakingRequests,
+  autoClosed,
+  pendingCap,
+  queueCount,
+  queueCap,
 }: Props) {
   const shouldReduceMotion = useReducedMotion();
 
@@ -141,6 +161,66 @@ export default function PendingRequests({
         )}
       </div>
 
+      {/*
+        Contextual state strip. One line, above the list, only when
+        something is actually true — the DJ should not be able to forget
+        that guests cannot submit, but a paused set is a normal thing to
+        do and does not warrant an alarm. There is no Resume here: the
+        header already owns that action and duplicating it would make it
+        ambiguous which one is authoritative.
+      */}
+      {!isTakingRequests && (
+        <div className="flex items-start gap-2.5 border-b border-status-declined/20 bg-status-declined/[0.07] px-4 py-2.5 sm:px-5">
+          <PauseCircle
+            size={14}
+            className="mt-0.5 shrink-0 text-status-declined"
+            aria-hidden
+          />
+          <p className="text-xs leading-5 text-zinc-300">
+            <span className="font-semibold text-status-declined">
+              Requests are paused.
+            </span>{" "}
+            {autoClosed
+              ? "Your scheduled close time passed, so guests can't send new requests. Resume in the header to reopen."
+              : "Guests can't send new requests until you resume."}
+          </p>
+        </div>
+      )}
+
+      {isTakingRequests && pendingRequests.length >= pendingCap && (
+        <div className="flex items-start gap-2.5 border-b border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-4 py-2.5 sm:px-5">
+          <Inbox
+            size={14}
+            className="mt-0.5 shrink-0 text-status-pending"
+            aria-hidden
+          />
+          <p className="text-xs leading-5 text-zinc-300">
+            <span className="font-semibold text-status-pending">
+              Guests can&apos;t send more right now.
+            </span>{" "}
+            You have {pendingCap} requests waiting, which is your limit.
+            Accept or decline some to reopen.
+          </p>
+        </div>
+      )}
+
+      {isTakingRequests && queueCount >= queueCap && (
+        <div className="flex items-start gap-2.5 border-b border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-4 py-2.5 sm:px-5">
+          <ListChecks
+            size={14}
+            className="mt-0.5 shrink-0 text-status-pending"
+            aria-hidden
+          />
+          <p className="text-xs leading-5 text-zinc-300">
+            <span className="font-semibold text-status-pending">
+              Your queue is full.
+            </span>{" "}
+            Accepting is blocked until you mark something as played.
+            Guests can still send requests.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-1 flex-col space-y-2 p-3 sm:p-4">
         {pendingRequests.length === 0 ? (
           /*
@@ -162,11 +242,13 @@ export default function PendingRequests({
             </div>
 
             <p className="text-sm font-semibold text-zinc-300">
-              Nothing waiting
+              {isTakingRequests ? "You're caught up" : "Nothing waiting"}
             </p>
 
             <p className="mt-1 text-[13px] text-zinc-600">
-              New requests land here the moment they arrive.
+              {isTakingRequests
+                ? "Nothing needs a decision right now."
+                : "Requests are paused, so nothing new will arrive."}
             </p>
           </div>
         ) : (

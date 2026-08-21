@@ -7,6 +7,9 @@ import Button from "@/src/components/ui/Button";
 type Props = {
   currentPlayingNext: SongRequest | undefined;
   updateRequestStatus: (id: string, status: string) => Promise<void>;
+  /** Drives the empty copy: telling a DJ to pick from an empty queue
+   *  is worse than saying nothing. */
+  queueCount: number;
 };
 
 /*
@@ -27,10 +30,36 @@ type Props = {
 export default function PlayingNextCard({
   currentPlayingNext,
   updateRequestStatus,
+  queueCount,
 }: Props) {
   const [marking, setMarking] = useState(false);
 
-  if (!currentPlayingNext) return null;
+  /*
+   * This used to `return null`, so there was no Playing Next surface at
+   * all until something was in it — the right column simply began with
+   * the Queue and the slot the DJ is meant to fill did not exist. The
+   * empty state is deliberately quiet: a dashed outline and a neutral
+   * fill rather than the accent treatment, because an empty slot is not
+   * a live state and should not read like one.
+   */
+  if (!currentPlayingNext) {
+    return (
+      <section
+        aria-label="Playing next"
+        className="rounded-card border border-dashed border-white/10 px-4 py-5 sm:px-5"
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
+          Playing next
+        </p>
+
+        <p className="mt-2 text-sm text-zinc-400">
+          {queueCount > 0
+            ? "Nothing cued yet. Pick one from the queue when you're ready."
+            : "Nothing cued yet. Accepted requests can be cued from here."}
+        </p>
+      </section>
+    );
+  }
 
   const handleMarkPlayed = async () => {
     if (marking) return;

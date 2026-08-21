@@ -7,6 +7,7 @@ import type {
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
+import { WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
 import {
@@ -40,6 +41,13 @@ import DashboardSkeleton from "./components/DashboardSkeleton";
  */
 const REALTIME_COALESCE_MS = 120;
 
+/**
+ * How long realtime has to stay down before the DJ is told. Short drops
+ * reconnect on their own and are not worth a message; a sustained one
+ * means the queue on screen may be stale, which they do need to know.
+ */
+const REALTIME_OFFLINE_GRACE_MS = 8_000;
+
 export default function DJDashboardPage() {
   const router = useRouter();
 
@@ -53,6 +61,7 @@ export default function DJDashboardPage() {
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [realtimeDown, setRealtimeDown] = useState(false);
 
   /*
    * Tracks which pending request IDs we've already notified for. null
@@ -727,6 +736,7 @@ export default function DJDashboardPage() {
 
     let requestsTimer: ReturnType<typeof setTimeout> | undefined;
     let profileTimer: ReturnType<typeof setTimeout> | undefined;
+    let offlineTimer: ReturnType<typeof setTimeout> | undefined;
 
     const channel = supabase
       .channel(`dashboard:${djProfileId}`)
@@ -762,11 +772,38 @@ export default function DJDashboardPage() {
           );
         }
       )
-      .subscribe();
+      /*
+       * The subscription had no status callback at all, so a dropped
+       * realtime connection was completely silent: the dashboard simply
+       * stopped updating and looked like a quiet night. That is the one
+       * failure worth a persistent state, because the DJ cannot tell it
+       * apart from nothing happening.
+       *
+       * Deliberately not a toast per blip. Supabase reconnects on its
+       * own, and CHANNEL_ERROR fires on ordinary transient drops, so it
+       * is only surfaced after it has stayed down — see the delay
+       * below. Recovering clears it silently.
+       */
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          clearTimeout(offlineTimer);
+          setRealtimeDown(false);
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          clearTimeout(offlineTimer);
+          offlineTimer = setTimeout(
+            () => setRealtimeDown(true),
+            REALTIME_OFFLINE_GRACE_MS
+          );
+        }
+      });
 
     return () => {
       clearTimeout(requestsTimer);
       clearTimeout(profileTimer);
+      clearTimeout(offlineTimer);
       supabase.removeChannel(channel);
     };
   }, [djProfileId]);
@@ -1038,6 +1075,26 @@ export default function DJDashboardPage() {
           onResolved={fetchChargebacks}
         />
 
+        {realtimeDown && (
+          <div
+            role="status"
+            className="flex items-start gap-2.5 rounded-card border border-status-pending-surface/25 bg-status-pending-surface/[0.07] px-4 py-3"
+          >
+            <WifiOff
+              size={15}
+              className="mt-0.5 shrink-0 text-status-pending"
+              aria-hidden
+            />
+            <p className="text-xs leading-5 text-zinc-300">
+              <span className="font-semibold text-status-pending">
+                Live updates are offline.
+              </span>{" "}
+              New requests may not appear on their own. Reconnecting
+              automatically, or refresh to be sure.
+            </p>
+          </div>
+        )}
+
         <TonightStrip
           pendingCount={pendingRequests.length}
           queueCount={acceptedRequests.length}
@@ -1064,6 +1121,11 @@ export default function DJDashboardPage() {
               pendingRequests={pendingRequests}
               acceptRequest={acceptRequest}
               declineRequest={declineRequest}
+              isTakingRequests={isTakingRequests}
+              autoClosed={autoClosed}
+              pendingCap={djProfile?.max_pending_requests ?? 8}
+              queueCount={acceptedRequests.length}
+              queueCap={djProfile?.max_queue_requests ?? 8}
             />
           </div>
 
@@ -1074,6 +1136,7 @@ export default function DJDashboardPage() {
             <PlayingNextCard
               currentPlayingNext={currentPlayingNext}
               updateRequestStatus={updateRequestStatus}
+              queueCount={acceptedRequests.length}
             />
 
             <div id="accepted-queue" className="flex min-h-0 flex-1 flex-col scroll-mt-24">
@@ -1082,6 +1145,7 @@ export default function DJDashboardPage() {
                 currentPlayingNext={currentPlayingNext}
                 moveAcceptedRequest={moveAcceptedRequest}
                 updateRequestStatus={updateRequestStatus}
+                pendingCount={pendingRequests.length}
               />
             </div>
           </div>

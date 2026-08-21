@@ -29,8 +29,11 @@ export default function DashboardSkeleton() {
         <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2">
           <Skeleton className="h-64 rounded-card" />
 
+          {/* Playing Next is ~80px empty and ~180px populated, so the
+              placeholder sits between the two rather than committing to
+              either and guaranteeing a shift one way. */}
           <div className="space-y-4 sm:space-y-6">
-            <Skeleton className="h-44 rounded-card" />
+            <Skeleton className="h-32 rounded-card" />
             <Skeleton className="h-64 rounded-card" />
           </div>
         </div>

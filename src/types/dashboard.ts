@@ -28,6 +28,11 @@ export type DJProfile = {
   plan?: string;
   stripe_subscription_status?: string | null;
   auto_close_at?: string | null;
+  /** Caps unanswered requests. This is the one that turns guests away. */
+  max_pending_requests?: number | null;
+  /** Caps the accepted queue. This is the one that blocks the DJ from
+   *  accepting. Both are selected already (the query is select("*")). */
+  max_queue_requests?: number | null;
   session_started_at?: string | null;
   onboarding_complete: boolean;
   launch_complete_seen: boolean;

@@ -31,6 +31,9 @@ type Props = {
     requestId: string,
     status: string
   ) => Promise<void>;
+  /** So the empty copy doesn't imply nothing has come in when requests
+   *  are in fact sitting in Needs You. */
+  pendingCount: number;
 };
 
 /**
@@ -44,6 +47,7 @@ export default function AcceptedQueue({
   currentPlayingNext,
   moveAcceptedRequest,
   updateRequestStatus,
+  pendingCount,
 }: Props) {
   const shouldReduceMotion = useReducedMotion();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -160,7 +164,9 @@ export default function AcceptedQueue({
             </p>
 
             <p className="mt-1 text-[13px] text-zinc-600">
-              Requests you accept line up here.
+              {pendingCount > 0
+                ? `Accept from Needs You and requests line up here. ${pendingCount} waiting.`
+                : "Requests you accept line up here."}
             </p>
           </div>
         ) : (
