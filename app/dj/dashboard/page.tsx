@@ -385,34 +385,31 @@ export default function DJDashboardPage() {
   };
 
   /*
-   * VIP-accepted requests always sort ahead of non-VIP ones (FIFO
-   * within each tier, by acceptance time) — a hard guarantee that a
-   * guest who paid for VIP priority actually gets it, not something
-   * the DJ's manual reorder controls can undo.
+   * Resequencing after an accept, decline or status change.
+   *
+   * This was a SELECT plus one sequentially awaited UPDATE per queued
+   * row — 36 round trips and 1561ms on a 35-row queue, on a path that
+   * runs every time a request is accepted or declined. It is now a
+   * single transactional call to reorder_dj_queue().
+   *
+   * The VIP-first rule moved into the function with it. Keeping it in
+   * SQL is stricter than keeping it here: a client bug could previously
+   * have written a VIP-violating order and nothing at the database
+   * level would have refused it.
+   *
+   * The function also ended a real bug. The old query ordered purely by
+   * accepted_at, so a DJ's manual Top/Up/Down was silently discarded the
+   * next time anything was accepted. queue_position is now the ordering
+   * source of truth, and a newly accepted request joins the end of its
+   * own VIP tier instead of resetting the queue.
    */
   const reorderQueue = async () => {
     if (!djProfile) return;
 
-    const { data, error } = await supabase
-      .from("song_requests")
-      .select("id")
-      .eq("dj_profile_id", djProfile.id)
-      .eq("request_status", "accepted")
-      .order("is_vip", { ascending: false })
-      .order("accepted_at", { ascending: true });
+    const { error } = await supabase.rpc("reorder_dj_queue");
 
-    if (error || !data) {
+    if (error) {
       console.log("Queue reorder error:", error);
-      return;
-    }
-
-    for (let index = 0; index < data.length; index++) {
-      await supabase
-        .from("song_requests")
-        .update({
-          queue_position: index + 1,
-        })
-        .eq("id", data[index].id);
     }
   };
 
@@ -562,66 +559,29 @@ export default function DJDashboardPage() {
 
   /*
    * Reordering is scoped to the request's own VIP tier — a non-VIP
-   * request can be dragged around other non-VIP requests, but never
-   * above a VIP one, and vice versa. VIP priority is a promise made to
-   * the guest who paid for it, not a suggestion.
+   * request can be moved around other non-VIP requests, but never above
+   * a VIP one, and vice versa. VIP priority is a promise made to the
+   * guest who paid for it, not a suggestion.
+   *
+   * That scoping, and the ordering maths that went with it, now live
+   * inside reorder_dj_queue() rather than being computed here and
+   * written back as N UPDATEs. The database decides the order and
+   * applies it in one transaction, so two moves arriving together
+   * cannot interleave into duplicate positions.
    */
   const moveAcceptedRequest = async (
     requestId: string,
     direction: "up" | "down" | "top"
   ) => {
-    const sortedAccepted = [...acceptedRequests].sort(
-      (a, b) => (a.queue_position || 999) - (b.queue_position || 999)
-    );
+    const { error } = await supabase.rpc("reorder_dj_queue", {
+      p_request_id: requestId,
+      p_direction: direction,
+    });
 
-    const selectedRequest = sortedAccepted.find(
-      (request) => request.id === requestId
-    );
-
-    if (!selectedRequest) return;
-
-    const tier = sortedAccepted.filter(
-      (request) => request.is_vip === selectedRequest.is_vip
-    );
-    const otherTier = sortedAccepted.filter(
-      (request) => request.is_vip !== selectedRequest.is_vip
-    );
-
-    const currentIndex = tier.findIndex(
-      (request) => request.id === requestId
-    );
-
-    const newTier = [...tier];
-    const [moved] = newTier.splice(currentIndex, 1);
-
-    if (direction === "top") {
-      newTier.unshift(moved);
+    if (error) {
+      toast.error(error.message);
+      return;
     }
-
-    if (direction === "up") {
-      const targetIndex = Math.max(currentIndex - 1, 0);
-      newTier.splice(targetIndex, 0, moved);
-    }
-
-    if (direction === "down") {
-      const targetIndex = Math.min(currentIndex + 1, newTier.length);
-      newTier.splice(targetIndex, 0, moved);
-    }
-
-    const newOrder = selectedRequest.is_vip
-      ? [...newTier, ...otherTier]
-      : [...otherTier, ...newTier];
-
-    await Promise.all(
-      newOrder.map((request, index) =>
-        supabase
-          .from("song_requests")
-          .update({
-            queue_position: index + 1,
-          })
-          .eq("id", request.id)
-      )
-    );
 
     await fetchRequests();
   };
