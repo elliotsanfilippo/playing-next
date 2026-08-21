@@ -52,10 +52,27 @@ export default function PlayingNextCard({
           Playing next
         </p>
 
-        <p className="mt-2 text-sm text-zinc-400">
+        {/*
+          A state line then an explanation, matching the Needs You and
+          Queue empty states. The explanation says what the slot is for
+          rather than restating that it is empty, because a DJ who has
+          never used it has no way to tell that this is where their
+          chosen track appears.
+
+          The two variants point at whichever step is actually next.
+          Telling someone to choose from an empty queue is advice they
+          cannot act on. The wording also stays distinct from the Queue
+          card's "requests you accept line up here", so the two cards
+          explain different jobs rather than echoing each other.
+        */}
+        <p className="mt-2 text-sm font-semibold text-zinc-300">
+          Nothing playing next yet
+        </p>
+
+        <p className="mt-1 text-[13px] leading-5 text-zinc-500">
           {queueCount > 0
-            ? "Nothing cued yet. Pick one from the queue when you're ready."
-            : "Nothing cued yet. Accepted requests can be cued from here."}
+            ? "Choose one from your queue and it'll be ready here when you need it."
+            : "Accept a request first, then choose which one plays next."}
         </p>
       </section>
     );
