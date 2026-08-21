@@ -53,7 +53,16 @@ export default function QRCard({
               </p>
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3">
+            {/*
+              The three sharing actions are one group, not two buttons
+              with a stray third underneath. They share a container, a
+              gap and a full-bleed width, so Download and Copy read as
+              the pair they are and Print reads as the deliberate
+              secondary step below them rather than as an odd-sized
+              button that happened to land there.
+            */}
+            <div className="mt-4 space-y-2.5">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
               <a
                 href={qrCodeUrl}
                 download="playing-next-qr-code.png"
@@ -79,15 +88,6 @@ export default function QRCard({
             </div>
 
             {/*
-              Was an inline text link. At phone widths the label is
-              wider than the column, so it wrapped onto two lines while
-              the icon stayed vertically centred against the block —
-              which read as cramped rather than as a considered action.
-              It is a real destination, so it now gets a full-width row
-              with the label on one line and its own target height, and
-              it drops to an inline-width control once there is room.
-            */}
-            {/*
               Was an inline text link reading "Get a printable card,
               poster or wallpaper". At phone widths that label is wider
               than the column, so it wrapped mid-phrase while the icon
@@ -103,7 +103,13 @@ export default function QRCard({
             <button
               type="button"
               onClick={() => setShowFormats(true)}
-              className="mt-3 flex min-h-16 w-full items-center gap-3 rounded-control border border-white/10 bg-white/5 px-4 text-left transition hover:border-accent/30 hover:bg-accent/10 sm:w-auto"
+              /*
+                Full width at every breakpoint. On desktop it used to
+                shrink to its content while the two buttons above it
+                spanned the column, which is what made it look like a
+                leftover rather than part of the set.
+              */
+              className="flex min-h-14 w-full items-center gap-3 rounded-control border border-white/10 bg-white/5 px-4 text-left transition hover:border-accent/30 hover:bg-accent/10"
             >
               <Printer size={18} className="shrink-0 text-accent" />
 
@@ -118,6 +124,7 @@ export default function QRCard({
 
               <ChevronRight size={16} className="shrink-0 text-zinc-500" />
             </button>
+            </div>
           </div>
 
           <div className="flex justify-center">

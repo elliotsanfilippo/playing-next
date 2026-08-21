@@ -122,7 +122,9 @@ export default function PendingRequests({
   };
 
   return (
-    <Card>
+    /* lg:h-full + flex column so the card fills an equalised grid row on
+       desktop and sizes to its content below lg. */
+    <Card className="flex flex-col lg:h-full">
       <div className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3.5 sm:px-5">
         <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-zinc-300">
           Needs you
@@ -139,12 +141,22 @@ export default function PendingRequests({
         )}
       </div>
 
-      <div className="space-y-2 p-3 sm:p-4">
+      <div className="flex flex-1 flex-col space-y-2 p-3 sm:p-4">
         {pendingRequests.length === 0 ? (
-          /* No dashed box. An empty Needs You sat as a large outlined
-             rectangle next to a populated queue, which drew more
-             attention than the requests did. */
-          <div className="px-6 py-10 text-center">
+          /*
+            No dashed box: an empty Needs You sat as a large outlined
+            rectangle next to a populated queue, drawing more attention
+            than the requests did.
+
+            flex-1 + centring is what stops the equalised desktop column
+            reading as a giant blank panel. The card is as tall as the
+            queue beside it, but the empty state sits optically centred
+            in that space rather than pinned to the top of it, so the
+            height reads as composition rather than as a gap. The copy
+            stays two short lines for the same reason — filling the
+            space with more words would be worse, not better.
+          */
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
             <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-zinc-600">
               <Music2 size={18} />
             </div>

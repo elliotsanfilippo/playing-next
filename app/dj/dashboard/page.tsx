@@ -1020,15 +1020,19 @@ export default function DJDashboardPage() {
           tipsToday={tipsToday}
         />
 
-        {/* items-start, so neither column is stretched to match the
-            other: pending and the queue grow with their own content. */}
-        <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2">
+        {/*
+          items-start below lg so the stacked mobile cards size to their
+          own content, lg:items-stretch above it so the two halves of
+          the live workspace share a top and bottom edge. Neither side
+          clips or scrolls to achieve that: the shorter card grows and
+          distributes the space internally.
+        */}
+        <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2 lg:items-stretch">
           {/* min-w-0: a grid item defaults to min-width:auto, which
               stops it shrinking below its content's minimum. With
               truncating song titles and a two-button action row inside,
               that floor sat above the column width and pushed 20px of
-              horizontal overflow onto the page at 375px. The right
-              column already had this. */}
+              horizontal overflow onto the page at 375px. */}
           <div id="pending-requests" className="min-w-0 scroll-mt-24">
             <PendingRequests
               pendingRequests={pendingRequests}
@@ -1037,13 +1041,16 @@ export default function DJDashboardPage() {
             />
           </div>
 
-          <div className="min-w-0 space-y-4 sm:space-y-6">
+          {/* flex column rather than space-y so the queue can take the
+              remaining height once Playing Next has taken what it
+              needs. */}
+          <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
             <PlayingNextCard
               currentPlayingNext={currentPlayingNext}
               updateRequestStatus={updateRequestStatus}
             />
 
-            <div id="accepted-queue" className="scroll-mt-24">
+            <div id="accepted-queue" className="flex min-h-0 flex-1 flex-col scroll-mt-24">
               <AcceptedQueue
                 acceptedRequests={acceptedRequests}
                 currentPlayingNext={currentPlayingNext}

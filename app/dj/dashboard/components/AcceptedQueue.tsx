@@ -134,7 +134,9 @@ export default function AcceptedQueue({
   const sheetRequest = acceptedRequests.find((r) => r.id === sheetId);
 
   return (
-    <Card>
+    /* lg:h-full + flex column so the card can fill an equalised grid
+       row on desktop. Below lg it sizes to its own content. */
+    <Card className="flex flex-col lg:h-full">
       <div className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3.5 sm:px-5">
         <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-zinc-300">
           Queue
@@ -145,10 +147,10 @@ export default function AcceptedQueue({
         </span>
       </div>
 
-      <div className="p-3 sm:p-4">
+      <div className="flex flex-1 flex-col p-3 sm:p-4">
         {acceptedRequests.length === 0 ? (
-          <div className="px-6 py-10 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-zinc-600">
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-zinc-600">
               <Headphones size={18} />
             </div>
 
@@ -237,7 +239,9 @@ export default function AcceptedQueue({
                         disabled={Boolean(busyId)}
                         aria-label={`Reorder ${request.song_title}`}
                         title="Reorder"
-                        className="-mr-1.5 flex h-11 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40 lg:h-9"
+                        /* 44x44 at every width. The glyph stays small;
+                           only the target is comfortable. */
+                        className="-mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
                       >
                         <MoreVertical size={17} />
                       </button>
@@ -249,16 +253,30 @@ export default function AcceptedQueue({
           </div>
         )}
 
-        {/* Contextual, inside the thing it is about, with no link back to
-            the list the DJ is already looking at. */}
+        {/*
+          Contextual, inside the thing it is about, with no link back to
+          the list the DJ is already looking at.
+
+          Deliberately neutral in both colour and wording. A long queue
+          or a track deliberately held back for later in the set are
+          both normal, so age alone does not mean anything is wrong —
+          this is a nudge about housekeeping, not a warning. An amber
+          treatment and "not yet marked as played" read as a telling-off
+          for something a DJ may be doing on purpose.
+        */}
         {staleCount > 0 && (
-          <p className="mt-3 border-t border-white/5 px-1 pt-3 text-xs leading-5 text-zinc-500">
-            <span className="font-semibold text-status-pending">
-              {staleCount} accepted over an hour ago
-            </span>{" "}
-            and not yet marked as played. Marking tracks as you spin them
-            keeps your played count and guest updates accurate.
-          </p>
+          <div className="mt-3 border-t border-white/5 px-1 pt-3">
+            <p className="text-xs font-semibold text-zinc-300">
+              Still in your queue
+            </p>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              {staleCount === 1
+                ? "One request has"
+                : `${staleCount} requests have`}{" "}
+              been waiting a while. Mark tracks as played when you spin
+              them to keep your count and guest updates right.
+            </p>
+          </div>
         )}
       </div>
 
