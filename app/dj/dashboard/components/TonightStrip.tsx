@@ -40,7 +40,7 @@ export default function TonightStrip({
   return (
     <section
       aria-label="Tonight so far"
-      className="mb-5 rounded-card border border-white/10 bg-surface-raised/70 p-4 sm:mb-6 sm:p-5"
+      className="rounded-card border border-white/10 bg-surface-raised/70 p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">

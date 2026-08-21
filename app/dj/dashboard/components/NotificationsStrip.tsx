@@ -32,7 +32,7 @@ export default function NotificationsStrip({
   acceptedNotPlayedCount,
 }: Props) {
   return (
-    <Card variant="elevated" className="mb-8 overflow-hidden">
+    <Card variant="elevated" className="overflow-hidden">
       <EventsCard events={events} isPro={eventsIsPro} onChanged={onEventsChanged} />
 
       {acceptedNotPlayedCount > 0 && (

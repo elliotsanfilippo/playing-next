@@ -65,7 +65,7 @@ export default function ChargebackBanner({ disputes, onResolved }: Props) {
   };
 
   return (
-    <Card variant="elevated" className="mb-8 overflow-hidden border-red-500/20">
+    <Card variant="elevated" className="overflow-hidden border-red-500/20">
       <div className="p-6 sm:p-8">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-500/15 text-red-400">

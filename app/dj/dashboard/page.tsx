@@ -978,7 +978,26 @@ export default function DJDashboardPage() {
         router={router}
       />
 
-      <div className="mx-auto max-w-6xl">
+      {/*
+       * ── Dashboard spacing scale ──────────────────────────────────
+       *
+       * One rhythm, set here, rather than each component carrying its
+       * own outer margin. Those had drifted to mb-4, mb-5, mb-6, mb-8
+       * and mt-8 across seven surfaces, which is why the gaps between
+       * sections looked arbitrary.
+       *
+       *   peer surfaces      space-y-4  ->  sm:space-y-6   (16 / 24)
+       *   two-column gap     gap-4      ->  sm:gap-6       (16 / 24)
+       *   rows inside a list space-y-2                     (8)
+       *   card padding       p-3/p-4    ->  sm:p-4/p-5
+       *
+       * Peers share one outer gap so the page reads as a stack of equal
+       * surfaces; content grouped inside a surface uses the tighter
+       * step so grouping stays legible. Phones get the smaller outer
+       * value because screen space is the scarce thing there, desktop
+       * the larger one because density is not the problem.
+       */}
+      <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
         {showRecap && djProfile && (
           <PostGigRecapModal
             djName={djProfile.dj_name}
@@ -1001,7 +1020,9 @@ export default function DJDashboardPage() {
           tipsToday={tipsToday}
         />
 
-        <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-6">
+        {/* items-start, so neither column is stretched to match the
+            other: pending and the queue grow with their own content. */}
+        <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2">
           {/* min-w-0: a grid item defaults to min-width:auto, which
               stops it shrinking below its content's minimum. With
               truncating song titles and a two-button action row inside,
@@ -1016,7 +1037,7 @@ export default function DJDashboardPage() {
             />
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 space-y-4 sm:space-y-6">
             <PlayingNextCard
               currentPlayingNext={currentPlayingNext}
               updateRequestStatus={updateRequestStatus}
@@ -1034,45 +1055,41 @@ export default function DJDashboardPage() {
         </div>
 
         {/* Below the fold of live use: passive notices, setup, sharing
-            and history. */}
-        <div className="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
-          <NotificationsStrip
-            events={events}
-            eventsIsPro={eventsIsPro}
-            onEventsChanged={fetchEvents}
-            showQrBox={Boolean(
-              djProfile?.qr_box_eligible &&
-                !djProfile.qr_box_claimed &&
-                !djProfile.qr_box_dismissed
-            )}
-            onQrBoxDismissed={fetchDJProfile}
-            acceptedNotPlayedCount={acceptedRequests.length}
-          />
-
-          {!onboardingComplete && (
-            <SetupChecklist djProfile={djProfile} />
+            and history. Same peer rhythm as everything above. */}
+        <NotificationsStrip
+          events={events}
+          eventsIsPro={eventsIsPro}
+          onEventsChanged={fetchEvents}
+          showQrBox={Boolean(
+            djProfile?.qr_box_eligible &&
+              !djProfile.qr_box_claimed &&
+              !djProfile.qr_box_dismissed
           )}
+          onQrBoxDismissed={fetchDJProfile}
+          acceptedNotPlayedCount={acceptedRequests.length}
+        />
 
-          <div id="qr-card" className="scroll-mt-24">
-            <QRCard
-              showQr={showQr}
-              setShowQr={setShowQr}
-              qrCodeUrl={qrCodeUrl}
-              requestLink={requestLink}
-              displayRequestLink={displayRequestLink}
-              djName={djProfile?.dj_name ?? ""}
-              djSlug={djProfile?.slug ?? ""}
-            />
-          </div>
+        {!onboardingComplete && <SetupChecklist djProfile={djProfile} />}
 
-          <div id="history" className="scroll-mt-24">
-            <HistoryCard
-              showHistory={showHistory}
-              setShowHistory={setShowHistory}
-              playedRequests={playedRequests}
-              clearPlayedHistory={clearPlayedHistory}
-            />
-          </div>
+        <div id="qr-card" className="scroll-mt-24">
+          <QRCard
+            showQr={showQr}
+            setShowQr={setShowQr}
+            qrCodeUrl={qrCodeUrl}
+            requestLink={requestLink}
+            displayRequestLink={displayRequestLink}
+            djName={djProfile?.dj_name ?? ""}
+            djSlug={djProfile?.slug ?? ""}
+          />
+        </div>
+
+        <div id="history" className="scroll-mt-24">
+          <HistoryCard
+            showHistory={showHistory}
+            setShowHistory={setShowHistory}
+            playedRequests={playedRequests}
+            clearPlayedHistory={clearPlayedHistory}
+          />
         </div>
       </div>
     </main>

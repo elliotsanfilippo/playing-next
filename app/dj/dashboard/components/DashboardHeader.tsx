@@ -212,7 +212,7 @@ export default function DashboardHeader({
      * z-40 keeps the bar over dashboard content but under the app's
      * modals, which sit at z-50.
      */
-    <header className="sticky top-0 z-40 -mx-5 mb-5 border-b border-white/10 bg-canvas/95 px-5 py-3 sm:-mx-6 sm:px-6 sm:py-4">
+    <header className="sticky top-0 z-40 -mx-5 mb-4 border-b border-white/10 bg-canvas/95 px-5 py-3 sm:-mx-6 sm:mb-6 sm:px-6 sm:py-4">
       <div className="mx-auto flex max-w-6xl items-center gap-3">
         {/* Identity is desktop-only. On a phone the DJ knows who they
             are, and those pixels belong to the live controls. */}
@@ -250,15 +250,6 @@ export default function DashboardHeader({
             <QrCode size={18} />
           </button>
 
-          <div className="hidden lg:block">
-            <AutoCloseControl
-              isPro={isPro}
-              isTakingRequests={isTakingRequests}
-              autoCloseAt={djProfile?.auto_close_at}
-              onSetAutoClose={setAutoClose}
-            />
-          </div>
-
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -276,9 +267,11 @@ export default function DashboardHeader({
                 role="menu"
                 className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-card border border-white/10 bg-surface-overlay shadow-2xl shadow-black/50"
               >
-                {/* Autoclose lives here on phones, where the header has
-                    no room for a picker. */}
-                <div className="border-b border-white/10 p-3 lg:hidden">
+                {/* Auto close lives here at every width now. It is a
+                    useful control but not a live one — the header is for
+                    state you change mid-set, and a scheduling picker
+                    does not need permanent top-level space. */}
+                <div className="border-b border-white/10 p-3">
                   <AutoCloseControl
                     isPro={isPro}
                     isTakingRequests={isTakingRequests}

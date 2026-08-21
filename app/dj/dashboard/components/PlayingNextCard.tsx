@@ -53,7 +53,7 @@ export default function PlayingNextCard({
   return (
     <section
       aria-label="Playing next"
-      className="mb-5 overflow-hidden rounded-card border border-accent/25 bg-accent/[0.06] sm:mb-6"
+      className="overflow-hidden rounded-card border border-accent/25 bg-accent/[0.06]"
     >
       <div className="p-4 sm:p-5">
         <div className="flex items-center gap-2">

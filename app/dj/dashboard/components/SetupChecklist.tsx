@@ -44,7 +44,7 @@ export default function SetupChecklist({
   const progress = (completed / tasks.length) * 100;
 
   return (
-    <Card variant="elevated" className="mt-8 overflow-hidden">
+    <Card variant="elevated" className="overflow-hidden">
       <div className="p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>

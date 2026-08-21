@@ -33,7 +33,7 @@ export default function HistoryCard({
   };
 
   return (
-    <Card variant="elevated" className="mt-8 overflow-hidden">
+    <Card variant="elevated" className="overflow-hidden">
       <div className="border-b border-white/5 p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, Download, Printer } from "lucide-react";
+import { Copy, Check, ChevronRight, Download, Printer } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
@@ -32,26 +32,28 @@ export default function QRCard({
   };
 
   return (
-    <Card variant="elevated" className="mt-8 overflow-hidden">
-      <div className="p-8">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+    <Card variant="elevated" className="overflow-hidden">
+      <div className="p-5 sm:p-8">
+        <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg">
             <Eyebrow tone="accent">Share</Eyebrow>
 
-            <h2 className="mt-3 text-h2">Your Request Page</h2>
+            <h2 className="mt-2.5 text-[1.5rem] font-bold tracking-tight sm:text-h2">
+              Your request page
+            </h2>
 
-            <p className="mt-3 text-zinc-400">
-              Guests simply scan your QR code to send song requests directly
-              to your dashboard.
+            <p className="mt-2 text-[0.95rem] leading-6 text-zinc-400 sm:mt-3 sm:text-base">
+              Guests scan your QR code to send requests straight to this
+              dashboard.
             </p>
 
-            <div className="mt-6 rounded-control border border-white/5 bg-black/20 p-4">
+            <div className="mt-5 rounded-control border border-white/5 bg-black/20 p-3.5 sm:mt-6 sm:p-4">
               <p className="truncate text-sm text-zinc-400">
                 {displayRequestLink}
               </p>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3">
               <a
                 href={qrCodeUrl}
                 download="playing-next-qr-code.png"
@@ -76,19 +78,56 @@ export default function QRCard({
               </Button>
             </div>
 
+            {/*
+              Was an inline text link. At phone widths the label is
+              wider than the column, so it wrapped onto two lines while
+              the icon stayed vertically centred against the block —
+              which read as cramped rather than as a considered action.
+              It is a real destination, so it now gets a full-width row
+              with the label on one line and its own target height, and
+              it drops to an inline-width control once there is room.
+            */}
+            {/*
+              Was an inline text link reading "Get a printable card,
+              poster or wallpaper". At phone widths that label is wider
+              than the column, so it wrapped mid-phrase while the icon
+              stayed centred against the resulting two-line block, which
+              read as cramped rather than considered.
+
+              Splitting it into an action and what you get makes the
+              line break deliberate instead of accidental, and both
+              lines then fit their measure. It is a real destination, so
+              it gets a row with its own target height rather than
+              behaving like body text.
+            */}
             <button
               type="button"
               onClick={() => setShowFormats(true)}
-              className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-accent transition hover:text-accent-strong"
+              className="mt-3 flex min-h-16 w-full items-center gap-3 rounded-control border border-white/10 bg-white/5 px-4 text-left transition hover:border-accent/30 hover:bg-accent/10 sm:w-auto"
             >
-              <Printer size={15} /> Get a printable card, poster or wallpaper
+              <Printer size={18} className="shrink-0 text-accent" />
+
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-accent">
+                  Print your QR code
+                </span>
+                <span className="block truncate text-xs text-zinc-500">
+                  Table cards, posters and wallpaper
+                </span>
+              </span>
+
+              <ChevronRight size={16} className="shrink-0 text-zinc-500" />
             </button>
           </div>
 
           <div className="flex justify-center">
             {qrCodeUrl && (
-              <div className="rounded-card bg-white p-5 shadow-2xl">
-                <img src={qrCodeUrl} alt="QR Code" className="w-72" />
+              <div className="rounded-card bg-white p-4 shadow-2xl sm:p-5">
+                <img
+                  src={qrCodeUrl}
+                  alt="QR Code"
+                  className="w-56 max-w-full sm:w-72"
+                />
               </div>
             )}
           </div>
