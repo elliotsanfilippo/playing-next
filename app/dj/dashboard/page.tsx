@@ -1066,7 +1066,6 @@ export default function DJDashboardPage() {
               !djProfile.qr_box_dismissed
           )}
           onQrBoxDismissed={fetchDJProfile}
-          acceptedNotPlayedCount={acceptedRequests.length}
         />
 
         {!onboardingComplete && <SetupChecklist djProfile={djProfile} />}

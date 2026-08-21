@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
@@ -14,7 +14,6 @@ import {
 import type { SongRequest } from "@/src/types/dashboard";
 import { transition } from "@/src/lib/motion";
 import Card from "@/src/components/ui/Card";
-import MoneyValue from "@/src/components/product/MoneyValue";
 import RequestCard from "@/src/components/product/RequestCard";
 import { cn } from "@/src/lib/cn";
 
@@ -32,6 +31,12 @@ type Props = {
     status: string
   ) => Promise<void>;
 };
+
+/**
+ * How long an accepted request can sit unplayed before it is worth
+ * mentioning. Below this, a queue with things in it is just a queue.
+ */
+const STALE_AFTER_MINUTES = 60;
 
 export default function AcceptedQueue({
   acceptedRequests,
@@ -61,6 +66,52 @@ export default function AcceptedQueue({
     tierIndexOf(request) < tierOf(request).length - 1;
   const canPlayNext = !currentPlayingNext;
 
+  /*
+   * The old reminder lived in the notifications card and fired on
+   * acceptedRequests.length — meaning any non-empty queue. It restated
+   * a number already shown in the Tonight strip and again in this
+   * card's own count chip, and its action was "View queue" pointing at
+   * the queue directly above it.
+   *
+   * The real operational risk is not having a queue, it is accepting
+   * tracks and never marking them played: the played count and the
+   * guest-facing "not played" flow both drift when that happens. So the
+   * reminder is now about age, sits inside the queue it concerns, and
+   * carries no redundant link.
+   */
+  /*
+   * The clock is state driven by a timer rather than Date.now() read
+   * during render: reading the clock while rendering makes the output
+   * depend on when React happens to re-render, and the reminder would
+   * also never update on its own while the DJ sat on the page. 0 means
+   * "not measured yet", which renders nothing — the first reading lands
+   * a tick after mount, which is imperceptible for a reminder.
+   */
+  const [now, setNow] = useState(0);
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const initial = setTimeout(tick, 0);
+    const interval = setInterval(tick, 60_000);
+
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const staleCount =
+    now === 0
+      ? 0
+      : acceptedRequests.filter((request) => {
+          if (!request.accepted_at) return false;
+
+          const minutes =
+            (now - new Date(request.accepted_at).getTime()) / 60_000;
+
+          return minutes >= STALE_AFTER_MINUTES;
+        }).length;
+
   const run = async (id: string, fn: () => Promise<void>) => {
     if (busyId) return;
 
@@ -89,34 +140,28 @@ export default function AcceptedQueue({
           Queue
         </h2>
 
-        <span
-          className={
-            acceptedRequests.length > 0
-              ? "flex h-7 min-w-7 items-center justify-center rounded-full bg-status-playing-surface/15 px-2 text-sm font-bold tabular-nums text-status-playing"
-              : "flex h-7 min-w-7 items-center justify-center rounded-full bg-white/5 px-2 text-sm font-bold tabular-nums text-zinc-500"
-          }
-        >
+        <span className="text-sm font-bold tabular-nums text-zinc-500">
           {acceptedRequests.length}
         </span>
       </div>
 
       <div className="p-3 sm:p-4">
         {acceptedRequests.length === 0 ? (
-          <div className="rounded-card border border-dashed border-white/10 px-6 py-9 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-zinc-500">
-              <Headphones size={20} />
+          <div className="px-6 py-10 text-center">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-zinc-600">
+              <Headphones size={18} />
             </div>
 
-            <h3 className="text-base font-semibold">Queue is empty</h3>
+            <p className="text-sm font-semibold text-zinc-300">
+              Queue is empty
+            </p>
 
-            <p className="mt-1.5 text-sm text-zinc-500">
+            <p className="mt-1 text-[13px] text-zinc-600">
               Requests you accept line up here.
             </p>
           </div>
         ) : (
-          /* space-y-2: the rows previously sat flush against each other,
-             which made it hard to tell which row an action belonged to. */
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {acceptedRequests.map((request, index) => {
               const busy = busyId === request.id;
 
@@ -134,82 +179,68 @@ export default function AcceptedQueue({
                   size="compact"
                   animateLayout
                   interactive={false}
-                  tone="accepted"
+                  /*
+                   * Neutral, not accent. Every accepted row used to carry
+                   * the green accepted tone, so a full queue was a stack
+                   * of green-outlined blocks shouting at the same volume
+                   * as Playing Next. Sitting inside the Queue section
+                   * already says these are accepted; accent is reserved
+                   * for the live action and for what is actually playing
+                   * next. VIP keeps its amber rank chip.
+                   *
+                   * No amount either. The figure earns its place in
+                   * Needs You where it informs the accept decision; once
+                   * accepted it is settled, and here it only competed
+                   * with the song for the row's width.
+                   */
                   className={cn(
                     "transition-opacity",
-                    busyId && !busy && "opacity-50"
+                    busyId && !busy && "opacity-40"
                   )}
                   meta={
                     <>
-                      {request.dj_earnings !== null &&
-                        request.dj_earnings > 0 && (
-                          <MoneyValue
-                            pence={request.dj_earnings}
-                            className="text-zinc-400"
-                          />
-                        )}
-
                       {/*
-                        Phone: one target per row instead of four. The
-                        row stays compact and the actions get a sheet
-                        with targets you can actually hit one-handed.
+                        Play next stays on the row at every width: it is
+                        the live action, not a management one. Compact,
+                        because a word-button per row on top of three
+                        move buttons is what made the queue read as a
+                        toolbar. 44px on a phone, tighter on desktop
+                        where the pointer is precise. The label rides on
+                        aria-label and the tooltip, and both say "play
+                        next" rather than "play" so it cannot be mistaken
+                        for ordinary audio playback.
                       */}
+                      <button
+                        type="button"
+                        onClick={() => playNext(request)}
+                        disabled={Boolean(busyId) || !canPlayNext}
+                        aria-label={
+                          canPlayNext
+                            ? `Make ${request.song_title} play next`
+                            : `Cannot play ${request.song_title} next, something is already playing next`
+                        }
+                        title={
+                          canPlayNext
+                            ? "Play next"
+                            : "Something is already playing next"
+                        }
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/25 bg-accent/10 text-accent transition hover:bg-accent-strong hover:text-black disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-zinc-700 lg:h-9 lg:w-9"
+                      >
+                        <Play size={15} />
+                      </button>
+
+                      {/* Reordering is management, so it lives behind the
+                          menu at every width now, not only on phones. */}
                       <button
                         type="button"
                         onClick={() => setSheetId(request.id)}
                         disabled={Boolean(busyId)}
-                        aria-label={`Actions for ${request.song_title}`}
-                        className="-mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40 lg:hidden"
+                        aria-label={`Reorder ${request.song_title}`}
+                        title="Reorder"
+                        className="-mr-1.5 flex h-11 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40 lg:h-9"
                       >
-                        <MoreVertical size={18} />
+                        <MoreVertical size={17} />
                       </button>
-
-                      {/*
-                        Desktop keeps direct controls, but icon-only so a
-                        row reads as a queue item with affordances rather
-                        than as a toolbar. Play next keeps its label
-                        because it is the consequential one.
-                      */}
-                      <div className="hidden shrink-0 items-center gap-1 lg:flex">
-                        <IconAction
-                          label={`Move ${request.song_title} to top`}
-                          icon={<ChevronsUp size={15} />}
-                          disabled={Boolean(busyId) || !canMoveUp(request)}
-                          onClick={() => move(request, "top")}
-                        />
-                        <IconAction
-                          label={`Move ${request.song_title} up`}
-                          icon={<ChevronUp size={15} />}
-                          disabled={Boolean(busyId) || !canMoveUp(request)}
-                          onClick={() => move(request, "up")}
-                        />
-                        <IconAction
-                          label={`Move ${request.song_title} down`}
-                          icon={<ChevronDown size={15} />}
-                          disabled={Boolean(busyId) || !canMoveDown(request)}
-                          onClick={() => move(request, "down")}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => playNext(request)}
-                          disabled={Boolean(busyId) || !canPlayNext}
-                          title={
-                            canPlayNext
-                              ? "Set as playing next"
-                              : "Something is already playing next"
-                          }
-                          /* Outlined rather than filled. Four solid
-                             accent buttons stacked down the queue read
-                             as a toolbar and pull the eye away from the
-                             songs; this stays quiet until it is the
-                             thing you want, then fills on hover. */
-                          className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-control border border-accent/30 bg-accent/10 px-3 text-xs font-bold text-accent transition hover:bg-accent-strong hover:text-black disabled:cursor-not-allowed disabled:border-transparent disabled:bg-white/5 disabled:text-zinc-600"
-                        >
-                          <Play size={13} />
-                          Play next
-                        </button>
-                      </div>
                     </>
                   }
                 />
@@ -217,10 +248,22 @@ export default function AcceptedQueue({
             })}
           </div>
         )}
+
+        {/* Contextual, inside the thing it is about, with no link back to
+            the list the DJ is already looking at. */}
+        {staleCount > 0 && (
+          <p className="mt-3 border-t border-white/5 px-1 pt-3 text-xs leading-5 text-zinc-500">
+            <span className="font-semibold text-status-pending">
+              {staleCount} accepted over an hour ago
+            </span>{" "}
+            and not yet marked as played. Marking tracks as you spin them
+            keeps your played count and guest updates accurate.
+          </p>
+        )}
       </div>
 
       {/*
-        ── Mobile action sheet ──────────────────────────────────────
+        ── Reorder sheet ────────────────────────────────────────────
         Portalled to <body> rather than rendered in place.
 
         Card's flat variant carries backdrop-blur-xl, and
@@ -234,11 +277,11 @@ export default function AcceptedQueue({
       */}
       {typeof document !== "undefined" &&
         createPortal(
-              <AnimatePresence>
+          <AnimatePresence>
             {sheetRequest && (
               <>
                 <motion.div
-                  className="fixed inset-0 z-50 bg-black/60 lg:hidden"
+                  className="fixed inset-0 z-50 bg-black/60"
                   initial={shouldReduceMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -247,20 +290,17 @@ export default function AcceptedQueue({
 
                 <motion.div
                   role="dialog"
-                  aria-label={`Queue actions for ${sheetRequest.song_title}`}
-                  className="fixed inset-x-0 bottom-0 z-50 rounded-t-card border-t border-white/10 bg-surface-overlay pb-[max(env(safe-area-inset-bottom),1rem)] lg:hidden"
-                  initial={shouldReduceMotion ? false : { y: "100%" }}
-                  animate={{ y: 0 }}
-                  exit={{ y: "100%" }}
+                  aria-label={`Reorder ${sheetRequest.song_title}`}
+                  className="fixed inset-x-0 bottom-0 z-50 rounded-t-card border-t border-white/10 bg-surface-overlay pb-[max(env(safe-area-inset-bottom),1rem)] sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-80 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card sm:border sm:pb-2"
+                  initial={
+                    shouldReduceMotion ? false : { opacity: 0, y: 24 }
+                  }
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 24 }}
                   transition={transition.state}
                 >
-                  <div
-                    aria-hidden
-                    className="mx-auto mt-3 h-1 w-10 rounded-full bg-white/20"
-                  />
-
                   <div className="border-b border-white/10 px-5 py-4">
-                    <p className="truncate text-base font-bold">
+                    <p className="truncate text-[15px] font-bold">
                       {sheetRequest.song_title}
                     </p>
                     <p className="truncate text-sm text-zinc-500">
@@ -269,15 +309,6 @@ export default function AcceptedQueue({
                   </div>
 
                   <div className="p-2">
-                    <SheetAction
-                      icon={<Play size={18} />}
-                      label="Play next"
-                      hint={
-                        canPlayNext ? undefined : "Something is already playing next"
-                      }
-                      disabled={!canPlayNext}
-                      onClick={() => playNext(sheetRequest)}
-                    />
                     <SheetAction
                       icon={<ChevronsUp size={18} />}
                       label="Move to top"
@@ -300,7 +331,9 @@ export default function AcceptedQueue({
                     <SheetAction
                       icon={<ChevronDown size={18} />}
                       label="Move down"
-                      hint={canMoveDown(sheetRequest) ? undefined : "Already last"}
+                      hint={
+                        canMoveDown(sheetRequest) ? undefined : "Already last"
+                      }
                       disabled={!canMoveDown(sheetRequest)}
                       onClick={() => move(sheetRequest, "down")}
                     />
@@ -325,31 +358,6 @@ export default function AcceptedQueue({
   );
 }
 
-function IconAction({
-  label,
-  icon,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className="flex h-9 w-9 items-center justify-center rounded-control border border-white/10 bg-white/5 text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:border-transparent disabled:bg-transparent disabled:text-zinc-700"
-    >
-      {icon}
-    </button>
-  );
-}
-
 function SheetAction({
   icon,
   label,
@@ -368,7 +376,7 @@ function SheetAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-14 w-full items-center gap-3.5 rounded-control px-3.5 text-left transition active:bg-white/10 disabled:opacity-40 enabled:hover:bg-white/5"
+      className="flex min-h-14 w-full items-center gap-3.5 rounded-control px-3.5 text-left transition active:bg-white/10 disabled:opacity-40 enabled:hover:bg-white/5 sm:min-h-12"
     >
       <span className="shrink-0 text-zinc-400">{icon}</span>
 

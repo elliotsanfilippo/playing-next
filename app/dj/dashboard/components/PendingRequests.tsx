@@ -128,27 +128,32 @@ export default function PendingRequests({
           Needs you
         </h2>
 
-        <span
-          className={
-            pendingRequests.length > 0
-              ? "flex h-7 min-w-7 items-center justify-center rounded-full bg-status-pending-surface/15 px-2 text-sm font-bold tabular-nums text-status-pending"
-              : "flex h-7 min-w-7 items-center justify-center rounded-full bg-white/5 px-2 text-sm font-bold tabular-nums text-zinc-500"
-          }
-        >
-          {pendingRequests.length}
-        </span>
+        {/* A count chip only when there is something to count. An
+            amber pill reading "0" is a decoration, not information. */}
+        {pendingRequests.length > 0 ? (
+          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-status-pending-surface/15 px-1.5 text-sm font-bold tabular-nums text-status-pending">
+            {pendingRequests.length}
+          </span>
+        ) : (
+          <span className="text-sm font-bold tabular-nums text-zinc-600">0</span>
+        )}
       </div>
 
       <div className="space-y-2 p-3 sm:p-4">
         {pendingRequests.length === 0 ? (
-          <div className="rounded-card border border-dashed border-white/10 px-6 py-9 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-zinc-500">
-              <Music2 size={20} />
+          /* No dashed box. An empty Needs You sat as a large outlined
+             rectangle next to a populated queue, which drew more
+             attention than the requests did. */
+          <div className="px-6 py-10 text-center">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-zinc-600">
+              <Music2 size={18} />
             </div>
 
-            <h3 className="text-base font-semibold">Nothing waiting</h3>
+            <p className="text-sm font-semibold text-zinc-300">
+              Nothing waiting
+            </p>
 
-            <p className="mt-1.5 text-sm text-zinc-500">
+            <p className="mt-1 text-[13px] text-zinc-600">
               New requests land here the moment they arrive.
             </p>
           </div>

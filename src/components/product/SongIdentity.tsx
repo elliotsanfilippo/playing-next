@@ -69,9 +69,12 @@ export default function SongIdentity({
 
       <p className={cn("truncate", artistClasses[size])}>{artist}</p>
 
+      {/* Deliberately quiet. This was uppercase with 0.2em tracking on
+          its own line, which made a secondary attribute the widest and
+          loudest thing in a queue row. */}
       {hasShoutout && (
-        <p className="mt-2 flex items-center gap-1.5 truncate text-xs uppercase tracking-[0.2em] text-zinc-500">
-          <Mic2 size={12} className="shrink-0" /> Includes shoutout
+        <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-zinc-500">
+          <Mic2 size={11} className="shrink-0" /> Shoutout
         </p>
       )}
     </div>

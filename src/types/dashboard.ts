@@ -8,6 +8,9 @@ export type SongRequest = {
   stripe_payment_intent_id: string | null;
   queue_position: number | null;
   created_at: string;
+  /** Set when the DJ accepts. Already selected (the query is select("*")),
+   *  it was simply never declared here. */
+  accepted_at?: string | null;
   dj_earnings: number | null;
   is_vip: boolean;
 };
