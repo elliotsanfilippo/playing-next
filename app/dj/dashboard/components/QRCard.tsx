@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Copy, Check, ChevronRight, Download, Printer } from "lucide-react";
 import Card from "@/src/components/ui/Card";
-import Button, { buttonVariants } from "@/src/components/ui/Button";
+import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
 import QRFormatsModal from "./QRFormatsModal";
 
@@ -23,7 +24,77 @@ export default function QRCard({
   djSlug,
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showFormats, setShowFormats] = useState(false);
+
+  /*
+   * Saving the QR from a phone.
+   *
+   * This was <a href={dataUrl} download>. The download attribute is
+   * ignored by iOS Safari, and a data: URL there simply navigates or
+   * does nothing at all, so on a phone the button appeared dead. Blob
+   * URLs are handled far more consistently than data: URLs, and on
+   * mobile the genuinely native action is the share sheet, which offers
+   * "Save Image" straight to Photos or Files.
+   *
+   * The data URL is decoded synchronously with atob rather than through
+   * fetch(). Awaiting anything before navigator.share() loses the user
+   * gesture on iOS and the share sheet is then refused.
+   */
+  const dataUrlToBlob = (dataUrl: string) => {
+    const [header, encoded] = dataUrl.split(",");
+    const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
+    const binary = atob(encoded);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    return new Blob([bytes], { type: mime });
+  };
+
+  const handleDownloadQr = async () => {
+    if (!qrCodeUrl || saving) return;
+
+    setSaving(true);
+
+    try {
+      const blob = dataUrlToBlob(qrCodeUrl);
+      const filename = `${djSlug || "playing-next"}-qr-code.png`;
+      const file = new File([blob], filename, { type: blob.type });
+
+      /* Share sheet where it exists and accepts a file: this is what
+         puts the image in the DJ's camera roll on a phone. */
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "My Playing Next QR code" });
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      /* Revoked on the next tick, not immediately: revoking before the
+         browser has started the download cancels it. */
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+    } catch (error) {
+      /* A cancelled share sheet is a normal outcome, not a failure. */
+      if ((error as Error)?.name === "AbortError") return;
+
+      console.log("QR download error:", error);
+      toast.error(
+        "Couldn't save the QR code. Press and hold the code above to save it instead."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(requestLink);
@@ -63,16 +134,15 @@ export default function QRCard({
             */}
             <div className="mt-4 space-y-2.5">
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-              <a
-                href={qrCodeUrl}
-                download="playing-next-qr-code.png"
-                className={buttonVariants({
-                  variant: "secondary",
-                  className: "w-full",
-                })}
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={handleDownloadQr}
+                disabled={!qrCodeUrl || saving}
               >
-                <Download size={16} /> Download QR
-              </a>
+                <Download size={16} />
+                {saving ? "Saving..." : "Download QR"}
+              </Button>
 
               <Button className="w-full" onClick={handleCopyLink}>
                 {copied ? (

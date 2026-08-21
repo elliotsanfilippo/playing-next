@@ -257,6 +257,8 @@ export default function SceneOpening({ stage, onAccept }: Props) {
           {/* The stage. Fixed minimum height so the layout never jumps
               as the card gives way to the dashboard. */}
           <div className="relative min-w-0 lg:min-h-[30rem]">
+            {/* Mobile: in flow under the card, desktop uses the pinned
+                version above. */}
             <AnimatePresence mode="popLayout">
               {stage !== "landed" ? (
                 <motion.div
@@ -283,11 +285,40 @@ export default function SceneOpening({ stage, onAccept }: Props) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            <motion.div
+              aria-hidden
+              initial={shouldReduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: stage === "idle" ? 1 : 0 }}
+              transition={{
+                delay: stage === "idle" ? ENTRANCE.scrollHintAt : 0,
+                duration: 0.6,
+              }}
+              className="mt-7 flex flex-col items-center gap-1.5 text-zinc-600 lg:hidden"
+            >
+              <span className="text-[10px] uppercase tracking-[0.2em]">
+                or scroll to explore
+              </span>
+              <ChevronDown size={16} />
+            </motion.div>
           </div>
         </div>
 
-        {/* Scroll affordance — makes explicit that accepting is an
-            invitation, not a toll gate. */}
+        {/*
+          Scroll affordance — makes explicit that accepting is an
+          invitation, not a toll gate.
+
+          Two placements, because the two layouts are different shapes.
+          Desktop pins it to the bottom of a full-height sticky stage.
+          The mobile section is only as tall as its content, so an
+          absolutely positioned hint would sit on top of the card; there
+          it sits in normal flow beneath the card instead, which also
+          keeps it clear of the next section without adding dead space.
+
+          Static in both cases. It fades in once and holds, matching the
+          stillness the rest of the opener settles into — the point is
+          to be understood, not noticed.
+        */}
         <motion.div
           aria-hidden
           initial={shouldReduceMotion ? false : { opacity: 0 }}

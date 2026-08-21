@@ -192,7 +192,8 @@ function GuestScanStep() {
     <div className="flex flex-1 flex-col items-center justify-center text-center">
       <DjAvatar />
 
-      <p className="mt-4 text-base font-bold">ELSAN</p>
+      {/* Fictional demo DJ. Deliberately not a real profile name. */}
+      <p className="mt-4 text-base font-bold">NEWDJ</p>
       <div className="mt-1.5 flex items-center gap-1.5 text-xs text-accent">
         <span className="h-1.5 w-1.5 rounded-full bg-accent" />
         Taking requests

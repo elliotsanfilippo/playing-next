@@ -212,7 +212,29 @@ export default function DashboardHeader({
      * z-40 keeps the bar over dashboard content but under the app's
      * modals, which sit at z-50.
      */
-    <header className="sticky top-0 z-40 -mx-5 mb-4 border-b border-white/10 bg-canvas/95 px-5 py-3 sm:-mx-6 sm:mb-6 sm:px-6 sm:py-4">
+    /*
+     * z-[10000] and a fully opaque fill, matching the site header.
+     *
+     * The film grain in globals.css is a fixed full-viewport layer at
+     * z-index 9999 using mix-blend-mode. Everything it covers has to be
+     * rasterised together with it as one blending group, and a bar
+     * trapped inside that group cannot be promoted to its own
+     * compositing layer — which is what lets it lag behind the page
+     * during scrolling on mobile. This bar was at z-40, so it was
+     * inside the group. Lifting it above frees it to composite on its
+     * own, exactly as the fix on the marketing header did.
+     *
+     * bg-canvas/95 also let content read faintly through it, which
+     * compounds the impression of drift. A solid bar cannot show
+     * anything through it.
+     *
+     * It stays sticky rather than becoming fixed: sticky already
+     * reserves its own space in the flow, so there is no content offset
+     * to maintain and no layout jump. The homepage header is fixed
+     * because it floats over a scene that starts at the top of the
+     * page; this one sits at the top of a normal document.
+     */
+    <header className="sticky top-0 z-[10000] -mx-5 mb-4 border-b border-white/10 bg-canvas px-5 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)] sm:-mx-6 sm:mb-6 sm:px-6 sm:pb-4 sm:pt-[max(env(safe-area-inset-top),1rem)]">
       <div className="mx-auto flex max-w-6xl items-center gap-3">
         {/* Identity is desktop-only. On a phone the DJ knows who they
             are, and those pixels belong to the live controls. */}
