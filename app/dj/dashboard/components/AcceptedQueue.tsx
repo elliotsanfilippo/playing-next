@@ -58,25 +58,24 @@ export default function AcceptedQueue({
 
   return (
     <Card>
-      <div className="border-b border-white/5 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-              UP NEXT
-            </p>
+      <div className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3.5 sm:px-5">
+        <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-zinc-300">
+          Queue
+        </h2>
 
-            <h2 className="mt-2 text-3xl font-bold">Queue</h2>
-          </div>
-
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/15">
-            <span className="text-xl font-bold text-sky-400">
-              {acceptedRequests.length}
-            </span>
-          </div>
-        </div>
+        <span
+          className={
+            acceptedRequests.length > 0
+              ? "flex h-7 min-w-7 items-center justify-center rounded-full bg-status-playing-surface/15 px-2 text-sm font-bold tabular-nums text-status-playing"
+              : "flex h-7 min-w-7 items-center justify-center rounded-full bg-white/5 px-2 text-sm font-bold tabular-nums text-zinc-500"
+          }
+        >
+          {acceptedRequests.length}
+        </span>
       </div>
 
-      <div className="max-h-80 space-y-2 overflow-y-auto p-4">
+      {/* See PendingRequests: the inner scroll container is gone. */}
+      <div className="space-y-2 p-3 sm:p-4">
         {acceptedRequests.length === 0 ? (
           <div className="rounded-card border border-dashed border-white/10 p-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-zinc-400">

@@ -54,23 +54,32 @@ export default function PendingRequests({
 
   return (
     <Card>
-      <div className="border-b border-white/5 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <Eyebrow>Live</Eyebrow>
+      {/* Section headings are tool-scale, not marketing-scale. text-3xl
+          here was competing with the requests themselves. */}
+      <div className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3.5 sm:px-5">
+        <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-zinc-300">
+          Needs you
+        </h2>
 
-            <h2 className="mt-2 text-3xl font-bold">Pending Requests</h2>
-          </div>
-
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/15">
-            <span className="text-xl font-bold text-amber-400">
-              {pendingRequests.length}
-            </span>
-          </div>
-        </div>
+        <span
+          className={
+            pendingRequests.length > 0
+              ? "flex h-7 min-w-7 items-center justify-center rounded-full bg-status-pending-surface/15 px-2 text-sm font-bold tabular-nums text-status-pending"
+              : "flex h-7 min-w-7 items-center justify-center rounded-full bg-white/5 px-2 text-sm font-bold tabular-nums text-zinc-500"
+          }
+        >
+          {pendingRequests.length}
+        </span>
       </div>
 
-      <div className="max-h-80 space-y-2 overflow-y-auto p-4">
+      {/*
+        No max-height and no overflow-y here on purpose. This used to be
+        a 320px scroll box inside a scrolling page, which capped the list
+        at about four visible rows on any screen size and, on a phone,
+        put a scroll trap around the most important content on the
+        dashboard. The list now grows and the page scrolls.
+      */}
+      <div className="space-y-2 p-3 sm:p-4">
         {pendingRequests.length === 0 ? (
           <div className="rounded-card border border-dashed border-white/10 p-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 text-zinc-400">

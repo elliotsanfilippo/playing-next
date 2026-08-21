@@ -16,7 +16,7 @@ import {
   triggerVibration,
 } from "../../../src/lib/notifications";
 import DashboardHeader from "./components/DashboardHeader";
-import StatsCards from "./components/StatsCards";
+import TonightStrip from "./components/TonightStrip";
 import PlayingNextCard from "./components/PlayingNextCard";
 import PendingRequests from "./components/PendingRequests";
 import AcceptedQueue from "./components/AcceptedQueue";
@@ -619,6 +619,22 @@ export default function DJDashboardPage() {
     await fetchRequests();
   };
 
+  /*
+   * The header's QR button reveals the QR panel and scrolls to it,
+   * rather than opening a modal over the queue. QR is a live-set
+   * action — a DJ points a guest at it mid-set — so it gets a permanent
+   * header slot, but the panel itself is large and belongs in the page.
+   */
+  const showQrPanel = () => {
+    setShowQr(true);
+
+    requestAnimationFrame(() => {
+      document
+        .getElementById("qr-card")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -935,19 +951,34 @@ export default function DJDashboardPage() {
     );
   }
 
+  /*
+   * Composition order is the DJ's attention order, not the old
+   * top-to-bottom accumulation of features.
+   *
+   * Mobile reads: live bar (sticky) -> tonight -> what needs you ->
+   * what's playing next -> the queue -> everything else. Passive
+   * notices, QR detail, setup and history all moved below the live
+   * content; a chargeback stays at the top because it is time-sensitive
+   * and money-related.
+   *
+   * Desktop splits the same order into two columns so pending and the
+   * queue are visible at once, with Playing Next sitting directly above
+   * the queue it feeds — the same order the homepage established.
+   */
   return (
-    <main className="min-h-screen bg-canvas p-5 text-white sm:p-6">
-      <div className="mx-auto max-w-6xl">
-        <DashboardHeader
-          djProfile={djProfile}
-          isTakingRequests={isTakingRequests}
-          toggleRequests={toggleRequests}
-          isPro={isDjPro}
-          setAutoClose={setAutoClose}
-          logout={logout}
-          router={router}
-        />
+    <main className="min-h-screen bg-canvas px-5 pb-10 text-white sm:px-6">
+      <DashboardHeader
+        djProfile={djProfile}
+        isTakingRequests={isTakingRequests}
+        toggleRequests={toggleRequests}
+        isPro={isDjPro}
+        setAutoClose={setAutoClose}
+        logout={logout}
+        onShowQr={showQrPanel}
+        router={router}
+      />
 
+      <div className="mx-auto max-w-6xl">
         {showRecap && djProfile && (
           <PostGigRecapModal
             djName={djProfile.dj_name}
@@ -962,20 +993,7 @@ export default function DJDashboardPage() {
           onResolved={fetchChargebacks}
         />
 
-        <NotificationsStrip
-          events={events}
-          eventsIsPro={eventsIsPro}
-          onEventsChanged={fetchEvents}
-          showQrBox={Boolean(
-            djProfile?.qr_box_eligible &&
-              !djProfile.qr_box_claimed &&
-              !djProfile.qr_box_dismissed
-          )}
-          onQrBoxDismissed={fetchDJProfile}
-          acceptedNotPlayedCount={acceptedRequests.length}
-        />
-
-        <StatsCards
+        <TonightStrip
           pendingCount={pendingRequests.length}
           queueCount={acceptedRequests.length}
           playedCount={playedRequests.length}
@@ -983,13 +1001,8 @@ export default function DJDashboardPage() {
           tipsToday={tipsToday}
         />
 
-        <PlayingNextCard
-          currentPlayingNext={currentPlayingNext}
-          updateRequestStatus={updateRequestStatus}
-        />
-
-        <div className="grid items-start gap-6 lg:grid-cols-2">
-          <div id="pending-requests" className="scroll-mt-6">
+        <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-6">
+          <div id="pending-requests" className="scroll-mt-24">
             <PendingRequests
               pendingRequests={pendingRequests}
               acceptRequest={acceptRequest}
@@ -997,37 +1010,63 @@ export default function DJDashboardPage() {
             />
           </div>
 
-          <div id="accepted-queue" className="scroll-mt-6">
-            <AcceptedQueue
-              acceptedRequests={acceptedRequests}
+          <div className="min-w-0">
+            <PlayingNextCard
               currentPlayingNext={currentPlayingNext}
-              moveAcceptedRequest={moveAcceptedRequest}
               updateRequestStatus={updateRequestStatus}
             />
+
+            <div id="accepted-queue" className="scroll-mt-24">
+              <AcceptedQueue
+                acceptedRequests={acceptedRequests}
+                currentPlayingNext={currentPlayingNext}
+                moveAcceptedRequest={moveAcceptedRequest}
+                updateRequestStatus={updateRequestStatus}
+              />
+            </div>
           </div>
         </div>
 
-        {!onboardingComplete && (
-          <SetupChecklist djProfile={djProfile} />
-        )}
-
-        <QRCard
-          showQr={showQr}
-          setShowQr={setShowQr}
-          qrCodeUrl={qrCodeUrl}
-          requestLink={requestLink}
-          displayRequestLink={displayRequestLink}
-          djName={djProfile?.dj_name ?? ""}
-          djSlug={djProfile?.slug ?? ""}
-        />
-
-        <div id="history" className="scroll-mt-6">
-          <HistoryCard
-            showHistory={showHistory}
-            setShowHistory={setShowHistory}
-            playedRequests={playedRequests}
-            clearPlayedHistory={clearPlayedHistory}
+        {/* Below the fold of live use: passive notices, setup, sharing
+            and history. */}
+        <div className="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
+          <NotificationsStrip
+            events={events}
+            eventsIsPro={eventsIsPro}
+            onEventsChanged={fetchEvents}
+            showQrBox={Boolean(
+              djProfile?.qr_box_eligible &&
+                !djProfile.qr_box_claimed &&
+                !djProfile.qr_box_dismissed
+            )}
+            onQrBoxDismissed={fetchDJProfile}
+            acceptedNotPlayedCount={acceptedRequests.length}
           />
+
+          {!onboardingComplete && (
+            <SetupChecklist djProfile={djProfile} />
+          )}
+
+          <div id="qr-card" className="scroll-mt-24">
+            <QRCard
+              showQr={showQr}
+              setShowQr={setShowQr}
+              qrCodeUrl={qrCodeUrl}
+              requestLink={requestLink}
+              displayRequestLink={displayRequestLink}
+              djName={djProfile?.dj_name ?? ""}
+              djSlug={djProfile?.slug ?? ""}
+            />
+          </div>
+
+          <div id="history" className="scroll-mt-24">
+            <HistoryCard
+              showHistory={showHistory}
+              setShowHistory={setShowHistory}
+              playedRequests={playedRequests}
+              clearPlayedHistory={clearPlayedHistory}
+            />
+          </div>
         </div>
       </div>
     </main>

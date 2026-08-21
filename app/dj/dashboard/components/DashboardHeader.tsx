@@ -10,10 +10,9 @@ import {
   Pause,
   Play,
   LogOut,
-  Menu,
-  X,
+  QrCode,
+  MoreHorizontal,
 } from "lucide-react";
-import Button from "@/src/components/ui/Button";
 import { cn } from "@/src/lib/cn";
 import AutoCloseControl from "./AutoCloseControl";
 
@@ -24,21 +23,30 @@ type Props = {
   isPro: boolean;
   setAutoClose: (minutes: number | null) => Promise<void>;
   logout: () => Promise<void>;
+  onShowQr: () => void;
   router: {
     push: (path: string) => void;
   };
 };
 
-function getGreeting() {
-  const hour = new Date().getHours();
-
-  if (hour < 5) return "Good night";
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  if (hour < 22) return "Good evening";
-  return "Good night";
-}
-
+/*
+ * The live bar.
+ *
+ * One responsive tree, not two. The previous version maintained a
+ * separate `lg:hidden` block and a `hidden lg:flex` block, each
+ * re-implementing identity, greeting, genres, status and the autoclose
+ * control — so every change had to be made twice and the two drifted.
+ *
+ * Priority order is the DJ's, not the org chart's: what state am I in,
+ * how do I change it, where's my QR. Analytics, Earnings, Settings and
+ * Log Out are real but not live-set actions, so they sit behind the
+ * overflow menu on every breakpoint. That is also what stops this
+ * reading as a generic admin toolbar: it used to render six buttons in
+ * a row.
+ *
+ * Sticky, because pausing requests is the one control a DJ may need
+ * instantly and scrolling to find it mid-set is not acceptable.
+ */
 export default function DashboardHeader({
   djProfile,
   isTakingRequests,
@@ -46,6 +54,7 @@ export default function DashboardHeader({
   isPro,
   setAutoClose,
   logout,
+  onShowQr,
   router,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -76,12 +85,6 @@ export default function DashboardHeader({
     }
   };
 
-  const genres = Array.isArray(djProfile?.genres)
-    ? djProfile.genres
-    : djProfile?.genres
-      ? [djProfile.genres]
-      : [];
-
   useEffect(() => {
     if (!menuOpen) return;
 
@@ -106,15 +109,10 @@ export default function DashboardHeader({
 
   const menuItems = [
     djProfile?.slug && {
-      label: "Display Screen",
+      label: "Display screen",
       icon: MonitorPlay,
       onClick: () =>
         window.open(`/request/${djProfile.slug}/queue`, "_blank"),
-    },
-    {
-      label: "Analytics",
-      icon: BarChart3,
-      onClick: () => router.push("/dj/analytics"),
     },
     {
       label: "Earnings",
@@ -122,12 +120,17 @@ export default function DashboardHeader({
       onClick: () => router.push("/dj/earnings"),
     },
     {
+      label: "Analytics",
+      icon: BarChart3,
+      onClick: () => router.push("/dj/analytics"),
+    },
+    {
       label: "Settings",
       icon: SettingsIcon,
       onClick: () => router.push("/dj/settings"),
     },
     {
-      label: "Log Out",
+      label: "Log out",
       icon: LogOut,
       onClick: handleLogout,
       danger: true,
@@ -139,235 +142,174 @@ export default function DashboardHeader({
     danger?: boolean;
   }[];
 
-  const avatar = djProfile?.profile_image_url ? (
-    <img
-      src={djProfile.profile_image_url}
-      alt={djProfile.dj_name}
-      className="h-full w-full rounded-full object-cover"
-    />
-  ) : (
-    <div className="h-full w-full rounded-full bg-zinc-900" />
-  );
-
-  const statusBadge = (
-    <span
+  /*
+   * State and action are one control group visually and two elements
+   * semantically: a <span> that says what is true right now, and a
+   * <button> that says what tapping will do. Merging them into a single
+   * toggle would save space and make the most consequential control on
+   * the dashboard ambiguous — "Taking Requests" would have to mean both
+   * the current state and the thing about to happen.
+   */
+  const statusControl = (
+    <div
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold",
+        /* h-12 on phones: the inner button loses 2px to the group's
+           border, and pausing requests is a consequential one-handed
+           action that should clear the 44px touch-target minimum
+           comfortably rather than by 0px. */
+        "inline-flex h-12 shrink-0 items-center overflow-hidden rounded-full border sm:h-11",
         isTakingRequests
-          ? "border border-accent/20 bg-accent/15 text-accent"
-          : "border border-red-500/20 bg-red-500/15 text-red-400"
+          ? "border-accent/25 bg-accent/10"
+          : "border-status-declined/25 bg-status-declined/10"
       )}
     >
       <span
+        aria-live="polite"
         className={cn(
-          "h-2.5 w-2.5 rounded-full",
-          isTakingRequests ? "bg-accent" : "bg-red-400"
+          "flex items-center gap-2 pl-3.5 pr-3 text-[13px] font-semibold sm:text-sm",
+          isTakingRequests ? "text-accent" : "text-status-declined"
         )}
-      />
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "h-2 w-2 shrink-0 rounded-full",
+            isTakingRequests ? "bg-accent" : "bg-status-declined"
+          )}
+        />
+        <span className="whitespace-nowrap">
+          {isTakingRequests ? "Taking requests" : "Requests paused"}
+        </span>
+      </span>
 
-      {pending === "toggle"
-        ? "Updating..."
-        : isTakingRequests
-          ? "Taking Requests"
-          : "Requests Paused"}
-    </span>
+      <button
+        type="button"
+        onClick={handleToggle}
+        disabled={pending === "toggle"}
+        className={cn(
+          "flex h-full items-center gap-1.5 border-l px-3.5 text-[13px] font-bold transition-colors disabled:opacity-60 sm:text-sm",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40",
+          isTakingRequests
+            ? "border-accent/25 text-accent hover:bg-accent/15"
+            : "border-status-declined/25 text-status-declined hover:bg-status-declined/15"
+        )}
+      >
+        {isTakingRequests ? <Pause size={13} /> : <Play size={13} />}
+        {pending === "toggle"
+          ? "..."
+          : isTakingRequests
+            ? "Pause"
+            : "Resume"}
+      </button>
+    </div>
   );
 
-  const autoCloseControl = (
-    <AutoCloseControl
-      isPro={isPro}
-      isTakingRequests={isTakingRequests}
-      autoCloseAt={djProfile?.auto_close_at}
-      onSetAutoClose={setAutoClose}
-    />
-  );
-
-  const pauseResumeButton = (
-    <Button
-      size="sm"
-      variant={isTakingRequests ? "danger" : "accent"}
-      className={
-        isTakingRequests
-          ? "border-transparent bg-red-500 text-white hover:bg-red-400"
-          : ""
-      }
-      onClick={handleToggle}
-      disabled={pending === "toggle"}
-    >
-      {isTakingRequests ? (
-        <Pause size={14} className="mr-1.5" />
-      ) : (
-        <Play size={14} className="mr-1.5" />
-      )}
-      {pending === "toggle"
-        ? "Updating..."
-        : isTakingRequests
-          ? "Pause Requests"
-          : "Resume Requests"}
-    </Button>
-  );
+  const iconButton =
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 sm:h-11 sm:w-11 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60";
 
   return (
-    <header className="mb-8">
-      {/* Mobile / tablet: identity on the left, avatar-triggered menu on the right */}
-      <div className="lg:hidden">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-zinc-400">
-              👋 {getGreeting()}
-            </p>
-
-            <h1 className="mt-1 truncate text-3xl font-bold tracking-tight">
-              {djProfile?.dj_name || "DJ Dashboard"}
-            </h1>
-
-            {genres.length > 0 && (
-              <p className="mt-2 truncate text-sm text-zinc-400">
-                {genres.join(" • ")}
-              </p>
+    /*
+     * z-40 keeps the bar over dashboard content but under the app's
+     * modals, which sit at z-50.
+     */
+    <header className="sticky top-0 z-40 -mx-5 mb-5 border-b border-white/10 bg-canvas/95 px-5 py-3 sm:-mx-6 sm:px-6 sm:py-4">
+      <div className="mx-auto flex max-w-6xl items-center gap-3">
+        {/* Identity is desktop-only. On a phone the DJ knows who they
+            are, and those pixels belong to the live controls. */}
+        <div className="hidden min-w-0 items-center gap-3 lg:flex">
+          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10">
+            {djProfile?.profile_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={djProfile.profile_image_url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-zinc-900" />
             )}
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              {statusBadge}
-              {pauseResumeButton}
-              {autoCloseControl}
-            </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-white/10">
-              {avatar}
-            </div>
+          <p className="truncate text-lg font-bold tracking-tight">
+            {djProfile?.dj_name || "DJ Dashboard"}
+          </p>
+        </div>
 
-            <div className="relative shrink-0" ref={menuRef}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((open) => !open)}
-                aria-label="Open menu"
-                aria-expanded={menuOpen}
-                className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 transition active:scale-[0.96]"
+        {statusControl}
+
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {/* QR is a live-set action — a DJ points a guest at it mid-set
+              — so it keeps a permanent slot rather than sitting in the
+              menu next to Analytics. */}
+          <button
+            type="button"
+            onClick={onShowQr}
+            aria-label="Show QR code and request link"
+            className={iconButton}
+          >
+            <QrCode size={18} />
+          </button>
+
+          <div className="hidden lg:block">
+            <AutoCloseControl
+              isPro={isPro}
+              isTakingRequests={isTakingRequests}
+              autoCloseAt={djProfile?.auto_close_at}
+              onSetAutoClose={setAutoClose}
+            />
+          </div>
+
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label="More options"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              className={iconButton}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-card border border-white/10 bg-surface-overlay shadow-2xl shadow-black/50"
               >
-                {menuOpen ? <X size={22} /> : <Menu size={22} />}
-              </button>
-
-              {menuOpen && (
-                <div className="absolute right-0 top-full z-40 mt-3 w-64 overflow-hidden rounded-card border border-white/10 bg-zinc-950 shadow-2xl shadow-black/40">
-                  {menuItems.map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        item.onClick();
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm font-semibold transition",
-                        item.danger
-                          ? "text-red-400 hover:bg-red-500/10"
-                          : "text-zinc-200 hover:bg-white/5"
-                      )}
-                    >
-                      <item.icon size={16} className="shrink-0" />
-                      {item.label}
-                    </button>
-                  ))}
+                {/* Autoclose lives here on phones, where the header has
+                    no room for a picker. */}
+                <div className="border-b border-white/10 p-3 lg:hidden">
+                  <AutoCloseControl
+                    isPro={isPro}
+                    isTakingRequests={isTakingRequests}
+                    autoCloseAt={djProfile?.auto_close_at}
+                    onSetAutoClose={setAutoClose}
+                  />
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Desktop: original side-by-side layout */}
-      <div className="hidden lg:flex lg:items-start lg:justify-between lg:gap-6">
-        <div className="flex min-w-0 items-center gap-5">
-          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/10">
-            {avatar}
-          </div>
-
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-zinc-400">
-              👋 {getGreeting()}
-            </p>
-
-            <h1 className="mt-1 truncate text-5xl font-bold tracking-tight">
-              {djProfile?.dj_name || "DJ Dashboard"}
-            </h1>
-
-            {genres.length > 0 && (
-              <p className="mt-2 text-sm text-zinc-400">
-                {genres.join(" • ")}
-              </p>
+                {menuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    role="menuitem"
+                    disabled={item.danger && pending === "logout"}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      item.onClick();
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors disabled:opacity-60",
+                      item.danger
+                        ? "text-status-declined hover:bg-status-declined/10"
+                        : "text-zinc-200 hover:bg-white/5"
+                    )}
+                  >
+                    <item.icon size={16} className="shrink-0" />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             )}
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              {statusBadge}
-              {autoCloseControl}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex w-auto flex-col items-end gap-3">
-          <div className="flex w-full flex-wrap items-center justify-end gap-3">
-            {djProfile?.slug && (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  window.open(`/request/${djProfile.slug}/queue`, "_blank")
-                }
-              >
-                <MonitorPlay size={16} className="mr-2" />
-                Display Screen
-              </Button>
-            )}
-
-            <Button
-              variant="secondary"
-              onClick={() => router.push("/dj/analytics")}
-            >
-              Analytics
-            </Button>
-
-            <Button
-              variant="secondary"
-              onClick={() => router.push("/dj/earnings")}
-            >
-              Earnings
-            </Button>
-
-            <Button
-              variant="secondary"
-              onClick={() => router.push("/dj/settings")}
-            >
-              Settings
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <Button
-              variant={isTakingRequests ? "danger" : "accent"}
-              className={
-                isTakingRequests
-                  ? "border-transparent bg-red-500 text-white hover:bg-red-400"
-                  : ""
-              }
-              onClick={handleToggle}
-              disabled={pending === "toggle"}
-            >
-              {pending === "toggle"
-                ? "Updating..."
-                : isTakingRequests
-                  ? "Pause Requests"
-                  : "Resume Requests"}
-            </Button>
-
-            <Button
-              variant="danger"
-              onClick={handleLogout}
-              disabled={pending === "logout"}
-            >
-              {pending === "logout" ? "Logging Out..." : "Log Out"}
-            </Button>
           </div>
         </div>
       </div>
