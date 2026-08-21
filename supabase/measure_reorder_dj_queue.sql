@@ -4,13 +4,16 @@
 -- Run after the migration. Uses the dj-elliot-test scratch profile,
 -- creates its own rows and deletes them. Touches no real data.
 --
--- Deliberately one DO block with no helper functions: the previous
--- version used SQL/plpgsql helpers and a jsonb snapshot and failed to
--- parse, so everything exotic is gone.
+-- Every table reference is schema-qualified on purpose.
+-- reorder_dj_queue is defined with SET search_path = '', which applies
+-- for the duration of each call. Anything unqualified in this script
+-- that runs after one of those calls cannot be resolved, which is what
+-- produced 42P01 relation "rpc_snap" does not exist. Qualifying costs
+-- nothing and removes the whole class of failure.
 -- =====================================================================
 
-drop table if exists rpc_perf;
-create table rpc_perf(
+drop table if exists public.rpc_perf;
+create table public.rpc_perf(
   n           serial,
   scenario    text,
   queue_size  int,
@@ -18,8 +21,8 @@ create table rpc_perf(
   rows_written int
 );
 
-drop table if exists rpc_snap;
-create table rpc_snap(id uuid primary key, pos int);
+drop table if exists public.rpc_snap;
+create table public.rpc_snap(id uuid primary key, pos int);
 
 do $$
 declare
@@ -46,8 +49,8 @@ begin
            g <= 3, g, now() - (g * interval '1 minute'), now()
       from generate_series(1, v_n) g;
 
-    delete from rpc_snap;
-    insert into rpc_snap select id, queue_position
+    delete from public.rpc_snap;
+    insert into public.rpc_snap select id, queue_position
       from public.song_requests where artist = 'perftest';
 
     perform set_config('role', 'authenticated', true);
@@ -57,16 +60,16 @@ begin
     perform set_config('role', 'postgres', true);
 
     select count(*) into v_rows
-      from public.song_requests s join rpc_snap k on k.id = s.id
+      from public.song_requests s join public.rpc_snap k on k.id = s.id
      where s.queue_position is distinct from k.pos;
 
-    insert into rpc_perf(scenario, queue_size, ms, rows_written)
+    insert into public.rpc_perf(scenario, queue_size, ms, rows_written)
     values ('resequence', v_n, round(v_ms, 1), v_rows);
   end loop;
 
   -- ---------- a single Move Up on the 35-row queue ----------
-  delete from rpc_snap;
-  insert into rpc_snap select id, queue_position
+  delete from public.rpc_snap;
+  insert into public.rpc_snap select id, queue_position
     from public.song_requests where artist = 'perftest';
 
   select id into v_id from public.song_requests
@@ -79,15 +82,15 @@ begin
   perform set_config('role', 'postgres', true);
 
   select count(*) into v_rows
-    from public.song_requests s join rpc_snap k on k.id = s.id
+    from public.song_requests s join public.rpc_snap k on k.id = s.id
    where s.queue_position is distinct from k.pos;
 
-  insert into rpc_perf(scenario, queue_size, ms, rows_written)
+  insert into public.rpc_perf(scenario, queue_size, ms, rows_written)
   values ('move up', 35, round(v_ms, 1), v_rows);
 
   -- ---------- Move to Top on the 35-row queue ----------
-  delete from rpc_snap;
-  insert into rpc_snap select id, queue_position
+  delete from public.rpc_snap;
+  insert into public.rpc_snap select id, queue_position
     from public.song_requests where artist = 'perftest';
 
   select id into v_id from public.song_requests
@@ -100,10 +103,10 @@ begin
   perform set_config('role', 'postgres', true);
 
   select count(*) into v_rows
-    from public.song_requests s join rpc_snap k on k.id = s.id
+    from public.song_requests s join public.rpc_snap k on k.id = s.id
    where s.queue_position is distinct from k.pos;
 
-  insert into rpc_perf(scenario, queue_size, ms, rows_written)
+  insert into public.rpc_perf(scenario, queue_size, ms, rows_written)
   values ('move to top', 35, round(v_ms, 1), v_rows);
 
   -- ---------- accepting a NEW request into a 35-row queue ----------
@@ -115,8 +118,8 @@ begin
   values (v_dj, 'pNEW', 'perftest', 'accepted', null, 'song_request',
           false, null, now(), now());
 
-  delete from rpc_snap;
-  insert into rpc_snap select id, queue_position
+  delete from public.rpc_snap;
+  insert into public.rpc_snap select id, queue_position
     from public.song_requests where artist = 'perftest';
 
   perform set_config('role', 'authenticated', true);
@@ -126,16 +129,16 @@ begin
   perform set_config('role', 'postgres', true);
 
   select count(*) into v_rows
-    from public.song_requests s join rpc_snap k on k.id = s.id
+    from public.song_requests s join public.rpc_snap k on k.id = s.id
    where s.queue_position is distinct from k.pos;
 
-  insert into rpc_perf(scenario, queue_size, ms, rows_written)
+  insert into public.rpc_perf(scenario, queue_size, ms, rows_written)
   values ('ACCEPT into 35-row queue', 36, round(v_ms, 1), v_rows);
 
   delete from public.song_requests where artist = 'perftest';
 end $$;
 
-drop table if exists rpc_snap;
+drop table if exists public.rpc_snap;
 
 select n,
        scenario,
@@ -143,5 +146,31 @@ select n,
        ms || ' ms'                                as duration,
        rows_written || ' of ' || queue_size       as rows_actually_written,
        1                                          as client_round_trips
-from rpc_perf
+from public.rpc_perf
 order by n;
+
+-- =====================================================================
+-- FALLBACK, if the block above still will not run.
+-- Four trivial statements. Run them one at a time; the last one prints
+-- the server-side execution time directly.
+--
+--   1. insert into public.song_requests
+--        (dj_profile_id, song_title, artist, request_status,
+--         stripe_payment_intent_id, request_type, is_vip,
+--         queue_position, accepted_at, created_at)
+--      select '91aa987b-9bae-4ba9-a4bd-5d15fa676937', 'p' || g, 'perftest',
+--             'accepted', null, 'song_request', g <= 3, g,
+--             now() - (g * interval '1 minute'), now()
+--        from generate_series(1, 35) g;
+--
+--   2. select set_config('request.jwt.claims',
+--        '{"sub":"205ce733-8e4e-4f85-9012-7d5cabf8c706"}', false);
+--
+--   3. select set_config('role', 'authenticated', false);
+--
+--   4. explain analyze select public.reorder_dj_queue();
+--         -> read "Execution Time" at the bottom
+--
+--   then: reset role;
+--         delete from public.song_requests where artist = 'perftest';
+-- =====================================================================
