@@ -16,6 +16,12 @@ type Props = {
 
   /** Queue position chip. Omit for non-queued contexts (pending). */
   position?: number;
+  /**
+   * Leading slot for contexts that have no queue position — the
+   * pending list uses it for the unresolved-attention indicator.
+   * Ignored when `position` is set, since they occupy the same column.
+   */
+  indicator?: ReactNode;
   /** Amount in pence. Omit where money isn't the point. */
   pence?: number;
 
@@ -94,6 +100,7 @@ export default function RequestCard({
   isVip = false,
   hasShoutout = false,
   position,
+  indicator,
   pence,
   meta,
   actions,
@@ -118,13 +125,15 @@ export default function RequestCard({
       )}
     >
       <div className="flex items-start gap-3">
-        {position !== undefined && (
+        {position !== undefined ? (
           <RequestRank
             position={position}
             size={size}
             isVip={isVip}
             className="mt-0.5"
           />
+        ) : (
+          indicator
         )}
 
         <SongIdentity

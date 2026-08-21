@@ -46,7 +46,17 @@ export default function SongIdentity({
 }: Props) {
   return (
     <div className={cn("min-w-0", className)}>
-      <h3 className={cn("flex items-center gap-2 truncate", titleClasses[size])}>
+      {/*
+        The title text needs its own element inside the flex row.
+        `truncate` on the <h3> itself set overflow:hidden and
+        text-overflow:ellipsis on a flex *container*, where the text
+        becomes an anonymous flex item that ellipsis cannot render on —
+        so long titles were clipped mid-word with no visual indication
+        that anything had been cut. The span is a real flex item, and
+        min-w-0 is what lets it shrink below its content so the ellipsis
+        has somewhere to go.
+      */}
+      <h3 className={cn("flex items-center gap-2", titleClasses[size])}>
         {isVip && (
           <Crown
             size={size === "compact" ? 12 : 16}
@@ -54,7 +64,7 @@ export default function SongIdentity({
             aria-label="VIP request"
           />
         )}
-        {title}
+        <span className="min-w-0 truncate">{title}</span>
       </h3>
 
       <p className={cn("truncate", artistClasses[size])}>{artist}</p>

@@ -1002,7 +1002,13 @@ export default function DJDashboardPage() {
         />
 
         <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-6">
-          <div id="pending-requests" className="scroll-mt-24">
+          {/* min-w-0: a grid item defaults to min-width:auto, which
+              stops it shrinking below its content's minimum. With
+              truncating song titles and a two-button action row inside,
+              that floor sat above the column width and pushed 20px of
+              horizontal overflow onto the page at 375px. The right
+              column already had this. */}
+          <div id="pending-requests" className="min-w-0 scroll-mt-24">
             <PendingRequests
               pendingRequests={pendingRequests}
               acceptRequest={acceptRequest}
