@@ -2,6 +2,7 @@ import { useState } from "react";
 import {Check} from "lucide-react";
 import type { SongRequest } from "@/src/types/dashboard";
 import Card from "@/src/components/ui/Card";
+import ScrollList from "@/src/components/ui/ScrollList";
 import Button from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
 
@@ -66,7 +67,7 @@ export default function HistoryCard({
       </div>
 
       {showHistory && (
-        <div className="max-h-80 space-y-2 overflow-y-auto p-4">
+        <ScrollList className="space-y-2 p-4">
           {playedRequests.length === 0 ? (
             /* Compact, matching Needs You and Queue. A 14x14 icon in a
                dashed box with p-10 is a marketing empty state, not one
@@ -106,7 +107,7 @@ export default function HistoryCard({
               ))}
             </div>
           )}
-        </div>
+        </ScrollList>
       )}
     </Card>
   );

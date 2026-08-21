@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import Card from "@/src/components/ui/Card";
+import ScrollList from "@/src/components/ui/ScrollList";
 import Button from "@/src/components/ui/Button";
 import { Input } from "@/src/components/ui/Input";
 import StatCard from "@/src/components/ui/StatCard";
@@ -463,7 +464,28 @@ export default function EarningsPage() {
             </Button>
           </div>
 
-          <div className="mt-6 space-y-3">
+          {/*
+            Contained scroll, the same treatment Recent Activity uses on
+            the dashboard. The heading, the note about older requests
+            and the Export CSV action stay put while the rows scroll, so
+            a busy night cannot stretch this page indefinitely.
+
+            max-h is only a cap: a handful of transactions keeps its
+            natural height with no scrollbar, so a quiet day never shows
+            a tall empty box.
+
+            320px on a phone, matching Recent Activity, so the list is
+            under 40% of the viewport and there is plenty of page either
+            side to grab — at 416px it took just over half the screen,
+            which starts to feel like the page has been replaced by a
+            scroller. Roomier from sm up, where this is the page a DJ
+            came to in order to read transactions rather than a panel
+            tucked under a live queue.
+          */}
+          <ScrollList
+            maxHeightClassName="max-h-80 sm:max-h-[26rem]"
+            className="mt-6 space-y-3 pr-1"
+          >
             {todaysRequests.length === 0 ? (
               <p className="text-zinc-400">No requests yet today.</p>
             ) : (
@@ -495,7 +517,7 @@ export default function EarningsPage() {
                 </div>
               ))
             )}
-          </div>
+          </ScrollList>
         </Card>
       </section>
     </main>
