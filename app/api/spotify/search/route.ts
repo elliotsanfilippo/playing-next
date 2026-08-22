@@ -101,6 +101,13 @@ export async function GET(request: Request) {
         title: track.name,
         artist: track.artists.map((artist: any) => artist.name).join(", "),
         artwork: track.album.images?.[0]?.url || null,
+        /*
+         * Spotify has always returned this; we simply were not mapping
+         * it, so the guest had no warning before requesting an explicit
+         * track at a wedding or a corporate event. Informational only —
+         * nothing filters or blocks on it.
+         */
+        explicit: Boolean(track.explicit),
       })) || [];
 
     return NextResponse.json(tracks);

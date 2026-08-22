@@ -34,7 +34,7 @@ export default function RequestOptions({
       <h3 className="text-xl font-bold">Choose your request</h3>
 
       <p className="mt-2 text-zinc-400">
-        Select how you'd like to send your request.
+        Select how you&apos;d like to send your request.
       </p>
 
       <div className="mt-6 space-y-4">

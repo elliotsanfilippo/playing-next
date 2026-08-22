@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
-import { isEffectivelyTakingRequests } from "@/src/lib/djActivity";
+import { availabilityState } from "@/src/lib/guestAvailability";
 import {
   getGuestNotificationsEnabled,
   showBrowserNotification,
@@ -15,7 +15,6 @@ import RequestHeader, {
   type DJProfile,
 } from "@/src/components/request/RequestHeader";
 
-import RequestCardHeader from "@/src/components/request/RequestCardHeader";
 import SpotifySearchInput from "@/src/components/request/SpotifySearchInput";
 import TrackResults, {
   type SpotifyTrack,
@@ -24,7 +23,13 @@ import SelectedSong from "@/src/components/request/SelectedSong";
 import RequestOptions from "@/src/components/request/RequestOptions";
 import CheckoutButton from "@/src/components/request/CheckoutButton";
 import TipCard from "@/src/components/request/TipCard";
-import EmptySearchState from "@/src/components/request/EmptySearchState";
+import {
+  SearchIdle,
+  SearchLoading,
+  SearchNoResults,
+  SearchError,
+} from "@/src/components/request/SearchStates";
+import UnavailableNotice from "@/src/components/request/UnavailableNotice";
 import Card from "@/src/components/ui/Card";
 import { buttonVariants } from "@/src/components/ui/Button";
 
@@ -45,8 +50,31 @@ export default function RequestPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
+  /*
+   * The finished result, tagged with the query that produced it.
+   *
+   * The phase below is derived from this rather than stored, for two
+   * reasons. Storing it meant writing state synchronously inside the
+   * search effect on every keystroke, which is a cascading render. It
+   * also let a stale result show against a newer query: results for
+   * "riha" stayed on screen, labelled as results, while "rihanna" was
+   * still in flight. Keying the result to its own query makes "is this
+   * answer about what I typed?" a comparison rather than a race.
+   */
+  const [searchResult, setSearchResult] = useState<{
+    query: string;
+    status: "results" | "empty" | "error";
+  } | null>(null);
+  const [searchNonce, setSearchNonce] = useState(0);
   const [selectedSong, setSelectedSong] = useState<SpotifyTrack | null>(null);
-  const [duplicateWarning, setDuplicateWarning] = useState<{
+  /*
+   * Tagged with the track it describes, for the same reason as the
+   * search result: clearing it in an effect was a synchronous setState,
+   * and an untagged warning could briefly describe the previous song
+   * after the guest changed their mind.
+   */
+  const [duplicateResult, setDuplicateResult] = useState<{
+    trackId: string;
     alreadyRequested: boolean;
     alreadyPlayed: boolean;
   } | null>(null);
@@ -67,31 +95,6 @@ export default function RequestPage() {
 
   const searchAbortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchDJProfile = async (showLoading = false) => {
-  if (showLoading) {
-    setIsLoadingDJ(true);
-  }
-
-  const { data, error } = await supabase
-    .from("dj_profiles")
-    .select(
-      "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, request_price, shoutout_price, profile_image_url"
-    )
-    .eq("slug", djSlug)
-    .maybeSingle();
-
-  if (error || !data) {
-    console.log("DJ profile not found:", error);
-    setDjProfile(null);
-    setDjNotFound(true);
-    setIsLoadingDJ(false);
-    return;
-  }
-
-  setDjProfile(data);
-  setDjNotFound(false);
-  setIsLoadingDJ(false);
-};
 
   /*
    * Reads the query string directly rather than useSearchParams, which
@@ -117,11 +120,13 @@ export default function RequestPage() {
    * Informational only — lets a guest know before they pay that a
    * track is already in the queue or was already played tonight.
    */
+  const duplicateWarning =
+    selectedSong && duplicateResult?.trackId === selectedSong.id
+      ? duplicateResult
+      : null;
+
   useEffect(() => {
-    if (!selectedSong) {
-      setDuplicateWarning(null);
-      return;
-    }
+    if (!selectedSong) return;
 
     let cancelled = false;
 
@@ -134,7 +139,9 @@ export default function RequestPage() {
         if (!response.ok || cancelled) return;
 
         const data = await response.json();
-        if (!cancelled) setDuplicateWarning(data);
+        if (!cancelled) {
+          setDuplicateResult({ trackId: selectedSong.id, ...data });
+        }
       } catch (error) {
         console.log("Duplicate check error:", error);
       }
@@ -153,9 +160,23 @@ export default function RequestPage() {
    * enough to still feel instant, long enough to skip past mid-word
    * keystrokes for anyone typing at a normal pace.
    */
+  const trimmedQuery = searchQuery.trim();
+
+  /*
+   * Anything without a matching finished result is still loading — which
+   * covers the 300ms debounce as well as the network wait. That gap was
+   * part of the blank period the guest used to stare at.
+   */
+  const searchPhase: "idle" | "loading" | "results" | "empty" | "error" =
+    trimmedQuery.length < 2
+      ? "idle"
+      : searchResult?.query === trimmedQuery
+        ? searchResult.status
+        : "loading";
+
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setTracks([]);
+    if (trimmedQuery.length < 2) {
+      searchAbortControllerRef.current?.abort();
       return;
     }
 
@@ -166,7 +187,7 @@ export default function RequestPage() {
 
       try {
         const response = await fetch(
-          `/api/spotify/search?q=${encodeURIComponent(searchQuery)}`,
+          `/api/spotify/search?q=${encodeURIComponent(trimmedQuery)}`,
           { signal: controller.signal }
         );
 
@@ -176,21 +197,28 @@ export default function RequestPage() {
 
         const data = await response.json();
         setTracks(data);
+        setSearchResult({
+          query: trimmedQuery,
+          status: data.length > 0 ? "results" : "empty",
+        });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
 
         console.log("Spotify search error:", error);
-        toast.error(
-          "Song search is temporarily unavailable. Please try again.",
-          { id: "spotify-search-error" }
-        );
+        setTracks([]);
+        /*
+         * Shown in place now rather than only as a toast. A toast that
+         * has already faded leaves the guest staring at an empty panel
+         * with no idea what happened or how to retry.
+         */
+        setSearchResult({ query: trimmedQuery, status: "error" });
       }
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [searchQuery]);
+  }, [trimmedQuery, searchNonce]);
 
   useEffect(() => {
   let isMounted = true;
@@ -233,14 +261,17 @@ export default function RequestPage() {
     }
 
     setDjProfile(data);
-    if (!isEffectivelyTakingRequests(data)) {
-  setSearchQuery("");
-  setTracks([]);
-  setSelectedSong(null);
-  setMessage("");
-  setRequestType("song_request");
-  setIsVip(false);
-}
+    /*
+     * Deliberately does not clear the guest's work.
+     *
+     * Both of these paths used to reset searchQuery, tracks,
+     * selectedSong, message, requestType and isVip whenever the DJ was
+     * no longer taking requests — and one of them runs on a 5s poll. A
+     * DJ pausing for ten seconds while a guest was picking their options
+     * silently threw away everything they had entered, and the guest had
+     * no idea why. The unavailable state is shown around their progress
+     * instead, so if requests reopen they carry straight on.
+     */
     setDjNotFound(false);
     setIsLoadingDJ(false);
     fetchActiveEvent(data.id);
@@ -274,14 +305,17 @@ export default function RequestPage() {
     if (!isMounted || !data) return;
 
     setDjProfile(data);
-    if (!isEffectivelyTakingRequests(data)) {
-  setSearchQuery("");
-  setTracks([]);
-  setSelectedSong(null);
-  setMessage("");
-  setRequestType("song_request");
-  setIsVip(false);
-}
+    /*
+     * Deliberately does not clear the guest's work.
+     *
+     * Both of these paths used to reset searchQuery, tracks,
+     * selectedSong, message, requestType and isVip whenever the DJ was
+     * no longer taking requests — and one of them runs on a 5s poll. A
+     * DJ pausing for ten seconds while a guest was picking their options
+     * silently threw away everything they had entered, and the guest had
+     * no idea why. The unavailable state is shown around their progress
+     * instead, so if requests reopen they carry straight on.
+     */
     fetchActiveEvent(data.id);
   };
 
@@ -402,18 +436,21 @@ document.addEventListener(
     return () => clearInterval(interval);
   }, [djSlug]);
 
-  const isTakingRequests = Boolean(
-    djProfile && isEffectivelyTakingRequests(djProfile)
-  );
-
   /*
-   * Distinct from isTakingRequests on purpose — a full pending queue
-   * is a temporary capacity limit, not the DJ pausing, so the header
-   * badge still says "Taking Requests" while the search/submit flow
-   * itself is blocked. Tips aren't gated by this: they don't add to
-   * the pending queue.
+   * One object describing whether the guest can request and why not,
+   * rather than two booleans the UI had to interpret. The four reasons
+   * stay distinct so the notice can say something useful; see
+   * guestAvailability.ts for why none of that copy mentions the DJ's
+   * activity.
    */
-  const canSubmitRequest = isTakingRequests && !pendingFull;
+  const availability = availabilityState(djProfile, pendingFull);
+  const canRequest = availability.canRequest;
+
+  /* Tips are not gated by the pending cap: they add nothing to the
+     pending list. They do still require the DJ to be around. */
+  const isTakingRequests = availability.reason !== "pending_full"
+    ? canRequest
+    : true;
 
   const requestPrice =
     activeEvent?.request_price ?? djProfile?.request_price ?? 500;
@@ -421,7 +458,7 @@ document.addEventListener(
     activeEvent?.shoutout_price ?? djProfile?.shoutout_price ?? 800;
 
   const submitRequest = async () => {
-    if (!selectedSong || !djProfile || !canSubmitRequest || submitting) return;
+    if (!selectedSong || !djProfile || !canRequest || submitting) return;
 
     if (requestType === "song_message" && message.trim().length === 0) {
       toast.error("Please add a message for your Song + Message request.");
@@ -564,96 +601,141 @@ localStorage.setItem(
 
   return (
     <main className="min-h-screen bg-canvas text-white">
-      <section className="mx-auto max-w-4xl px-5 py-8 sm:px-6 sm:py-12">
+      {/*
+        Composition order is the guest's job order: identity, then
+        whether they can request, then search. The tip card used to sit
+        above the search panel, which asked someone to tip before they
+        had even found a song.
+      */}
+      <section className="mx-auto max-w-2xl px-4 py-4 sm:px-6 sm:py-8">
         <RequestHeader
-  djSlug={djSlug}
-  djProfile={djProfile!}
-  isTakingRequests={isTakingRequests}
-  eventName={activeEvent?.name ?? null}
-/>
+          djSlug={djSlug}
+          djProfile={djProfile!}
+          availability={availability}
+          eventName={activeEvent?.name ?? null}
+        />
 
-  <TipCard djSlug={djSlug} isTakingRequests={isTakingRequests} />
+        {!canRequest && (
+          <div className="mt-4">
+            <UnavailableNotice availability={availability} />
+          </div>
+        )}
 
-  <Card variant="elevated" className="mt-6 p-6 sm:p-8">
-  <RequestCardHeader />
+        {/*
+          One panel for the whole find-a-song step, rather than the four
+          stacked elevated Cards this used to be. The guest is doing one
+          thing here.
+        */}
+        {/*
+          The selected card carries its own accent border, so it is not
+          wrapped in the neutral panel — nesting the two produced a
+          double outline around the same content.
+        */}
+        <div
+          className={
+            selectedSong
+              ? "mt-4"
+              : "mt-4 rounded-card border border-white/10 bg-surface-raised p-3.5 sm:p-5"
+          }
+        >
+          {selectedSong ? (
+            <SelectedSong
+              selectedSong={selectedSong}
+              duplicateWarning={duplicateWarning}
+              onChangeSong={() => {
+                /*
+                 * Only the song is cleared. Message, request type and
+                 * VIP are choices about the request, not about this
+                 * track, so swapping song keeps them.
+                 */
+                setSelectedSong(null);
+                setSearchQuery("");
+                setTracks([]);
+                setSearchResult(null);
+              }}
+            />
+          ) : (
+            <>
+              <h2 className="text-base font-bold tracking-tight sm:text-lg">
+                What should the DJ play?
+              </h2>
 
-  <SpotifySearchInput
-    searchQuery={searchQuery}
-    isTakingRequests={canSubmitRequest}
-    onSearch={setSearchQuery}
-  />
+              <div className="mt-3">
+                <SpotifySearchInput
+                  searchQuery={searchQuery}
+                  canRequest={canRequest}
+                  onSearch={setSearchQuery}
+                />
+              </div>
 
-  {isTakingRequests && pendingFull && (
-    <p className="mt-4 rounded-control border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
-      This DJ&rsquo;s queue is full right now. Check back in a few
-      minutes.
-    </p>
-  )}
+              {canRequest && (
+                <div className="mt-3">
+                  {searchPhase === "idle" && <SearchIdle />}
+                  {searchPhase === "loading" && <SearchLoading />}
+                  {searchPhase === "empty" && (
+                    <SearchNoResults
+                      query={searchQuery}
+                      onClear={() => setSearchQuery("")}
+                    />
+                  )}
+                  {searchPhase === "error" && (
+                    <SearchError
+                      onRetry={() => {
+                        /* Clearing the result puts the panel back into
+                           loading while the retry runs. */
+                        setSearchResult(null);
+                        setSearchNonce((n) => n + 1);
+                      }}
+                    />
+                  )}
+                  {searchPhase === "results" && (
+                    <TrackResults
+                      tracks={tracks}
+                      canRequest={canRequest}
+                      onSelect={setSelectedSong}
+                    />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
-  {!selectedSong &&
-    tracks.length === 0 &&
-    searchQuery.length < 2 &&
-    canSubmitRequest && (
-      <EmptySearchState />
-    )}
-</Card>
+        {selectedSong && (
+          <>
+            <div className="mt-4 rounded-card border border-white/10 bg-surface-raised p-3.5 sm:p-5">
+              <RequestOptions
+                requestType={requestType}
+                setRequestType={setRequestType}
+                requestPrice={requestPrice}
+                shoutoutPrice={shoutoutPrice}
+                message={message}
+                setMessage={setMessage}
+                isTakingRequests={canRequest}
+                isVip={isVip}
+                setIsVip={setIsVip}
+                vipAvailable={vipAvailable}
+              />
+            </div>
 
-{!selectedSong && tracks.length > 0 && (
-  <TrackResults
-    tracks={tracks}
-    selectedSong={selectedSong}
-    isTakingRequests={canSubmitRequest}
-    onSelect={setSelectedSong}
-  />
-)}
+            <div className="mt-4">
+              <CheckoutButton
+                selectedSong
+                isTakingRequests={canRequest}
+                requestType={requestType}
+                requestPrice={requestPrice}
+                shoutoutPrice={shoutoutPrice}
+                isVip={isVip}
+                submitting={submitting}
+                onCheckout={submitRequest}
+              />
+            </div>
+          </>
+        )}
 
-          {selectedSong && (
-  <>
-    <Card variant="elevated" className="mt-6 p-6 sm:p-8">
-      <SelectedSong
-        selectedSong={selectedSong}
-        duplicateWarning={duplicateWarning}
-        onChangeSong={() => {
-          setSelectedSong(null);
-          setSearchQuery("");
-          setTracks([]);
-          setMessage("");
-          setRequestType("song_request");
-          setIsVip(false);
-        }}
-      />
-    </Card>
-
-    <Card variant="elevated" className="mt-6 p-6 sm:p-8">
-      <RequestOptions
-        requestType={requestType}
-        setRequestType={setRequestType}
-        requestPrice={requestPrice}
-        shoutoutPrice={shoutoutPrice}
-        message={message}
-        setMessage={setMessage}
-        isTakingRequests={canSubmitRequest}
-        isVip={isVip}
-        setIsVip={setIsVip}
-        vipAvailable={vipAvailable}
-      />
-    </Card>
-
-    <Card variant="elevated" className="mt-6 p-6 sm:p-8">
-      <CheckoutButton
-        selectedSong
-        isTakingRequests={canSubmitRequest}
-        requestType={requestType}
-        requestPrice={requestPrice}
-        shoutoutPrice={shoutoutPrice}
-        isVip={isVip}
-        submitting={submitting}
-        onCheckout={submitRequest}
-      />
-    </Card>
-  </>
-)}
-        
+        <div className="mt-4">
+          <TipCard djSlug={djSlug} isTakingRequests={isTakingRequests} />
+        </div>
       </section>
     </main>
   );
