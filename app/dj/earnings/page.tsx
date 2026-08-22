@@ -58,12 +58,21 @@ export default function EarningsPage() {
 
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<SongRequestFinancials[]>([]);
+  /*
+   * A failed load used to set loading=false and return, leaving
+   * requests=[] — so the page rendered £0.00 across every figure as
+   * though the DJ had genuinely earned nothing that night. A DJ cannot
+   * tell that apart from a quiet gig. Nothing is shown as a number until
+   * we know the number is real.
+   */
+  const [loadError, setLoadError] = useState("");
   const [payoutInfo, setPayoutInfo] = useState<PayoutsResponse | null>(null);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
 
   const fetchEarnings = async () => {
     setLoading(true);
+    setLoadError("");
 
     const {
       data: { session },
@@ -82,6 +91,7 @@ export default function EarningsPage() {
 
     if (profileError || !profile) {
       console.log("Earnings profile load error:", profileError);
+      setLoadError("We couldn't load your earnings.");
       setLoading(false);
       return;
     }
@@ -107,6 +117,7 @@ export default function EarningsPage() {
 
     if (requestsError) {
       console.log("Earnings requests load error:", requestsError);
+      setLoadError("We couldn't load your earnings.");
       setLoading(false);
       return;
     }
@@ -257,6 +268,35 @@ export default function EarningsPage() {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  /*
+   * Shown instead of the figures, never alongside them. Rendering an
+   * error banner above a page of £0.00 totals would still leave the
+   * zeros on screen to be misread.
+   */
+  if (!loading && loadError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-canvas p-5 text-white">
+        <div className="w-full max-w-sm rounded-card border border-white/10 bg-surface-raised p-6 text-center">
+          <h1 className="text-lg font-bold">{loadError}</h1>
+          <p className="mt-2 text-[13px] leading-5 text-zinc-500">
+            This is a loading problem, not a change to your earnings.
+            Nothing has been lost.
+          </p>
+          <Button className="mt-5 w-full" onClick={fetchEarnings}>
+            Try again
+          </Button>
+          <Button
+            variant="secondary"
+            className="mt-2.5 w-full"
+            onClick={() => router.push("/dj/dashboard")}
+          >
+            Back to dashboard
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
