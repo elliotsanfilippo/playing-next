@@ -20,6 +20,7 @@ export default function HistoryCard({
   clearPlayedHistory,
 }: Props) {
   const [clearing, setClearing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const handleClear = async () => {
     if (clearing) return;
@@ -30,6 +31,7 @@ export default function HistoryCard({
       await clearPlayedHistory();
     } finally {
       setClearing(false);
+      setConfirming(false);
     }
   };
 
@@ -49,20 +51,59 @@ export default function HistoryCard({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => setShowHistory(!showHistory)}
-            >
-              {showHistory ? "Hide Activity" : "Show Activity"}
-            </Button>
+          {/*
+           * Clear was the primary white button, which gave the only
+           * action here that a DJ cannot walk back the most visual
+           * weight, sitting above the ordinary Show/Hide toggle. It is
+           * now the danger variant, and it asks first, matching how
+           * QrBoxBanner handles its own final choice.
+           *
+           * Worth being precise in the copy: this sets dj_hidden on the
+           * finished requests rather than deleting them, so earnings and
+           * totals are genuinely untouched. There is no unhide anywhere
+           * in the product though, so for the DJ it really is one-way.
+           */}
+          {confirming ? (
+            <div className="flex flex-col gap-3 lg:items-end">
+              <p className="text-sm text-zinc-300">
+                Clear your activity list? You can&apos;t undo this. Your
+                earnings and totals stay exactly as they are.
+              </p>
 
-            {playedRequests.length > 0 && (
-              <Button onClick={handleClear} disabled={clearing}>
-                {clearing ? "Clearing..." : "Clear"}
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => setConfirming(false)}
+                  disabled={clearing}
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  variant="danger"
+                  onClick={handleClear}
+                  disabled={clearing}
+                >
+                  {clearing ? "Clearing..." : "Yes, clear"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setShowHistory(!showHistory)}
+              >
+                {showHistory ? "Hide Activity" : "Show Activity"}
               </Button>
-            )}
-          </div>
+
+              {playedRequests.length > 0 && (
+                <Button variant="danger" onClick={() => setConfirming(true)}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
