@@ -112,9 +112,15 @@ export default function PublicQueuePage() {
         <div className="flex shrink-0 items-center justify-between">
           <div className="flex items-center gap-4">
             {data.djImage ? (
+              /* Intrinsic dimensions so the header does not reflow when
+                 the avatar arrives. This screen is often projected or
+                 left running on a venue display, where a late shift is
+                 more noticeable than on a phone. */
               <img
                 src={data.djImage}
-                alt={data.djName}
+                alt=""
+                width={56}
+                height={56}
                 className="h-14 w-14 rounded-2xl object-cover"
               />
             ) : (
@@ -214,7 +220,13 @@ export default function PublicQueuePage() {
         {qrCodeUrl && (
           <div className="mt-8 flex shrink-0 flex-col items-center gap-4 self-center rounded-card-lg border border-white/10 bg-zinc-900/90 px-6 py-5 shadow-2xl backdrop-blur sm:mt-10 sm:flex-row sm:gap-5">
             <div className="rounded-card bg-white p-3">
-              <img src={qrCodeUrl} alt="QR code" className="h-20 w-20 sm:h-24 sm:w-24" />
+              <img
+                src={qrCodeUrl}
+                alt=""
+                width={96}
+                height={96}
+                className="h-20 w-20 sm:h-24 sm:w-24"
+              />
             </div>
 
             <div className="text-center sm:text-left">

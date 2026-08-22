@@ -87,3 +87,57 @@ closer to **£350–£450**.
 ---
 
 Sources for the figures above: [ICO data protection fee](https://ico.org.uk/for-organisations/data-protection-fee/), [VAT registration threshold](https://www.gov.uk/vat-registration), Companies House 2026 fee changes, and current UK IPO trade mark fees — all checked August 2026; re-verify before paying anything, since government fees change.
+
+---
+
+## Real-device keyboard QA (guest journey)
+
+Phase 4E and 4F could not verify soft-keyboard behaviour: the automated
+preview has no on-screen keyboard, so nothing below has been observed —
+only reasoned about from the code. There are no `visualViewport` hacks in
+the guest journey and no sticky CTA that could sit over an input, which
+is why nothing was "fixed" pre-emptively. These need a real phone.
+
+Do these on **iPhone Safari** first (it has the most aggressive viewport
+behaviour), then **Chrome on Android** if available.
+
+### Search
+- [ ] Tap the search field. Keyboard opens and the field stays visible,
+      not scrolled under the keyboard.
+- [ ] Type two characters. The skeleton "searching" rows appear rather
+      than a blank gap.
+- [ ] Results arrive. The list is scrollable with the keyboard still up,
+      and the first result is reachable without dismissing it.
+- [ ] Tap a result. Keyboard dismisses and the page settles on the
+      selected song rather than jumping to the top or leaving a gap where
+      the keyboard was.
+- [ ] Tap the clear (×) button with the keyboard open — the field should
+      clear and keep focus, keyboard staying up.
+
+### Song + message
+- [ ] Tap the shoutout textarea. Keyboard opens, the field is visible,
+      and the character counter is not hidden behind the keyboard.
+- [ ] Type several lines. The field scrolls internally at 3 rows rather
+      than pushing the page around.
+- [ ] Scroll down to the payment CTA with the keyboard still open. "Pay
+      £x.xx" must be reachable — this is the one that matters most.
+- [ ] Dismiss the keyboard. No leftover blank space at the bottom.
+
+### Tip
+- [ ] Tap the custom amount field. A **numeric** keypad should appear
+      (`inputMode="decimal"`), not the full alphabetic keyboard.
+- [ ] Confirm no page zoom on focus. iOS zooms inputs under 16px; the tip
+      field is `text-sm` (14px), so **watch this one specifically** — if
+      it zooms, that is a real bug to report, not something to work
+      around blindly.
+- [ ] Tip message field: keyboard opens, "Tip £x.xx" stays reachable.
+
+### General
+- [ ] No unexpected viewport jump when any keyboard opens or closes.
+- [ ] Focus never disappears — after every dismissal something sensible
+      is still focused.
+- [ ] One-handed: every primary action reachable with a thumb.
+
+If any of these fail, report what you saw before anything is changed. A
+`visualViewport` workaround should only be written against a reproduced
+bug, never speculatively.
