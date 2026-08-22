@@ -684,3 +684,74 @@ phase is mostly *building* the email experience, not restyling it.
 
 Goal: someone opens a Playing Next email and thinks "even their emails
 feel premium."
+
+---
+
+## 11. 🔔 Guest push notifications — future phase
+
+Today's guest "Notify Me" is honest about what it is, but it is not push.
+It calls `new Notification()` from inside the status-polling loop, so it
+only fires while the page is still alive in a background tab. Close the
+tab or let the phone sleep the page and nothing arrives — which is
+precisely when a guest most wants to hear that their song is up next. The
+copy says "while this page is open" for that reason.
+
+Real guest push needs its own design and security work. Do not extend the
+DJ system to cover it: `src/lib/push.ts` authenticates with `authedFetch`
+and assumes an account, and guests deliberately have neither.
+
+- [ ] Decide how a push subscription is bound to locally-owned request
+      IDs without inventing guest accounts. The ownership model is a list
+      of request IDs in `localStorage`; a subscription has to prove it is
+      allowed to hear about those IDs and no others.
+- [ ] Work out what happens when the same device holds requests for
+      several DJs, and when `localStorage` is cleared while a
+      subscription is still live on the server.
+- [ ] Choose which transitions are worth interrupting someone for.
+      Accepted, Playing Next and Declined are the obvious three; Played
+      is arguably noise once the song has already been heard.
+- [ ] Notification fatigue: one guest with several requests on a busy
+      night should not get a stream of separate alerts.
+- [ ] Revoke and unsubscribe, including from the guest's side with no
+      account to log into.
+- [ ] Privacy review — a subscription endpoint is a durable identifier
+      for a person we otherwise deliberately do not identify.
+- [ ] iOS support reality check: Safari requires the site to be added to
+      the Home Screen before web push works at all, which is a hard sell
+      mid-gig and may make this Android-first in practice.
+
+---
+
+## 12. 💳 Stripe pre-launch payment QA
+
+The sandbox happy path is proven end to end: checkout → authorisation →
+Waiting for DJ → accept → capture → In Queue → Playing Next → Played,
+with the money verified at every transition. What is *not* proven is the
+webhook half, because webhooks cannot reach `localhost` and there was no
+Stripe CLI available when the lifecycle work was done.
+
+None of this needs the payment architecture changed. It needs
+`stripe listen --forward-to localhost:3000/api/stripe/webhook` and a pass
+through the events.
+
+- [ ] `checkout.session.completed` — the server-side fallback when the
+      guest's browser never returns from Stripe. The redirect path that
+      races it is proven; this one is only proven by reading.
+- [ ] `checkout.session.expired` — the mechanism that closes abandoned
+      checkouts. Confirmed working on Stripe's side (a session really
+      does go `expired`); the resulting row transition is untested.
+- [ ] `charge.refunded` → `refunded` and `charge.dispute.created` →
+      `disputed`.
+- [ ] Late-event idempotency: fire a `checkout.session.completed` at a
+      row the stale sweep has already closed and confirm the status
+      guards make it a no-op rather than resurrecting it.
+- [ ] Decide the Preview webhook strategy. The sandbox endpoint currently
+      points at the *production* URL, which is not a sensible arrangement
+      for branch deployments.
+- [ ] Verify the **live** Pro price matches `PRO_MONTHLY_PRICE_GBP`
+      (£49.99). The test-mode price is £14.99, and `pricing.ts` warns in
+      a comment that the constant and the Stripe Price must be changed
+      together or the UI and the real charge disagree.
+- [ ] Confirm every Stripe-related variable in Vercel Preview is
+      test-mode, not just `STRIPE_SECRET_KEY` — `STRIPE_WEBHOOK_SECRET`
+      and `STRIPE_PRO_PRICE_ID` too.

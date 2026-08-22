@@ -151,7 +151,18 @@ export default function RequestStatusCard({ request, feature = false }: Props) {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
             Your shoutout
           </p>
-          <p className="mt-1 text-[13px] leading-5 text-zinc-200">
+          {/*
+            Clamped, like the same message is on the DJ's side. A guest
+            can write up to 500 characters, and unclamped that turned a
+            single row into a 279px block — so someone with a handful of
+            shoutout requests got a My Requests page mostly made of their
+            own words rather than of statuses. The full text stays
+            available on hover or long press via title.
+          */}
+          <p
+            title={request.message ?? undefined}
+            className="mt-1 line-clamp-3 text-[13px] leading-5 text-zinc-200"
+          >
             &ldquo;{request.message}&rdquo;
           </p>
         </div>

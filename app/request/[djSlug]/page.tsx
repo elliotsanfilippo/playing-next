@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -8,8 +13,11 @@ import { supabase } from "../../../src/lib/supabase";
 import { availabilityState } from "@/src/lib/guestAvailability";
 import {
   addGuestRequestId,
-  readGuestRequestIds,
+  getGuestRequestIdsServerSnapshot,
+  getGuestRequestIdsSnapshot,
+  subscribeGuestRequestIds,
 } from "@/src/lib/guestRequestIds";
+import { useRequestStatus } from "@/src/lib/useRequestStatus";
 import {
   getGuestNotificationsEnabled,
   showBrowserNotification,
@@ -422,61 +430,60 @@ export default function RequestPage() {
    * pages; the notification toggle itself is a single global
    * preference, so nothing new to opt into here.
    */
+  /*
+   * A guest browsing for a second song still has an earlier request out
+   * for a decision, so status changes surface here as toasts too.
+   *
+   * This used to be its own 4-second fetch loop — a second polling
+   * implementation alongside useRequestStatus, with none of its abort,
+   * in-flight or unmount guards, and no visibility handling, so it kept
+   * polling in a pocketed phone. It now shares the one hook, which means
+   * one definition of the cadence and one definition of what a bad
+   * signal looks like.
+   */
+  const trackedIds = useSyncExternalStore(
+    subscribeGuestRequestIds,
+    () => getGuestRequestIdsSnapshot(djSlug),
+    getGuestRequestIdsServerSnapshot
+  );
+
+  const { requests: myRequests } = useRequestStatus(
+    trackedIds.length > 0 ? trackedIds : null
+  );
+
   useEffect(() => {
-    const checkMyRequests = async () => {
-      const myRequestIds = readGuestRequestIds(djSlug);
+    if (myRequests.length === 0) return;
 
-      if (myRequestIds.length === 0) return;
+    /* First response is the baseline, not a burst of notifications for
+       things that happened before the guest opened the page. */
+    if (previousRequestStatusesRef.current === null) {
+      previousRequestStatusesRef.current = new Map(
+        myRequests.map((request) => [request.id, request.request_status])
+      );
+      return;
+    }
 
-      const response = await fetch("/api/my-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestIds: myRequestIds }),
-      });
+    const previous = previousRequestStatusesRef.current;
 
-      if (!response.ok) return;
+    myRequests.forEach((request) => {
+      const before = previous.get(request.id);
+      previous.set(request.id, request.request_status);
 
-      const result = await response.json();
-      const freshRequests: { id: string; song_title: string; request_status: string }[] =
-        result.requests || [];
+      if (!before || before === request.request_status) return;
 
-      if (previousRequestStatusesRef.current === null) {
-        previousRequestStatusesRef.current = new Map(
-          freshRequests.map((request) => [request.id, request.request_status])
-        );
-        return;
+      const copy = requestStatusNotificationCopy(request.request_status);
+      if (!copy) return;
+
+      toast(request.song_title, { description: copy });
+
+      if (
+        getGuestNotificationsEnabled() &&
+        document.visibilityState !== "visible"
+      ) {
+        showBrowserNotification(request.song_title, copy);
       }
-
-      const previous = previousRequestStatusesRef.current;
-
-      freshRequests.forEach((request) => {
-        const previousStatus = previous.get(request.id);
-
-        if (previousStatus && previousStatus !== request.request_status) {
-          const copy = requestStatusNotificationCopy(request.request_status);
-
-          if (copy) {
-            toast(request.song_title, { description: copy });
-
-            if (
-              getGuestNotificationsEnabled() &&
-              document.visibilityState !== "visible"
-            ) {
-              showBrowserNotification(request.song_title, copy);
-            }
-          }
-        }
-
-        previous.set(request.id, request.request_status);
-      });
-    };
-
-    checkMyRequests();
-
-    const interval = setInterval(checkMyRequests, 4000);
-
-    return () => clearInterval(interval);
-  }, [djSlug]);
+    });
+  }, [myRequests]);
 
   /*
    * One object describing whether the guest can request and why not,
