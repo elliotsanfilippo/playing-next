@@ -192,3 +192,21 @@ export function canGuestCancel(status: string): boolean {
 export function canReportNotPlayed(status: string): boolean {
   return ["accepted", "playing_next", "played"].includes(status);
 }
+
+/*
+ * The report window opens at "accepted", not at "played", and that is
+ * deliberate: the abuse case it exists for is a DJ accepting a request,
+ * taking the money, and never marking it played at all. If the action
+ * only appeared on "played" the guest could never report exactly the
+ * situation it was built for.
+ *
+ * But "I didn't hear this track" under a song the DJ has just queued —
+ * or worse, under "You're up next" — is nonsense, because it has not had
+ * a chance to play yet. So the eligibility stays as the server defines
+ * it and the label changes to suit where the request actually is.
+ */
+export function reportActionLabel(status: string): string {
+  return status === "played"
+    ? "I didn't hear this track"
+    : "Report a problem";
+}

@@ -7,6 +7,10 @@ import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
 import { availabilityState } from "@/src/lib/guestAvailability";
 import {
+  addGuestRequestId,
+  readGuestRequestIds,
+} from "@/src/lib/guestRequestIds";
+import {
   getGuestNotificationsEnabled,
   showBrowserNotification,
 } from "@/src/lib/notifications";
@@ -373,16 +377,7 @@ document.addEventListener(
    */
   useEffect(() => {
     const checkMyRequests = async () => {
-      let myRequestIds: string[] = [];
-
-      try {
-        myRequestIds = JSON.parse(
-          localStorage.getItem(`myRequestIds_${djSlug}`) || "[]"
-        );
-      } catch (error) {
-        console.log("localStorage parse error", error);
-        return;
-      }
+      const myRequestIds = readGuestRequestIds(djSlug);
 
       if (myRequestIds.length === 0) return;
 
@@ -513,24 +508,9 @@ document.addEventListener(
 
     const requestId = createData.requestId as string;
 
-    let existingMyRequests: string[] = [];
-
-try {
-  existingMyRequests = JSON.parse(
-    localStorage.getItem(`myRequestIds_${djSlug}`) || "[]"
-  );
-} catch (error) {
-  console.log("localStorage parse error", error);
-  existingMyRequests = [];
-}
-
-localStorage.setItem(
-  `myRequestIds_${djSlug}`,
-  JSON.stringify([
-    requestId,
-    ...existingMyRequests.filter((id: string) => id !== requestId),
-  ])
-);
+    /* Through the shared helper so every read and write of the guest's
+       ownership record is guarded the same way. */
+    addGuestRequestId(djSlug, requestId);
 
     const checkoutResponse = await fetch("/api/stripe/checkout", {
       method: "POST",

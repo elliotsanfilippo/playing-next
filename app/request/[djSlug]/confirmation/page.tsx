@@ -21,6 +21,7 @@ import {
   requestStatusNotificationCopy,
   canGuestCancel,
   canReportNotPlayed,
+  reportActionLabel,
   isClosedStatus,
 } from "@/src/lib/requestStatus";
 import {
@@ -47,9 +48,22 @@ function ConfirmationPageContent() {
    * page-level error on any failed poll, so a single blip on venue wifi
    * replaced a request the guest had just paid for with an error screen.
    */
-  const { request, loading, fatalError, stale, refresh } = useRequestStatus(
-    requestId ? [requestId] : null
-  );
+  const {
+    requests,
+    loading,
+    fatalError,
+    stale,
+    refresh,
+  } = useRequestStatus(requestId ? [requestId] : null);
+
+  /*
+   * One id in, so at most one out. An empty result is not a transient
+   * state to guard against: /api/my-requests either returns the row or
+   * errors, and the error path already keeps the last good status. An
+   * empty array for a real id means the row is archived or the id is
+   * wrong, which is genuinely "not found".
+   */
+  const request = requests[0] ?? null;
 
   const [dj, setDj] = useState<{
     dj_name: string;
@@ -382,7 +396,9 @@ function ConfirmationPageContent() {
             {reportOpen ? (
               <div className="rounded-card border border-white/10 bg-surface-raised p-3.5 sm:p-5">
                 <p className="text-sm font-semibold text-white">
-                  Didn&apos;t hear this one?
+                  {status === "played"
+                    ? "Didn't hear your track?"
+                    : "Something not right?"}
                 </p>
                 <p className="mt-1 text-[13px] leading-5 text-zinc-500">
                   We&apos;ll pass this to our team to look into. Add anything
@@ -443,7 +459,7 @@ function ConfirmationPageContent() {
                 className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-control border border-white/10 bg-white/[0.03] text-[13px] font-semibold text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
               >
                 <Flag size={13} aria-hidden />
-                I didn&apos;t hear this track
+                {reportActionLabel(status)}
               </button>
             )}
           </div>

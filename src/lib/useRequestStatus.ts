@@ -31,7 +31,7 @@ const POLL_MS = 4000;
 const FAILURES_BEFORE_WARNING = 3;
 
 type State = {
-  request: GuestRequest | null;
+  requests: GuestRequest[];
   /** True only until the first response, never again. */
   loading: boolean;
   /** Set only when the very first load fails; a later failure keeps the
@@ -43,7 +43,7 @@ type State = {
 
 export function useRequestStatus(requestIds: string[] | null) {
   const [state, setState] = useState<State>({
-    request: null,
+    requests: [],
     loading: true,
     fatalError: "",
     stale: false,
@@ -79,30 +79,21 @@ export function useRequestStatus(requestIds: string[] | null) {
       if (!response.ok) throw new Error(String(response.status));
 
       const result = await response.json();
-      const data: GuestRequest | undefined = result.requests?.[0];
+      const data: GuestRequest[] = result.requests ?? [];
 
       if (!mountedRef.current) return;
 
-      if (!data) {
-        /* A genuine "no such request" is not a network blip, so it is
-           only fatal when we have never had anything to show. */
-        setState((current) =>
-          current.request
-            ? { ...current, stale: false }
-            : {
-                request: null,
-                loading: false,
-                fatalError: "We couldn't find this request.",
-                stale: false,
-              }
-        );
-        failuresRef.current = 0;
-        return;
-      }
-
       failuresRef.current = 0;
+
+      /*
+       * An empty array is a valid answer, not a failure: the ids in
+       * localStorage may all have been archived, or belong to a
+       * different DJ. Callers decide what "none" means for them — the
+       * confirmation page treats it as "not found", the list treats it
+       * as an empty state.
+       */
       setState({
-        request: data,
+        requests: data,
         loading: false,
         fatalError: "",
         stale: false,
@@ -116,7 +107,7 @@ export function useRequestStatus(requestIds: string[] | null) {
       setState((current) => {
         /* Never had a status: this is the load failing, and there is
            nothing to keep. */
-        if (!current.request) {
+        if (current.requests.length === 0) {
           return {
             ...current,
             loading: false,
@@ -180,9 +171,9 @@ export function useRequestStatus(requestIds: string[] | null) {
    */
   if (!key) {
     return {
-      request: null,
+      requests: [],
       loading: false,
-      fatalError: "We couldn't find this request.",
+      fatalError: "",
       stale: false,
       refresh: poll,
     };
