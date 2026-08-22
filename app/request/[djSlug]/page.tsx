@@ -225,147 +225,194 @@ export default function RequestPage() {
   }, [trimmedQuery, searchNonce]);
 
   useEffect(() => {
-  let isMounted = true;
+    let isMounted = true;
 
-  const fetchVipStatus = async () => {
-    try {
-      const response = await fetch(`/api/vip-status/${djSlug}`);
-      const data = await response.json();
+    /*
+     * ── What this page polls, and why so little of it ────────────────
+     *
+     * Measured before this: 36 requests a minute while a guest sat doing
+     * nothing — dj_profiles, dj_events and vip-status each every five
+     * seconds, plus a realtime subscription already watching dj_profiles
+     * for the same changes. In a venue on shared mobile data that is a
+     * lot of chatter for a page that mostly does not change.
+     *
+     * Now:
+     *   dj_profiles   realtime subscription, plus a slow safety net
+     *   dj_events     folded into the profile query, no separate call
+     *   vip-status    every 15s, the only thing genuinely worth polling
+     *
+     * Nothing here carries request status. That stays on its own 4s poll
+     * (useRequestStatus) because it is the thing a guest is actually
+     * waiting on.
+     */
+    const PROFILE_SAFETY_NET_MS = 60_000;
+    const VIP_POLL_MS = 15_000;
+
+    /*
+     * The active event is embedded in the profile read rather than
+     * fetched separately. It is filtered server-side AND re-checked
+     * here: this row decides the price the guest is charged, so an
+     * inactive event slipping through would be a pricing bug, and one
+     * belt is not enough for that.
+     */
+    const PROFILE_SELECT =
+      "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, " +
+      "request_price, shoutout_price, profile_image_url, " +
+      "dj_events(id, name, request_price, shoutout_price, is_active)";
+
+    type EmbeddedEvent = {
+      id: string;
+      name: string;
+      request_price: number | null;
+      shoutout_price: number | null;
+      is_active?: boolean | null;
+    };
+
+    const readProfile = async () => {
+      const { data, error } = await supabase
+        .from("dj_profiles")
+        .select(PROFILE_SELECT)
+        .eq("slug", djSlug)
+        .eq("dj_events.is_active", true)
+        .maybeSingle();
+
+      if (error || !data) return { profile: null, event: null };
+
+      /* `unknown` first: the generated types model an embedded select
+         as a possible error shape, which does not overlap the row. */
+      const row = data as unknown as Record<string, unknown> & {
+        dj_events?: EmbeddedEvent[] | null;
+      };
+      const events = row.dj_events;
+      const profile = { ...row };
+      delete profile.dj_events;
+
+      const event =
+        (events ?? []).find((candidate) => candidate.is_active !== false) ??
+        null;
+
+      return { profile, event };
+    };
+
+    const applyProfile = (
+      profile: Record<string, unknown> | null,
+      event: EmbeddedEvent | null
+    ) => {
+      if (!isMounted || !profile) return;
+
+      /*
+       * Deliberately does not clear the guest's work. This used to reset
+       * searchQuery, selectedSong, message, requestType and isVip
+       * whenever the DJ stopped taking requests — on a five second timer.
+       * A DJ pausing briefly threw away everything the guest had entered.
+       */
+      setDjProfile(profile as unknown as DJProfile);
+      setActiveEvent(event);
+    };
+
+    const loadDJ = async () => {
+      setIsLoadingDJ(true);
+
+      const { profile, event } = await readProfile();
 
       if (!isMounted) return;
-      if (response.ok) {
+
+      if (!profile) {
+        setDjNotFound(true);
+        setIsLoadingDJ(false);
+        return;
+      }
+
+      applyProfile(profile, event);
+      setDjNotFound(false);
+      setIsLoadingDJ(false);
+    };
+
+    const refreshDJ = async () => {
+      const { profile, event } = await readProfile();
+      applyProfile(profile, event);
+    };
+
+    const fetchVipStatus = async () => {
+      try {
+        const response = await fetch(`/api/vip-status/${djSlug}`);
+        const data = await response.json();
+
+        if (!isMounted || !response.ok) return;
+
         setVipAvailable(data.vipAvailable !== false);
         setPendingFull(data.pendingFull === true);
+      } catch (error) {
+        /* A failed VIP check leaves the last known answer in place rather
+           than guessing; the server re-checks both caps at create time. */
+        console.log("VIP status fetch error:", error);
       }
-    } catch (error) {
-      console.log("VIP status fetch error:", error);
-    }
-  };
+    };
 
-  const loadDJ = async () => {
-    setIsLoadingDJ(true);
-    setDjProfile(null);
-    setDjNotFound(false);
-
-    const { data, error } = await supabase
-      .from("dj_profiles")
-      .select(
-        "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, request_price, shoutout_price, profile_image_url"
-      )
-      .eq("slug", djSlug)
-      .maybeSingle();
-
-    if (!isMounted) return;
-
-    if (error || !data) {
-      console.log("DJ profile not found:", error);
-      setDjNotFound(true);
-      setIsLoadingDJ(false);
-      return;
-    }
-
-    setDjProfile(data);
-    /*
-     * Deliberately does not clear the guest's work.
-     *
-     * Both of these paths used to reset searchQuery, tracks,
-     * selectedSong, message, requestType and isVip whenever the DJ was
-     * no longer taking requests — and one of them runs on a 5s poll. A
-     * DJ pausing for ten seconds while a guest was picking their options
-     * silently threw away everything they had entered, and the guest had
-     * no idea why. The unavailable state is shown around their progress
-     * instead, so if requests reopen they carry straight on.
-     */
-    setDjNotFound(false);
-    setIsLoadingDJ(false);
-    fetchActiveEvent(data.id);
-  };
-
-  /*
-   * Public read (RLS allows anyone to see an is_active=true event) —
-   * only its name and any price overrides, nothing else about the
-   * DJ's event history.
-   */
-  const fetchActiveEvent = async (djProfileId: string) => {
-    const { data } = await supabase
-      .from("dj_events")
-      .select("id, name, request_price, shoutout_price")
-      .eq("dj_profile_id", djProfileId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (isMounted) setActiveEvent(data ?? null);
-  };
-
-  const refreshDJ = async () => {
-    const { data } = await supabase
-      .from("dj_profiles")
-      .select(
-        "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, request_price, shoutout_price, profile_image_url"
-      )
-      .eq("slug", djSlug)
-      .maybeSingle();
-
-    if (!isMounted || !data) return;
-
-    setDjProfile(data);
-    /*
-     * Deliberately does not clear the guest's work.
-     *
-     * Both of these paths used to reset searchQuery, tracks,
-     * selectedSong, message, requestType and isVip whenever the DJ was
-     * no longer taking requests — and one of them runs on a 5s poll. A
-     * DJ pausing for ten seconds while a guest was picking their options
-     * silently threw away everything they had entered, and the guest had
-     * no idea why. The unavailable state is shown around their progress
-     * instead, so if requests reopen they carry straight on.
-     */
-    fetchActiveEvent(data.id);
-  };
-
-  loadDJ();
-  fetchVipStatus();
-const interval = setInterval(() => {
-  refreshDJ();
-  fetchVipStatus();
-}, 5000);
-  const channel = supabase
-    .channel(`request_page_${djSlug}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "dj_profiles",
-        filter: `slug=eq.${djSlug}`,
-      },
-      () => refreshDJ()
-    )
-    .subscribe();
-const handleVisibilityChange = () => {
-  if (document.visibilityState === "visible") {
-    refreshDJ();
+    loadDJ();
     fetchVipStatus();
-  }
-};
 
-document.addEventListener(
-  "visibilitychange",
-  handleVisibilityChange
-);
-  return () => {
-  isMounted = false;
+    /*
+     * Timers only run while the page is actually being looked at. A
+     * phone in a pocket does not need to know the DJ's status, and a
+     * backgrounded tab polling on venue data is pure battery cost.
+     */
+    let vipTimer: ReturnType<typeof setInterval> | undefined;
+    let profileTimer: ReturnType<typeof setInterval> | undefined;
 
-  clearInterval(interval);
+    const startTimers = () => {
+      if (vipTimer || profileTimer) return;
+      vipTimer = setInterval(fetchVipStatus, VIP_POLL_MS);
+      /* Safety net only: realtime below is the primary path, but it can
+         drop silently and a stale "paused" badge would be worse than one
+         request a minute. */
+      profileTimer = setInterval(refreshDJ, PROFILE_SAFETY_NET_MS);
+    };
 
-  document.removeEventListener(
-    "visibilitychange",
-    handleVisibilityChange
-  );
+    const stopTimers = () => {
+      clearInterval(vipTimer);
+      clearInterval(profileTimer);
+      vipTimer = undefined;
+      profileTimer = undefined;
+    };
 
-  supabase.removeChannel(channel);
-};
-}, [djSlug]);
+    if (document.visibilityState === "visible") startTimers();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        /* Coming back is exactly when the guest most wants the truth, so
+           fetch immediately rather than waiting for the next tick. */
+        refreshDJ();
+        fetchVipStatus();
+        startTimers();
+      } else {
+        stopTimers();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const channel = supabase
+      .channel(`request_page_${djSlug}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dj_profiles",
+          filter: `slug=eq.${djSlug}`,
+        },
+        () => refreshDJ()
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      stopTimers();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      supabase.removeChannel(channel);
+    };
+  }, [djSlug]);
 
   /*
    * A guest browsing here for a second song still has an earlier
