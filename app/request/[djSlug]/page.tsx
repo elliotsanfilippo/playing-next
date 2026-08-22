@@ -701,9 +701,19 @@ localStorage.setItem(
           )}
         </div>
 
+        {/*
+          One group, not three boxes.
+          The song is its own accent card because it is the subject the
+          guest chose; everything after it — what kind of request, VIP,
+          the message, the price and the button — is a single decision
+          and lives in one container with internal dividers. Splitting
+          those into separate bordered cards made a two-question step
+          read as a five-part form.
+        */}
         {selectedSong && (
           <>
-            <div className="mt-4 rounded-card border border-white/10 bg-surface-raised p-3.5 sm:p-5">
+            <div className="mt-4 overflow-hidden rounded-card border border-white/10 bg-surface-raised">
+              <div className="p-3.5 sm:p-5">
               <RequestOptions
                 requestType={requestType}
                 setRequestType={setRequestType}
@@ -716,19 +726,21 @@ localStorage.setItem(
                 setIsVip={setIsVip}
                 vipAvailable={vipAvailable}
               />
-            </div>
+              </div>
 
-            <div className="mt-4">
-              <CheckoutButton
-                selectedSong
-                isTakingRequests={canRequest}
-                requestType={requestType}
-                requestPrice={requestPrice}
-                shoutoutPrice={shoutoutPrice}
-                isVip={isVip}
-                submitting={submitting}
-                onCheckout={submitRequest}
-              />
+              <div className="border-t border-white/10 bg-surface-base/30 p-3.5 sm:p-5">
+                <CheckoutButton
+                  flush
+                  selectedSong
+                  isTakingRequests={canRequest}
+                  requestType={requestType}
+                  requestPrice={requestPrice}
+                  shoutoutPrice={shoutoutPrice}
+                  isVip={isVip}
+                  submitting={submitting}
+                  onCheckout={submitRequest}
+                />
+              </div>
             </div>
           </>
         )}
