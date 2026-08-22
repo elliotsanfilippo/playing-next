@@ -3,21 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  PoundSterling,
-  Percent,
-  Wallet,
-  Download,
-  Banknote,
-} from "lucide-react";
+import { Download, Banknote } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
-import Card from "@/src/components/ui/Card";
 import ScrollList from "@/src/components/ui/ScrollList";
 import Button from "@/src/components/ui/Button";
 import { Input } from "@/src/components/ui/Input";
-import StatCard from "@/src/components/ui/StatCard";
-import Eyebrow from "@/src/components/ui/Eyebrow";
 import Badge from "@/src/components/ui/Badge";
+import MoneyValue from "@/src/components/product/MoneyValue";
+import EarningsTransactionRow from "@/src/components/dj/EarningsTransactionRow";
+import {
+  summariseEarnings,
+  buildTransactions,
+  buildEarningsCsv,
+  isToday,
+  FREE_FEE_PERCENT,
+  PRO_FEE_PERCENT,
+  type RequestRow,
+  type TipRow,
+} from "@/src/lib/earnings";
 
 type SongRequestFinancials = {
   id: string;
@@ -47,8 +50,6 @@ type PayoutsResponse = {
   payouts: Payout[];
 };
 
-const COMPLETED_STATUSES = ["accepted", "playing_next", "played"];
-
 function formatPence(pence: number) {
   return `£${(pence / 100).toFixed(2)}`;
 }
@@ -58,6 +59,10 @@ export default function EarningsPage() {
 
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<SongRequestFinancials[]>([]);
+  const [tips, setTips] = useState<TipRow[]>([]);
+  /* Non-fatal. Requests loaded, so the page still renders honestly and
+     says the tip figure is missing rather than quietly omitting it. */
+  const [tipsFailed, setTipsFailed] = useState(false);
   /*
    * A failed load used to set loading=false and return, leaving
    * requests=[] — so the page rendered £0.00 across every figure as
@@ -70,9 +75,21 @@ export default function EarningsPage() {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
 
-  const fetchEarnings = async () => {
-    setLoading(true);
-    setLoadError("");
+  /*
+   * `showSpinner` is false on the mount call: `loading` already starts
+   * true, so setting it again synchronously inside the effect is a
+   * cascading render for no benefit. A manual retry does want it, since
+   * by then the page is showing an error rather than a spinner.
+   */
+  const fetchEarnings = async (showSpinner = true) => {
+    /* Both writes are skipped on the mount call: `loading` already starts
+       true and `loadError` already starts empty, so writing them again
+       synchronously inside the effect is a cascading render for nothing.
+       A retry does want both, since by then an error is on screen. */
+    if (showSpinner) {
+      setLoading(true);
+      setLoadError("");
+    }
 
     const {
       data: { session },
@@ -109,6 +126,8 @@ export default function EarningsPage() {
           platform_fee,
           dj_earnings,
           plan_at_checkout,
+          is_vip,
+          request_type,
           created_at
         `
       )
@@ -123,6 +142,30 @@ export default function EarningsPage() {
     }
 
     setRequests((requestRows || []) as SongRequestFinancials[]);
+
+    /*
+     * Tips were never fetched here, so every figure on this page
+     * excluded them and understated a DJ's income by their entire tip
+     * total. Read through the service-role route: `tips` has no RLS
+     * policy for the DJ's own session.
+     */
+    setTipsFailed(false);
+
+    try {
+      const tipResponse = await fetch("/api/dj/tips", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (tipResponse.ok) {
+        const payload = await tipResponse.json();
+        setTips((payload.tips ?? []) as TipRow[]);
+      } else {
+        setTipsFailed(true);
+      }
+    } catch (error) {
+      console.log("Tips load error:", error);
+      setTipsFailed(true);
+    }
 
     try {
       const response = await fetch("/api/stripe/connect/payouts", {
@@ -190,89 +233,57 @@ export default function EarningsPage() {
     }
   };
 
+
   useEffect(() => {
-    fetchEarnings();
+    /*
+     * Mount-only bootstrap. fetchEarnings is recreated every render, so
+     * listing it as a dependency would refetch on every state change.
+     *
+     * eslint-disable set-state-in-effect: with showSpinner false there is
+     * no synchronous write left — the first statement that touches state
+     * comes after `await supabase.auth.getSession()`, so every setState
+     * happens in a response handler. The rule cannot see through the
+     * await to tell that apart from a synchronous write.
+     */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchEarnings(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const completedRequests = requests.filter((request) =>
-    COMPLETED_STATUSES.includes(request.request_status)
-  );
-
-  const grossValue = completedRequests.reduce(
-    (total, request) => total + (request.request_amount ?? 0),
-    0
-  );
-
-  const platformFees = completedRequests.reduce(
-    (total, request) => total + (request.platform_fee ?? 0),
-    0
-  );
-
-  const netEarnings = completedRequests.reduce(
-    (total, request) => total + (request.dj_earnings ?? 0),
-    0
-  );
-
-  const freeRequests = completedRequests.filter(
-    (request) => request.plan_at_checkout !== "pro"
-  );
-
-  const proRequests = completedRequests.filter(
-    (request) => request.plan_at_checkout === "pro"
-  );
-
-  const todayString = new Date().toDateString();
-
-  const todaysRequests = requests.filter(
-    (request) => new Date(request.created_at).toDateString() === todayString
-  );
+  /*
+   * One accounting basis, shared with the CSV so an export cannot
+   * disagree with the screen it came from. See src/lib/earnings.ts for
+   * why disputed money is surfaced separately rather than folded into
+   * the headline, and why VIP is a count rather than an amount.
+   */
+  const summary = summariseEarnings(requests as RequestRow[], tips);
+  const transactions = buildTransactions(requests as RequestRow[], tips);
+  const todaysTransactions = transactions.filter((t) => isToday(t.createdAt));
 
   const exportCsv = () => {
-    const header = [
-      "Date",
-      "Song",
-      "Artist",
-      "Status",
-      "Plan",
-      "Gross Amount (£)",
-      "Platform Fee (£)",
-      "Net Earnings (£)",
-    ];
-
-    const rows = requests.map((request) => [
-      new Date(request.created_at).toISOString(),
-      request.song_title ?? "",
-      request.artist ?? "",
-      request.request_status,
-      request.plan_at_checkout ?? "",
-      ((request.request_amount ?? 0) / 100).toFixed(2),
-      ((request.platform_fee ?? 0) / 100).toFixed(2),
-      ((request.dj_earnings ?? 0) / 100).toFixed(2),
-    ]);
-
-    const csv = [header, ...rows]
-      .map((row) =>
-        row
-          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-          .join(",")
-      )
-      .join("\n");
+    /*
+     * Built from the same transaction list the page renders, so the file
+     * reconciles with the screen. The old export pulled raw request rows
+     * separately, included cancelled/declined/expired with their pricing
+     * snapshots as though they were income, omitted tips entirely, and
+     * stamped dates in UTC while the page grouped by local day.
+     */
+    const csv = buildEarningsCsv(transactions);
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `playing-next-earnings-${new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
+    /* Local date, matching the dates inside the file. */
+    link.download = `playing-next-earnings-${new Date().toLocaleDateString("en-CA")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
   /*
-   * Shown instead of the figures, never alongside them. Rendering an
-   * error banner above a page of £0.00 totals would still leave the
-   * zeros on screen to be misread.
+   * Shown instead of the figures, never alongside them. An error banner
+   * above a page of £0.00 totals still leaves the zeros there to be
+   * misread as a quiet night.
    */
   if (!loading && loadError) {
     return (
@@ -283,7 +294,7 @@ export default function EarningsPage() {
             This is a loading problem, not a change to your earnings.
             Nothing has been lost.
           </p>
-          <Button className="mt-5 w-full" onClick={fetchEarnings}>
+          <Button className="mt-5 w-full" onClick={() => fetchEarnings()}>
             Try again
           </Button>
           <Button
@@ -300,174 +311,324 @@ export default function EarningsPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white">
-        <Card variant="elevated" className="p-8 text-center">
-          <p className="text-sm text-zinc-400">Playing Next</p>
-          <h1 className="mt-3 text-h2">Loading earnings...</h1>
-        </Card>
+      <main className="min-h-screen bg-canvas px-4 py-4 text-white sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-3xl">
+          <div className="h-40 animate-pulse rounded-card bg-white/5 motion-reduce:animate-none" />
+          <div className="mt-4 h-24 animate-pulse rounded-card bg-white/5 motion-reduce:animate-none" />
+          <div className="mt-4 h-64 animate-pulse rounded-card bg-white/5 motion-reduce:animate-none" />
+          <p className="sr-only" role="status">
+            Loading your earnings
+          </p>
+        </div>
       </main>
     );
   }
 
+  const hasEarned = summary.totalEarned > 0;
+
   return (
-    <main className="min-h-screen bg-canvas p-5 text-white sm:p-6">
-      <section className="mx-auto max-w-6xl">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Eyebrow tone="accent">Playing Next</Eyebrow>
-            <h1 className="mt-2 text-h1">Earnings</h1>
-            <p className="mt-2 text-zinc-400">
-              Exactly how your earnings were calculated, request by request.
-            </p>
-          </div>
+    <main className="min-h-screen bg-canvas px-4 py-4 text-white sm:px-6 sm:py-8">
+      <section className="mx-auto max-w-3xl">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+            Earnings
+          </h1>
 
           <Button
             variant="secondary"
-            size="sm"
-            className="rounded-full"
+            className="h-11 shrink-0 px-4 text-[13px]"
             onClick={() => router.push("/dj/dashboard")}
           >
-            Back to Dashboard
+            Dashboard
           </Button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard
-            label="Gross Request Value"
-            value={formatPence(grossValue)}
-            subtitle={`${completedRequests.length} accepted request${
-              completedRequests.length !== 1 ? "s" : ""
-            }`}
-            icon={<PoundSterling size={20} />}
-            tone="neutral"
-          />
+        {/*
+          ── 1. Earned ─────────────────────────────────────────────────
+          The figure a DJ opened this page for, first and largest, with
+          nothing above it to scroll past. Requests and tips are one
+          number because that is the question ("what am I making?"), and
+          the split sits underneath so it stays honest.
+        */}
+        <div className="mt-4 rounded-card border border-white/10 bg-surface-raised p-4 sm:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            Earned
+          </p>
 
-          <StatCard
-            label="Platform Fees"
-            value={formatPence(platformFees)}
-            subtitle="Taken by Playing Next"
-            icon={<Percent size={20} />}
-            tone="warning"
-          />
+          <p className="mt-1.5">
+            <MoneyValue
+              pence={summary.totalEarned}
+              compact={false}
+              className="text-money text-accent"
+            />
+          </p>
 
-          <StatCard
-            label="Net Earnings"
-            value={formatPence(netEarnings)}
-            subtitle="What you actually received"
-            icon={<Wallet size={20} />}
-            tone="accent"
-          />
+          <p className="mt-2 text-[13px] leading-5 text-zinc-400">
+            {hasEarned ? (
+              <>
+                <MoneyValue
+                  pence={summary.fromRequests}
+                  compact={false}
+                  className="font-semibold text-zinc-200"
+                />{" "}
+                from {summary.earningRequestCount} request
+                {summary.earningRequestCount === 1 ? "" : "s"}
+                {summary.tipCount > 0 && (
+                  <>
+                    {" · "}
+                    <MoneyValue
+                      pence={summary.fromTips}
+                      compact={false}
+                      className="font-semibold text-zinc-200"
+                    />{" "}
+                    from {summary.tipCount} tip
+                    {summary.tipCount === 1 ? "" : "s"}
+                  </>
+                )}
+              </>
+            ) : (
+              "Money from accepted requests and tips appears here as soon as a DJ set gets going."
+            )}
+          </p>
+
+          {tipsFailed && (
+            <p role="status" className="mt-2 text-xs text-status-pending">
+              Tips couldn&apos;t be loaded, so they aren&apos;t included in
+              this figure.
+            </p>
+          )}
+
+          {/* Today, on exactly the same basis as the dashboard's Tonight
+              strip — both now use the viewer's clock for requests and
+              tips alike. */}
+          <div className="mt-4 flex items-baseline gap-2 border-t border-white/5 pt-3.5">
+            <span className="text-[13px] text-zinc-500">Today</span>
+            <MoneyValue
+              pence={summary.todayTotal}
+              compact={false}
+              className="text-base font-bold text-white"
+            />
+            {summary.todayFromTips > 0 && (
+              <span className="text-xs text-zinc-500">
+                incl.{" "}
+                <MoneyValue
+                  pence={summary.todayFromTips}
+                  compact={false}
+                  className="text-zinc-400"
+                />{" "}
+                tips
+              </span>
+            )}
+          </div>
         </div>
 
-        {payoutInfo?.connected && payoutInfo.balance && (
-          <Card variant="flat" className="mt-8 p-5 sm:p-6">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-                <Banknote size={20} />
+        {/*
+          ── 2. Where it came from ─────────────────────────────────────
+          Deliberately not four equal stat cards. These are supporting
+          facts about one figure, so they read as a list.
+        */}
+        {hasEarned && (
+          <div className="mt-4 rounded-card border border-white/10 bg-surface-raised p-4 sm:p-6">
+            <h2 className="text-sm font-bold tracking-tight">
+              Where it came from
+            </h2>
+
+            <dl className="mt-3 space-y-2.5 text-[13px]">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-zinc-400">
+                  Song requests
+                  {summary.vipRequestCount > 0 && (
+                    /*
+                     * A count, not an amount. request_amount bundles the
+                     * base price and the VIP uplift with no column
+                     * preserving the split, so any VIP figure would be
+                     * today's VIP price applied backwards over rows that
+                     * may have been bought at another one.
+                     */
+                    <span className="text-zinc-600">
+                      {" "}
+                      · {summary.vipRequestCount} VIP
+                    </span>
+                  )}
+                </dt>
+                <dd>
+                  <MoneyValue
+                    pence={summary.fromRequests}
+                    compact={false}
+                    className="font-semibold text-white"
+                  />
+                </dd>
               </div>
 
-              <div>
-                <h2 className="text-h3">Withdraw</h2>
-                <p className="mt-1 text-sm text-zinc-500">
-                  {formatPence(payoutInfo.balance.available)} available to
-                  withdraw now.
-                  {payoutInfo.balance.pending > 0 &&
-                    ` ${formatPence(
-                      payoutInfo.balance.pending
-                    )} more still clearing.`}
-                </p>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-zinc-400">Tips</dt>
+                <dd>
+                  <MoneyValue
+                    pence={summary.fromTips}
+                    compact={false}
+                    className="font-semibold text-white"
+                  />
+                </dd>
               </div>
+
+              <div className="flex items-baseline justify-between gap-4 border-t border-white/5 pt-2.5">
+                <dt className="text-zinc-500">
+                  Playing Next kept
+                  <span className="block text-xs text-zinc-600">
+                    {summary.proRequestCount > 0 && summary.freeRequestCount === 0
+                      ? `${PRO_FEE_PERCENT}% on Pro`
+                      : `${FREE_FEE_PERCENT}% on Free plan requests`}
+                  </span>
+                </dt>
+                <dd className="text-zinc-400">
+                  <MoneyValue pence={summary.platformFees} compact={false} />
+                </dd>
+              </div>
+
+              {/*
+                Surfaced rather than folded in. A disputed charge was
+                captured, so the DJ did receive it — but the cardholder's
+                bank is trying to take it back, and quietly counting it
+                would let the headline figure drop later with no
+                explanation.
+              */}
+              {summary.atRiskCount > 0 && (
+                <div className="flex items-baseline justify-between gap-4 border-t border-white/5 pt-2.5">
+                  <dt className="text-status-declined">
+                    Under dispute
+                    <span className="block text-xs text-zinc-500">
+                      Not counted above while the bank reviews it
+                    </span>
+                  </dt>
+                  <dd className="text-status-declined">
+                    <MoneyValue pence={summary.atRisk} compact={false} />
+                  </dd>
+                </div>
+              )}
+
+              {summary.reversedCount > 0 && (
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-zinc-500">
+                    Refunded
+                    <span className="block text-xs text-zinc-600">
+                      Returned to the guest, not counted above
+                    </span>
+                  </dt>
+                  <dd className="text-zinc-500">
+                    <MoneyValue pence={summary.reversed} compact={false} />
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+
+        {/*
+          ── 3. Your balance ───────────────────────────────────────────
+          Deliberately its own section with its own words. Earned is what
+          the gigs made; balance is what Stripe is holding; a payout is
+          what reached the bank. Those are three different numbers and
+          conflating them is how a DJ ends up thinking money is missing.
+        */}
+        {payoutInfo?.connected && payoutInfo.balance && (
+          <div className="mt-4 rounded-card border border-white/10 bg-surface-raised p-4 sm:p-6">
+            <div className="flex items-center gap-2">
+              <Banknote size={15} aria-hidden className="text-accent" />
+              <h2 className="text-sm font-bold tracking-tight">Your balance</h2>
             </div>
 
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <p className="mt-1 text-xs text-zinc-500">
+              Held by Stripe from your earnings. Not the same as earned:
+              money arrives here after each request is accepted, and
+              leaves when it&apos;s paid to your bank.
+            </p>
+
+            <div className="mt-3.5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                  Available
+                </p>
+                <MoneyValue
+                  pence={payoutInfo.balance.available}
+                  compact={false}
+                  className="text-xl font-bold text-white"
+                />
+              </div>
+
+              {payoutInfo.balance.pending > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                    Still clearing
+                  </p>
+                  <MoneyValue
+                    pence={payoutInfo.balance.pending}
+                    compact={false}
+                    className="text-xl font-bold text-zinc-400"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-end">
               <div className="flex-1">
-                <label className="text-sm text-zinc-400">Amount (£)</label>
+                <label
+                  htmlFor="withdraw-amount"
+                  className="text-xs font-semibold text-zinc-300"
+                >
+                  Withdraw to your bank (£)
+                </label>
                 <Input
+                  id="withdraw-amount"
                   type="number"
+                  inputMode="decimal"
                   min="0.01"
                   step="0.01"
                   placeholder="0.00"
                   value={withdrawAmount}
                   onChange={(event) => setWithdrawAmount(event.target.value)}
                   disabled={withdrawing || payoutInfo.balance.available === 0}
-                  className="mt-2"
+                  className="mt-1.5"
                 />
               </div>
 
               <Button
+                className="h-14 sm:w-auto sm:px-6"
                 onClick={handleWithdraw}
+                aria-busy={withdrawing}
                 disabled={
                   withdrawing ||
                   payoutInfo.balance.available === 0 ||
                   !withdrawAmount
                 }
               >
-                {withdrawing ? "Withdrawing..." : "Withdraw"}
+                {withdrawing ? "Starting..." : "Withdraw"}
               </Button>
             </div>
-          </Card>
+          </div>
         )}
 
-        <Card variant="flat" className="mt-8 p-5 sm:p-6">
-          <h2 className="text-h3">Free vs Pro Fee Breakdown</h2>
-
-          <p className="mt-2 text-sm text-zinc-500">
-            Which plan was active at the time each request was accepted.
-            this stays accurate even if you switch plans later, since
-            it&apos;s recorded per request rather than recalculated from your
-            current plan.
-          </p>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-control border border-white/10 bg-zinc-950/60 p-5">
-              <p className="font-semibold">Free plan requests</p>
-              <p className="mt-1 text-sm text-zinc-500">
-                {freeRequests.length} request
-                {freeRequests.length !== 1 ? "s" : ""} · 15% platform fee
-              </p>
-              <p className="mt-3 text-2xl font-bold">
-                {formatPence(
-                  freeRequests.reduce(
-                    (total, request) => total + (request.platform_fee ?? 0),
-                    0
-                  )
-                )}
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">fees paid</p>
-            </div>
-
-            <div className="rounded-control border border-white/10 bg-zinc-950/60 p-5">
-              <p className="font-semibold">Pro plan requests</p>
-              <p className="mt-1 text-sm text-zinc-500">
-                {proRequests.length} request
-                {proRequests.length !== 1 ? "s" : ""} · 0% platform fee
-              </p>
-              <p className="mt-3 text-2xl font-bold">£0.00</p>
-              <p className="mt-1 text-xs text-zinc-500">fees paid</p>
-            </div>
-          </div>
-        </Card>
-
+        {/* ── 4. Paid out ──────────────────────────────────────────── */}
         {payoutInfo?.connected && payoutInfo.payouts.length > 0 && (
-          <Card variant="flat" className="mt-8 p-5 sm:p-6">
-            <h2 className="text-h3">Recent Payouts</h2>
-
-            <p className="mt-2 text-sm text-zinc-500">
-              Straight from Stripe: when money actually left your balance
+          <div className="mt-4 rounded-card border border-white/10 bg-surface-raised p-4 sm:p-6">
+            <h2 className="text-sm font-bold tracking-tight">Paid out</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Straight from Stripe: money that actually left your balance
               for your bank account.
             </p>
 
-            <div className="mt-6 space-y-3">
+            <ul className="mt-3.5 space-y-2">
               {payoutInfo.payouts.map((payout) => (
-                <div
+                <li
                   key={payout.id}
-                  className="flex flex-col gap-2 rounded-control bg-zinc-950/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex items-center justify-between gap-3 rounded-control border border-white/5 bg-surface-base/60 p-3"
                 >
-                  <div>
-                    <p className="font-semibold">
-                      {formatPence(payout.amount)}
-                    </p>
-                    <p className="text-sm text-zinc-500">
+                  <div className="min-w-0">
+                    <MoneyValue
+                      pence={payout.amount}
+                      compact={false}
+                      className="text-sm font-bold text-white"
+                    />
+                    <p className="mt-0.5 text-xs text-zinc-500">
                       {new Date(payout.created * 1000).toLocaleDateString(
                         "en-GB"
                       )}
@@ -477,88 +638,58 @@ export default function EarningsPage() {
                   <Badge tone={payout.status === "paid" ? "accent" : "info"}>
                     {payout.status}
                   </Badge>
-                </div>
+                </li>
               ))}
-            </div>
-          </Card>
+            </ul>
+          </div>
         )}
 
-        <Card variant="flat" className="mt-8 p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* ── 5. Transactions ──────────────────────────────────────── */}
+        <div className="mt-4 rounded-card border border-white/10 bg-surface-raised p-4 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-h3">Today&apos;s Transactions</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Older requests aren&apos;t shown here. Export CSV for your
-                full history.
+              <h2 className="text-sm font-bold tracking-tight">Today</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Everything from today. Export for your full history.
               </p>
             </div>
 
             <Button
               variant="secondary"
-              size="sm"
+              className="h-11 shrink-0 px-4 text-[13px]"
               onClick={exportCsv}
-              disabled={requests.length === 0}
+              disabled={transactions.length === 0}
             >
-              <Download size={16} className="mr-2" />
+              <Download size={15} aria-hidden />
               Export CSV
             </Button>
           </div>
 
           {/*
             Contained scroll, the same treatment Recent Activity uses on
-            the dashboard. The heading, the note about older requests
-            and the Export CSV action stay put while the rows scroll, so
-            a busy night cannot stretch this page indefinitely.
-
-            max-h is only a cap: a handful of transactions keeps its
-            natural height with no scrollbar, so a quiet day never shows
-            a tall empty box.
-
-            320px on a phone, matching Recent Activity, so the list is
-            under 40% of the viewport and there is plenty of page either
-            side to grab — at 416px it took just over half the screen,
-            which starts to feel like the page has been replaced by a
-            scroller. Roomier from sm up, where this is the page a DJ
-            came to in order to read transactions rather than a panel
-            tucked under a live queue.
+            the dashboard: the heading and Export stay put while the rows
+            scroll, so a busy night cannot stretch this page. max-h is a
+            cap only — a quiet day keeps its natural height and shows no
+            scrollbar.
           */}
           <ScrollList
             maxHeightClassName="max-h-80 sm:max-h-[26rem]"
-            className="mt-6 space-y-3 pr-1"
+            className="mt-3.5 space-y-2 pr-1"
           >
-            {todaysRequests.length === 0 ? (
-              <p className="text-zinc-400">No requests yet today.</p>
+            {todaysTransactions.length === 0 ? (
+              <p className="px-1 py-6 text-center text-[13px] text-zinc-500">
+                Nothing today yet.
+              </p>
             ) : (
-              todaysRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="flex flex-col gap-2 rounded-control bg-zinc-950/60 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">
-                      {request.song_title || "Untitled"}
-                    </p>
-                    <p className="truncate text-sm text-zinc-500">
-                      {request.artist} ·{" "}
-                      {new Date(request.created_at).toLocaleDateString(
-                        "en-GB"
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-4 text-sm">
-                    <span className="text-zinc-500">
-                      {formatPence(request.request_amount ?? 0)} gross
-                    </span>
-                    <span className="font-semibold">
-                      {formatPence(request.dj_earnings ?? 0)} net
-                    </span>
-                  </div>
-                </div>
+              todaysTransactions.map((transaction) => (
+                <EarningsTransactionRow
+                  key={`${transaction.kind}-${transaction.id}`}
+                  transaction={transaction}
+                />
               ))
             )}
           </ScrollList>
-        </Card>
+        </div>
       </section>
     </main>
   );

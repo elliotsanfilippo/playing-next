@@ -172,7 +172,23 @@ export default function DJDashboardPage() {
     }
 
     const data = await response.json();
-    setTipsToday((data.todayTotal ?? 0) / 100);
+
+    /*
+     * Computed here, in the browser, rather than taken from the route's
+     * todayTotal. That field is calculated against the server's clock —
+     * UTC on Vercel — while tonightRevenue just below is calculated
+     * against the browser's. The strip was adding a UTC-day tip total to
+     * a local-day request total, so just after midnight UK time it
+     * showed tonight's requests beside yesterday's tips. Same clock for
+     * both halves now.
+     */
+    const todayString = new Date().toDateString();
+
+    const tipsTodayPence = ((data.tips ?? []) as { dj_earnings: number | null; created_at: string }[])
+      .filter((tip) => new Date(tip.created_at).toDateString() === todayString)
+      .reduce((total, tip) => total + (tip.dj_earnings ?? 0), 0);
+
+    setTipsToday(tipsTodayPence / 100);
   };
 
   /*

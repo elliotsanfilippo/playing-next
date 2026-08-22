@@ -73,13 +73,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    /*
+     * No limit, and `id` included.
+     *
+     * This used to select 50 rows and then compute the day's total from
+     * that page, so any DJ past fifty tips would have had their total
+     * silently truncated — a financial figure quietly going wrong with
+     * nothing on screen to say so. Tip volume per DJ is small enough
+     * that reading them all is cheap, and a correct total matters more
+     * than a bounded query here.
+     */
     const { data: tips, error: tipsError } = await supabaseAdmin
       .from("tips")
-      .select("amount, dj_earnings, message, created_at, status")
+      .select("id, amount, dj_earnings, guest_service_fee, platform_fee, message, created_at, status")
       .eq("dj_profile_id", profile.id)
       .eq("status", "succeeded")
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .order("created_at", { ascending: false });
 
     if (tipsError) {
       console.error("Tips load error:", tipsError);
@@ -90,6 +99,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    /*
+     * todayTotal is computed here against the SERVER's clock, which on
+     * Vercel is UTC — while every page that shows it computes its
+     * request earnings against the BROWSER's clock. The dashboard's
+     * Tonight strip therefore added a UTC-day tip total to a local-day
+     * request total, and just after midnight UK time it showed tonight's
+     * requests beside yesterday's tips.
+     *
+     * It is kept only so existing callers do not break. Both the
+     * dashboard and the earnings page now derive their own day totals
+     * from `tips` in the viewer's timezone, which is the only clock that
+     * matches what a DJ means by "tonight".
+     */
     const todayString = new Date().toDateString();
 
     const todayTotal = (tips ?? [])
@@ -99,6 +121,7 @@ export async function GET(request: NextRequest) {
       .reduce((total, tip) => total + tip.dj_earnings, 0);
 
     return NextResponse.json({
+      /** @deprecated server-timezone total; compute locally from `tips`. */
       todayTotal,
       tips: tips ?? [],
     });
