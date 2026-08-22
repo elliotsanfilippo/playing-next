@@ -20,10 +20,51 @@
 
 export type StripeMode = "live" | "test";
 
+export class StripeEnvironmentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StripeEnvironmentError";
+  }
+}
+
+/*
+ * The mode is derived only from an explicit sk_live_ or sk_test_ prefix,
+ * and anything else throws.
+ *
+ * This used to treat "not live" as test, which meant a missing or
+ * malformed key silently resolved to test mode. That fails safe locally
+ * but is dangerous in a deployed environment: a process that lost its
+ * STRIPE_SECRET_KEY would quietly start reading stripe_test_account_id,
+ * find nothing there for real DJs, and tell every guest the DJ had not
+ * finished setting up payments — a total outage presented as a routine
+ * product state, with nothing in the logs pointing at configuration.
+ *
+ * Refusing to guess turns that into an immediate, obvious 500 naming the
+ * exact variable. A payments system should not infer which environment
+ * it is in.
+ *
+ * Restricted keys (rk_live_ / rk_test_) are deliberately not accepted:
+ * nothing here uses one, and silently widening what counts as a valid
+ * key is how the original loose check happened in the first place.
+ */
 export function stripeMode(): StripeMode {
-  return (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_live")
-    ? "live"
-    : "test";
+  const key = process.env.STRIPE_SECRET_KEY;
+
+  if (!key) {
+    throw new StripeEnvironmentError(
+      "STRIPE_SECRET_KEY is not set. Playing Next cannot determine whether " +
+        "it is running against live or test Stripe, and will not guess."
+    );
+  }
+
+  if (key.startsWith("sk_live_")) return "live";
+  if (key.startsWith("sk_test_")) return "test";
+
+  throw new StripeEnvironmentError(
+    "STRIPE_SECRET_KEY is malformed: expected it to begin with \"sk_live_\" " +
+      "or \"sk_test_\". Playing Next will not guess which Stripe " +
+      "environment it is running against."
+  );
 }
 
 export const isLiveStripe = () => stripeMode() === "live";
