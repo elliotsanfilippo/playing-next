@@ -93,3 +93,102 @@ export function requestStatusNotificationCopy(
 ): string | null {
   return STATUS_NOTIFICATION_COPY[status] ?? null;
 }
+
+
+/*
+ * ── Guest-facing explanations ────────────────────────────────────────
+ *
+ * The confirmation page used to carry its own STATUS_COPY map and My
+ * Requests its own STATUS_LABEL, so three maps described the same ten
+ * statuses. They had already drifted on five labels — "pending" was
+ * "Waiting for DJ" here and "Pending Approval" there — and My Requests
+ * was missing "refunded" and "disputed" entirely, which meant a guest
+ * whose payment had been refunded saw the raw database string.
+ *
+ * Descriptions live here for the same reason the labels do. A page may
+ * still add copy that is genuinely local to it (an action, a decline
+ * reason), but what a status *means* is one answer, not three.
+ *
+ * Every line below is written against what the payment actually did:
+ *
+ *   pending      PaymentIntent authorised, NOT captured
+ *   accepted     captured at accept time
+ *   played       captured; the DJ marked it played
+ *   declined     cancel() — authorisation released
+ *   cancelled    cancel(requested_by_customer)
+ *   expired      cancel(abandoned) by the expiry cron
+ *   refunded     captured, then fully refunded
+ *   disputed     the guest's own bank raised a chargeback
+ *
+ * So "pending" must never say charged, and "accepted" may.
+ */
+const STATUS_DESCRIPTION_GUEST: Record<string, string> = {
+  checkout_pending:
+    "We're confirming your payment. This usually takes a few seconds.",
+  pending:
+    "Your request has been sent. Your card is authorised but nothing has been taken yet — you're only charged if the DJ accepts.",
+  accepted:
+    "The DJ accepted your request and added it to their queue. Your payment has now been taken.",
+  playing_next:
+    "The DJ has lined your song up to play next.",
+  /*
+   * Deliberately "the DJ marked this as played" rather than "your song
+   * was played". Playing Next has no way to hear a room; all we know is
+   * that the DJ pressed a button, and saying more than that would be
+   * claiming a verification the product does not have.
+   */
+  played: "The DJ marked this as played. Thanks for requesting.",
+  declined:
+    "The DJ couldn't take this one. Your card was never charged and the authorisation has been released.",
+  cancelled:
+    "You cancelled this request. Your card was never charged and the authorisation has been released.",
+  expired:
+    "The DJ didn't get to this one in time, so it expired. Your card was never charged.",
+  /*
+   * No number of days. How long a refund takes to appear is the card
+   * issuer's business, not ours, and quoting "3 to 5 working days" would
+   * be promising something we cannot control.
+   */
+  refunded:
+    "This payment has been refunded. How long it takes to appear depends on your bank.",
+  disputed:
+    "Your bank has raised a dispute on this payment, and they'll be in touch about it.",
+};
+
+export function requestStatusDescription(status: string): string {
+  return (
+    STATUS_DESCRIPTION_GUEST[status] ??
+    "We're checking on this request."
+  );
+}
+
+/*
+ * Statuses where the request is over and nothing further will happen to
+ * it. Used to decide whether a page still needs live treatment, a cancel
+ * action, or a "what happens next" line.
+ */
+const CLOSED_STATUSES = new Set([
+  "declined",
+  "cancelled",
+  "expired",
+  "refunded",
+  "disputed",
+]);
+
+export function isClosedStatus(status: string): boolean {
+  return CLOSED_STATUSES.has(status);
+}
+
+/** Guests may only cancel while the DJ has not yet answered. Mirrors the
+ *  server guard in /api/request/cancel, which rejects anything but
+ *  "pending" and re-checks it in the UPDATE. */
+export function canGuestCancel(status: string): boolean {
+  return status === "pending";
+}
+
+/** Where a "this wasn't played" report is meaningful: the DJ took the
+ *  money and said it was going in the set. Matches the server's own
+ *  allowlist in /api/request/report-not-played. */
+export function canReportNotPlayed(status: string): boolean {
+  return ["accepted", "playing_next", "played"].includes(status);
+}

@@ -1,126 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Bell, BellRing, Crown, X, Flag } from "lucide-react";
-import Card from "@/src/components/ui/Card";
-import Eyebrow from "@/src/components/ui/Eyebrow";
+import { Bell, BellRing, Flag, WifiOff } from "lucide-react";
+import { supabase } from "@/src/lib/supabase";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
-import { toneSurfaceClasses, toneDotClasses } from "@/src/components/ui/Badge";
-import { requestStatusTone } from "@/src/lib/requestStatus";
-import { declineReasonGuestCopy } from "@/src/lib/declineReasons";
+import RequestStatusCard from "@/src/components/request/RequestStatusCard";
+import { useRequestStatus } from "@/src/lib/useRequestStatus";
+import {
+  requestStatusLabel,
+  requestStatusDescription,
+  requestStatusNotificationCopy,
+  canGuestCancel,
+  canReportNotPlayed,
+  isClosedStatus,
+} from "@/src/lib/requestStatus";
 import {
   getGuestNotificationsEnabled,
+  getGuestNotificationsServerSnapshot,
   requestNotificationPermission,
   setGuestNotificationsEnabled,
   showBrowserNotification,
+  subscribeGuestNotifications,
 } from "@/src/lib/notifications";
 
-type SubmittedRequest = {
-  id: string;
-  song_title: string;
-  artist: string;
-  request_type: string | null;
-  message: string | null;
-  request_status: string;
-  queue_position: number | null;
-  is_vip: boolean;
-  decline_reason: string | null;
-  reported_not_played_at: string | null;
-};
-
-const REPORTABLE_STATUSES = ["accepted", "playing_next", "played"];
-
-const STATUS_COPY: Record<string, { label: string; description: string }> = {
-  checkout_pending: {
-    label: "Confirming Payment",
-    description: "Your payment is being confirmed.",
-  },
-  pending: {
-    label: "Pending Approval",
-    description: "The DJ is reviewing your request.",
-  },
-  accepted: {
-    label: "Request Accepted",
-    description: "Your request has been added to the DJ’s queue.",
-  },
-  playing_next: {
-    label: "Playing Next",
-    description: "Get ready: your request is coming up.",
-  },
-  played: {
-    label: "Played",
-    description: "Your request has been played.",
-  },
-  declined: {
-    label: "Request Declined",
-    description:
-      "The DJ could not accept this request. Your payment will not be captured.",
-  },
-  cancelled: {
-    label: "Request Cancelled",
-    description:
-      "You cancelled this request. Your payment will not be captured.",
-  },
-  expired: {
-    label: "Request Expired",
-    description:
-      "The DJ didn’t respond in time, so this request expired. Your payment was never taken.",
-  },
-  refunded: {
-    label: "Refunded",
-    description: "This payment has been refunded.",
-  },
-  disputed: {
-    label: "Payment Disputed",
-    description:
-      "A dispute has been raised on this payment with your card issuer.",
-  },
-};
-
-/*
- * The page header used to be a hardcoded celebration ("You're in.",
- * green tick) no matter the status, so a cancelled or declined request
- * still opened by congratulating the guest before contradicting itself
- * further down the page. Anything that ended without the song being
- * queued gets an honest header instead.
- */
-const CLOSED_HEADER: Record<
-  string,
-  { eyebrow: string; heading: string; description: string }
-> = {
-  cancelled: {
-    eyebrow: "Request cancelled",
-    heading: "Cancelled.",
-    description:
-      "You cancelled this request, so you haven’t been charged for it.",
-  },
-  declined: {
-    eyebrow: "Request declined",
-    heading: "Not this time.",
-    description:
-      "The DJ couldn’t take this one, so you haven’t been charged for it.",
-  },
-  expired: {
-    eyebrow: "Request expired",
-    heading: "Expired.",
-    description:
-      "The DJ didn’t get to this one in time, so you haven’t been charged for it.",
-  },
-  refunded: {
-    eyebrow: "Request refunded",
-    heading: "Refunded.",
-    description: "This payment has been refunded to your card.",
-  },
-  disputed: {
-    eyebrow: "Payment disputed",
-    heading: "Payment disputed.",
-    description:
-      "A dispute has been raised on this payment with your card issuer.",
-  },
-};
+const REPORT_MAX_LENGTH = 500;
 
 function ConfirmationPageContent() {
   const params = useParams();
@@ -129,20 +41,94 @@ function ConfirmationPageContent() {
   const searchParams = useSearchParams();
   const requestId = searchParams.get("requestId");
 
-  const [request, setRequest] = useState<SubmittedRequest | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  /*
+   * Polling, its failure handling and its cleanup all live in
+   * useRequestStatus now. The page previously did this inline and set a
+   * page-level error on any failed poll, so a single blip on venue wifi
+   * replaced a request the guest had just paid for with an error screen.
+   */
+  const { request, loading, fatalError, stale, refresh } = useRequestStatus(
+    requestId ? [requestId] : null
+  );
+
+  const [dj, setDj] = useState<{
+    dj_name: string;
+    profile_image_url: string | null;
+  } | null>(null);
+  /* Read through the store rather than copied into state on mount. */
+  const notifyEnabled = useSyncExternalStore(
+    subscribeGuestNotifications,
+    getGuestNotificationsEnabled,
+    getGuestNotificationsServerSnapshot
+  );
   const [cancelling, setCancelling] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reporting, setReporting] = useState(false);
 
+  const status = request?.request_status ?? "pending";
+
+  /*
+   * Identity is a separate public read: /api/my-requests deliberately
+   * returns an explicit field list with no DJ and no financial data,
+   * which is the right call for an unauthenticated lookup-by-id and not
+   * something to widen for a name and an avatar.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    supabase
+      .from("dj_profiles")
+      .select("dj_name, profile_image_url")
+      .eq("slug", djSlug)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data) setDj(data);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [djSlug]);
+
+  /*
+   * Announcements and notifications fire on a real transition only. The
+   * poll runs every four seconds whether anything changed or not, and a
+   * live region that re-announces the same status every four seconds is
+   * unusable with a screen reader.
+   */
   const previousStatusRef = useRef<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
-    setNotifyEnabled(getGuestNotificationsEnabled());
-  }, []);
+    if (!request) return;
+
+    const previous = previousStatusRef.current;
+    previousStatusRef.current = request.request_status;
+
+    if (previous === null || previous === request.request_status) return;
+
+    const label = requestStatusLabel(request.request_status, "guest");
+    setAnnouncement(
+      `${request.song_title}: ${label}. ${requestStatusDescription(
+        request.request_status
+      )}`
+    );
+
+    const copy = requestStatusNotificationCopy(request.request_status);
+
+    if (copy) {
+      toast(request.song_title, { description: copy });
+
+      if (
+        getGuestNotificationsEnabled() &&
+        document.visibilityState !== "visible"
+      ) {
+        showBrowserNotification(request.song_title, copy);
+      }
+    }
+  }, [request]);
 
   const enableNotifications = async () => {
     const granted = await requestNotificationPermission();
@@ -155,10 +141,10 @@ function ConfirmationPageContent() {
     }
 
     setGuestNotificationsEnabled(true);
-    setNotifyEnabled(true);
     toast.success("We'll let you know when this updates.");
   };
 
+  /* Unchanged: pending-only, and the server re-checks it in the UPDATE. */
   const cancelRequest = async () => {
     if (!requestId || cancelling) return;
 
@@ -178,7 +164,8 @@ function ConfirmationPageContent() {
       }
 
       toast.success("Request cancelled. You have not been charged.");
-      fetchRequest(false);
+      setConfirmingCancel(false);
+      refresh();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to cancel this request."
@@ -203,13 +190,15 @@ function ConfirmationPageContent() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Unable to submit your report right now.");
+        throw new Error(
+          result.error || "Unable to submit your report right now."
+        );
       }
 
-      toast.success("Thanks — we've logged this for review.");
+      toast.success("Thanks, we've logged this for review.");
       setReportOpen(false);
       setReportReason("");
-      fetchRequest(false);
+      refresh();
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -221,365 +210,290 @@ function ConfirmationPageContent() {
     }
   };
 
-  const fetchRequest = useCallback(
-    async (showLoading = false) => {
-      if (showLoading) {
-        setLoading(true);
-      }
-
-      setLoadError("");
-
-      if (!requestId) {
-        setLoadError("We could not find this request.");
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch("/api/my-requests", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ requestIds: [requestId] }),
-      });
-
-      const result = await response.json();
-      const data = result.requests?.[0];
-
-      if (!response.ok || !data) {
-        console.log("Confirmation request load error:", result.error);
-        setLoadError("We could not load your request.");
-        setLoading(false);
-        return;
-      }
-
-      if (
-        previousStatusRef.current !== null &&
-        previousStatusRef.current !== data.request_status
-      ) {
-        const copy = STATUS_COPY[data.request_status];
-
-        if (copy) {
-          toast(copy.label, { description: copy.description });
-
-          if (
-            getGuestNotificationsEnabled() &&
-            document.visibilityState !== "visible"
-          ) {
-            showBrowserNotification(
-              `${data.song_title}: ${copy.label}`,
-              copy.description
-            );
-          }
-        }
-      }
-
-      previousStatusRef.current = data.request_status;
-
-      setRequest(data);
-      setLoadError("");
-      setLoading(false);
-    },
-    [requestId]
-  );
-
-  useEffect(() => {
-    fetchRequest(true);
-
-    if (!requestId) return;
-
-    /*
-     * Polling rather than realtime: the confirmation page has no way to
-     * authenticate as "the guest who made this request", so it can't
-     * safely use a realtime subscription that depends on unrestricted
-     * public read access to song_requests. A few seconds of delay is an
-     * acceptable trade for not exposing every guest's request data.
-     */
-    const interval = setInterval(() => {
-      fetchRequest(false);
-    }, 4000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [fetchRequest, requestId]);
-
-  const status = request?.request_status || "pending";
-  const statusCopy = STATUS_COPY[status] || STATUS_COPY.pending;
-  const closedHeader = CLOSED_HEADER[status];
-  const declineReasonCopy =
-    status === "declined"
-      ? declineReasonGuestCopy(request?.decline_reason ?? null)
-      : null;
-  const tone = requestStatusTone(status);
-
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas p-5 text-white">
-        <Card variant="elevated" className="w-full max-w-xl p-8 text-center">
-          <div className="mx-auto h-12 w-12 animate-pulse rounded-full bg-white/10" />
-
-          <h1 className="mt-5 text-h3">Loading your request...</h1>
-        </Card>
-      </main>
-    );
-  }
-
-  if (loadError || !request) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas p-5 text-white">
-        <Card variant="elevated" className="w-full max-w-xl p-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-3xl">
-            !
-          </div>
-
-          <h1 className="mt-5 text-h2">Request not found</h1>
-
-          <p className="mt-3 text-zinc-400">{loadError}</p>
-
-          <Link
-            href={`/request/${djSlug}`}
-            className={buttonVariants({ className: "mt-7" })}
-          >
-            Return to request page
-          </Link>
-        </Card>
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-canvas px-5 py-10 text-white sm:px-6 sm:py-14">
-      <section className="mx-auto max-w-2xl">
-        <div className="text-center">
-          {closedHeader ? (
-            <>
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                <X size={32} className="text-zinc-400" strokeWidth={3} />
-              </div>
-
-              <Eyebrow className="mt-6">{closedHeader.eyebrow}</Eyebrow>
-
-              <h1 className="mt-3 text-display">{closedHeader.heading}</h1>
-
-              <p className="mx-auto mt-4 max-w-md leading-7 text-zinc-400">
-                {declineReasonCopy
-                  ? `${declineReasonCopy} You haven’t been charged for it.`
-                  : closedHeader.description}
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-accent/20 bg-accent/10 shadow-xl shadow-green-500/10">
-                <Check size={32} className="text-accent" strokeWidth={3} />
-              </div>
-
-              <Eyebrow tone="accent" className="mt-6">
-                Request submitted
-              </Eyebrow>
-
-              <h1 className="mt-3 text-display">You&apos;re in.</h1>
-
-              <p className="mx-auto mt-4 max-w-md leading-7 text-zinc-400">
-                Your payment has been authorised and your request has been
-                sent to the DJ.
-              </p>
-            </>
-          )}
+      <main className="min-h-screen bg-canvas px-4 py-4 text-white sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-lg">
+          <div className="h-14 animate-pulse rounded-card bg-white/5 motion-reduce:animate-none" />
+          <div className="mt-4 h-52 animate-pulse rounded-card bg-white/5 motion-reduce:animate-none" />
+          <p className="sr-only" role="status">
+            Loading your request
+          </p>
         </div>
+      </main>
+    );
+  }
 
-        <Card variant="elevated" className="mt-10 overflow-hidden">
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-wrap items-center gap-2">
-              <Eyebrow>
-                {request.request_type === "song_message"
-                  ? "Song + Message"
-                  : "Song Request"}
-              </Eyebrow>
-
-              {request.is_vip && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">
-                  <Crown size={12} /> VIP
-                </span>
-              )}
-            </div>
-
-            <h2 className="mt-3 text-h2">{request.song_title}</h2>
-
-            <p className="mt-2 text-lg text-zinc-400">{request.artist}</p>
-
-            {request.request_type === "song_message" && request.message && (
-              <div className="mt-6 rounded-control border border-white/10 bg-black/30 p-5">
-                <Eyebrow>Your message</Eyebrow>
-
-                <p className="mt-3 leading-7 text-zinc-200">
-                  “{request.message}”
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-white/5 p-6 sm:p-8">
-            <div
-              className={`rounded-card border p-5 ${toneSurfaceClasses[tone]}`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${toneDotClasses[tone]}`}
-                />
-
-                <div>
-                  <h3 className="text-lg font-bold">{statusCopy.label}</h3>
-
-                  <p className="mt-2 text-sm leading-6 opacity-80">
-                    {/*
-                      When the DJ gave a reason, the header above already
-                      states it — repeating a second, vaguer explanation
-                      here reads like two competing answers, so this drops
-                      to just the payment reassurance.
-                    */}
-                    {declineReasonCopy
-                      ? "Your payment will not be captured."
-                      : statusCopy.description}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {status === "pending" && (
-              <button
-                type="button"
-                onClick={cancelRequest}
-                disabled={cancelling}
-                className="mt-4 w-full rounded-control border border-red-500/20 bg-red-500/5 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {cancelling ? "Cancelling..." : "Cancel Request"}
-              </button>
-            )}
-
-            {status === "accepted" && request.queue_position && (
-              <div className="mt-4 flex items-center justify-between rounded-control border border-white/10 bg-white/[0.03] p-5">
-                <div>
-                  <p className="text-sm text-zinc-500">Queue position</p>
-
-                  <p className="mt-1 text-sm text-zinc-400">
-                    Your place in the accepted queue
-                  </p>
-                </div>
-
-                <p className="text-3xl font-bold">
-                  #{request.queue_position}
-                </p>
-              </div>
-            )}
-
-            {REPORTABLE_STATUSES.includes(status) &&
-              (request.reported_not_played_at ? (
-                <p className="mt-4 flex items-center gap-1.5 text-sm text-zinc-400">
-                  <Flag size={14} className="shrink-0" />
-                  Reported as not played — we&apos;re looking into it.
-                </p>
-              ) : reportOpen ? (
-                <div className="mt-4 rounded-control border border-white/10 bg-black/30 p-5">
-                  <p className="text-sm font-semibold text-white">
-                    Didn&apos;t hear this one play?
-                  </p>
-                  <p className="mt-1 text-sm text-zinc-400">
-                    We&apos;ll flag this DJ&apos;s account for review. Add any
-                    detail that might help (optional).
-                  </p>
-
-                  <textarea
-                    value={reportReason}
-                    onChange={(event) => setReportReason(event.target.value)}
-                    placeholder="Optional details..."
-                    rows={2}
-                    maxLength={500}
-                    className="mt-3 w-full rounded-control border border-white/10 bg-black/40 p-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-accent/40"
-                  />
-
-                  <div className="mt-3 flex gap-3">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setReportOpen(false)}
-                      disabled={reporting}
-                    >
-                      Never mind
-                    </Button>
-
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={submitNotPlayedReport}
-                      disabled={reporting}
-                    >
-                      {reporting ? "Submitting..." : "Submit report"}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setReportOpen(true)}
-                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-control border border-white/10 bg-white/5 py-3 text-sm font-semibold text-zinc-300 transition hover:bg-white/10"
-                >
-                  <Flag size={14} />
-                  This wasn&apos;t played
-                </button>
-              ))}
-
-            <div className="mt-4 rounded-control border border-white/10 bg-black/25 p-5">
-              <p className="font-semibold">Updates happen automatically</p>
-
-              <p className="mt-2 text-sm leading-6 text-zinc-500">
-                {status === "pending" || status === "checkout_pending"
-                  ? "No need to refresh. You’ll only be charged if the DJ accepts your request."
-                  : status === "declined" ||
-                      status === "cancelled" ||
-                      status === "expired"
-                    ? "No need to refresh. Your payment will not be captured."
-                    : "No need to refresh. Your request status will update here automatically."}
-              </p>
-
-              {notifyEnabled ? (
-                <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-accent">
-                  <BellRing size={16} />
-                  We&apos;ll notify you when this updates
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={enableNotifications}
-                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 underline decoration-zinc-600 underline-offset-4 transition hover:text-white"
-                >
-                  <Bell size={16} />
-                  Notify me when this updates
-                </button>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+  if (fatalError || !request) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-canvas px-4 text-white">
+        <div className="w-full max-w-sm rounded-card border border-white/10 bg-surface-raised p-6 text-center">
+          <h1 className="text-lg font-bold">
+            {fatalError || "We couldn't find this request."}
+          </h1>
+          <p className="mt-2 text-[13px] leading-5 text-zinc-500">
+            The link may be incomplete. Your requests from this device are
+            listed on My Requests.
+          </p>
           <Link
             href={`/request/${djSlug}/my-requests`}
-            className={buttonVariants({ size: "lg" })}
+            className={buttonVariants({ className: "mt-5 w-full" })}
           >
-            View My Requests
+            See my requests
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const closed = isClosedStatus(status);
+
+  /*
+   * Whether anything is still expected to happen. "Played" is not in
+   * isClosedStatus — a played request can still become refunded or
+   * disputed — but from the guest's point of view it is finished, and
+   * telling someone their completed request "updates on its own" is
+   * noise on what should read as a clean end state.
+   */
+  const awaitingUpdate = !closed && status !== "played";
+
+  return (
+    <main className="min-h-screen bg-canvas px-4 py-4 text-white sm:px-6 sm:py-8">
+      <section className="mx-auto max-w-lg">
+        <h1 className="sr-only">
+          Your request to {dj?.dj_name ?? "the DJ"}
+        </h1>
+
+        {/*
+          One polite live region for the whole page, written only when
+          the backend status actually changes. Queue position moving is
+          deliberately not announced: it shifts whenever anyone else's
+          request is played, and narrating that every few seconds would
+          bury the changes that matter.
+        */}
+        <p aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement}
+        </p>
+
+        {/* Identity, compact and secondary. This page is about the
+            request; the DJ is context for it. */}
+        <div className="flex items-center gap-3 rounded-card border border-white/10 bg-surface-raised px-3.5 py-3 sm:px-5">
+          {dj?.profile_image_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element -- Supabase
+               storage URL at 36px; nothing for next/image to optimize. */
+            <img
+              src={dj.profile_image_url}
+              alt=""
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0 rounded-full border border-white/10 object-cover"
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="h-9 w-9 shrink-0 rounded-full border border-white/10 bg-surface-overlay"
+            />
+          )}
+
+          {/* Not "Your request to X" again — the h1 already says that,
+              and repeating it verbatim made a screen reader announce the
+              same sentence twice before reaching the status. */}
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+            {dj?.dj_name ?? "the DJ"}
+          </p>
+        </div>
+
+        {/*
+          Sustained polling trouble, shown beside the last known status
+          rather than instead of it. Three consecutive failures, roughly
+          twelve seconds; a single dropped poll is invisible.
+        */}
+        {stale && (
+          <div
+            role="status"
+            className="mt-3 flex items-start gap-2.5 rounded-card border border-status-pending-surface/25 bg-status-pending-surface/[0.07] px-3.5 py-3"
+          >
+            <WifiOff
+              size={15}
+              aria-hidden
+              className="mt-0.5 shrink-0 text-status-pending"
+            />
+            <p className="text-[13px] leading-5 text-zinc-300">
+              <span className="font-semibold text-status-pending">
+                Not updating right now.
+              </span>{" "}
+              This is the last status we had. We&apos;ll keep trying.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-3">
+          <RequestStatusCard request={request} feature />
+        </div>
+
+        {/* ── Actions, only the ones that apply ───────────────────── */}
+
+        {canGuestCancel(status) && (
+          <div className="mt-3">
+            {confirmingCancel ? (
+              <div className="rounded-card border border-white/10 bg-surface-raised p-3.5 sm:p-5">
+                <p className="text-sm text-zinc-300">
+                  Cancel this request? Your authorisation is released and you
+                  won&apos;t be charged.
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2.5">
+                  <Button
+                    variant="secondary"
+                    className="h-11 flex-1"
+                    onClick={() => setConfirmingCancel(false)}
+                    disabled={cancelling}
+                  >
+                    Keep it
+                  </Button>
+
+                  <Button
+                    variant="danger"
+                    className="h-11 flex-1"
+                    onClick={cancelRequest}
+                    disabled={cancelling}
+                    aria-busy={cancelling}
+                  >
+                    {cancelling ? "Cancelling..." : "Yes, cancel"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* danger, not primary: cancelling is the one thing here the
+                 guest cannot undo. */
+              <Button
+                variant="danger"
+                className="h-11 w-full"
+                onClick={() => setConfirmingCancel(true)}
+              >
+                Cancel request
+              </Button>
+            )}
+          </div>
+        )}
+
+        {canReportNotPlayed(status) && !request.reported_not_played_at && (
+          <div className="mt-3">
+            {reportOpen ? (
+              <div className="rounded-card border border-white/10 bg-surface-raised p-3.5 sm:p-5">
+                <p className="text-sm font-semibold text-white">
+                  Didn&apos;t hear this one?
+                </p>
+                <p className="mt-1 text-[13px] leading-5 text-zinc-500">
+                  We&apos;ll pass this to our team to look into. Add anything
+                  that might help.
+                </p>
+
+                <div className="mt-3 flex items-baseline justify-between gap-3">
+                  <label
+                    htmlFor="report-reason"
+                    className="text-xs font-semibold text-zinc-300"
+                  >
+                    Details{" "}
+                    <span className="font-normal text-zinc-600">(optional)</span>
+                  </label>
+                  <span className="text-[11px] tabular-nums text-zinc-600">
+                    {reportReason.length}/{REPORT_MAX_LENGTH}
+                  </span>
+                </div>
+
+                <textarea
+                  id="report-reason"
+                  value={reportReason}
+                  onChange={(event) =>
+                    setReportReason(
+                      event.target.value.slice(0, REPORT_MAX_LENGTH)
+                    )
+                  }
+                  maxLength={REPORT_MAX_LENGTH}
+                  rows={2}
+                  placeholder="I stayed until the end and didn't hear it."
+                  className="mt-1.5 w-full rounded-control border border-white/10 bg-surface-base px-3.5 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
+                />
+
+                <div className="mt-3 flex flex-wrap gap-2.5">
+                  <Button
+                    variant="secondary"
+                    className="h-11 flex-1"
+                    onClick={() => setReportOpen(false)}
+                    disabled={reporting}
+                  >
+                    Never mind
+                  </Button>
+
+                  <Button
+                    className="h-11 flex-1"
+                    onClick={submitNotPlayedReport}
+                    disabled={reporting}
+                    aria-busy={reporting}
+                  >
+                    {reporting ? "Sending..." : "Send report"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setReportOpen(true)}
+                className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-control border border-white/10 bg-white/[0.03] text-[13px] font-semibold text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              >
+                <Flag size={13} aria-hidden />
+                I didn&apos;t hear this track
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Live updates note, only while there is still something to
+            wait for. A finished request has nothing to announce. */}
+        {awaitingUpdate && (
+          <div className="mt-3 rounded-card border border-white/5 bg-surface-raised/60 px-3.5 py-3 sm:px-5">
+            {notifyEnabled ? (
+              <p className="flex items-center gap-2 text-[13px] font-semibold text-accent">
+                <BellRing size={14} aria-hidden />
+                We&apos;ll let you know when this updates
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={enableNotifications}
+                className="flex min-h-11 w-full items-center gap-2 rounded text-left text-[13px] text-zinc-400 transition-colors hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              >
+                <Bell size={14} aria-hidden className="shrink-0" />
+                <span>
+                  This updates on its own.{" "}
+                  <span className="font-semibold text-zinc-200 underline underline-offset-4">
+                    Notify me
+                  </span>{" "}
+                  when it changes.
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+          <Link
+            href={`/request/${djSlug}/my-requests`}
+            className={buttonVariants({ variant: "secondary" })}
+          >
+            See all my requests
           </Link>
 
           <Link
             href={`/request/${djSlug}`}
-            className={buttonVariants({ variant: "secondary", size: "lg" })}
+            className={buttonVariants({
+              variant: closed || status === "played" ? "primary" : "secondary",
+            })}
           >
-            Request Another Song
+            Request another song
           </Link>
         </div>
-
-        <p className="mt-6 text-center text-xs text-zinc-600">
-          Secure payment powered by Stripe
-        </p>
       </section>
     </main>
   );
@@ -589,11 +503,11 @@ export default function ConfirmationPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-canvas p-5 text-white">
-          <Card variant="elevated" className="w-full max-w-xl p-8 text-center">
-            <div className="mx-auto h-12 w-12 animate-pulse rounded-full bg-white/10" />
-            <h1 className="mt-5 text-h3">Loading your request...</h1>
-          </Card>
+        <main className="min-h-screen bg-canvas px-4 py-4 text-white sm:px-6 sm:py-8">
+          <div className="mx-auto max-w-lg">
+            <div className="h-14 animate-pulse rounded-card bg-white/5 motion-reduce:animate-none" />
+            <div className="mt-4 h-52 animate-pulse rounded-card bg-white/5 motion-reduce:animate-none" />
+          </div>
         </main>
       }
     >

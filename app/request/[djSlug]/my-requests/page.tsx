@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { Bell, BellRing, Crown, Flag } from "lucide-react";
@@ -9,12 +14,17 @@ import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button, { buttonVariants } from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
-import { requestStatusTone } from "@/src/lib/requestStatus";
+import {
+  requestStatusTone,
+  requestStatusLabel,
+} from "@/src/lib/requestStatus";
 import { declineReasonGuestCopy } from "@/src/lib/declineReasons";
 import {
+  getGuestNotificationsServerSnapshot,
   getGuestNotificationsEnabled,
   requestNotificationPermission,
   setGuestNotificationsEnabled,
+  subscribeGuestNotifications,
   showBrowserNotification,
 } from "@/src/lib/notifications";
 
@@ -33,33 +43,31 @@ type SongRequest = {
 
 const REPORTABLE_STATUSES = ["accepted", "playing_next", "played"];
 
-const STATUS_LABEL: Record<string, string> = {
-  checkout_pending: "Confirming Payment",
-  pending: "Waiting for DJ",
-  accepted: "In Queue",
-  playing_next: "Playing Next",
-  played: "Played",
-  declined: "Declined",
-  cancelled: "Cancelled",
-  expired: "Expired",
-};
+/*
+ * Labels come from requestStatus.ts now. The local map here was missing
+ * "refunded" and "disputed" entirely, so a guest whose payment had been
+ * refunded saw the raw database string, and five of its other labels had
+ * drifted from the canonical guest wording.
+ */
 
 export default function MyRequestsPage() {
   const params = useParams();
   const djSlug = params.djSlug as string;
 
   const [requests, setRequests] = useState<SongRequest[]>([]);
-  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  /* Same shared store the confirmation page uses, so the preference
+     cannot disagree between the two pages. */
+  const notifyEnabled = useSyncExternalStore(
+    subscribeGuestNotifications,
+    getGuestNotificationsEnabled,
+    getGuestNotificationsServerSnapshot
+  );
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [reportOpenId, setReportOpenId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reportingId, setReportingId] = useState<string | null>(null);
 
   const previousStatusesRef = useRef<Map<string, string> | null>(null);
-
-  useEffect(() => {
-    setNotifyEnabled(getGuestNotificationsEnabled());
-  }, []);
 
   const enableNotifications = async () => {
     const granted = await requestNotificationPermission();
@@ -72,7 +80,6 @@ export default function MyRequestsPage() {
     }
 
     setGuestNotificationsEnabled(true);
-    setNotifyEnabled(true);
     toast.success("We'll let you know when any of these update.");
   };
 
@@ -184,7 +191,7 @@ export default function MyRequestsPage() {
 
         if (previousStatus && previousStatus !== request.request_status) {
           const label =
-            STATUS_LABEL[request.request_status] || request.request_status;
+            requestStatusLabel(request.request_status, "guest");
 
           toast(request.song_title, { description: label });
 
@@ -231,6 +238,10 @@ export default function MyRequestsPage() {
       declined: 5,
       cancelled: 5,
       expired: 5,
+      /* Were absent, so both fell to the 999 bucket and sorted below
+         every finished request for no particular reason. */
+      refunded: 5,
+      disputed: 5,
     };
 
     const statusOrder =
@@ -311,8 +322,7 @@ export default function MyRequestsPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={requestStatusTone(request.request_status)} dot>
-                        {STATUS_LABEL[request.request_status] ||
-                          request.request_status}
+                        {requestStatusLabel(request.request_status, "guest")}
                       </Badge>
 
                       {request.is_vip && (

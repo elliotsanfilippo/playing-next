@@ -128,8 +128,33 @@ export function getGuestNotificationsEnabled(): boolean {
   return window.localStorage.getItem(GUEST_STORAGE_KEY) === "true";
 }
 
+const guestListeners = new Set<() => void>();
+
 export function setGuestNotificationsEnabled(enabled: boolean) {
   if (typeof window === "undefined") return;
 
   window.localStorage.setItem(GUEST_STORAGE_KEY, enabled ? "true" : "false");
+  guestListeners.forEach((listener) => listener());
+}
+
+/*
+ * Subscription plumbing so React can read the preference through
+ * useSyncExternalStore rather than copying it into state from a mount
+ * effect. The effect version wrote state synchronously on mount, which
+ * is a cascading render — the page painted "notifications off", then
+ * immediately re-rendered into "on".
+ *
+ * The snapshot has to be referentially stable or useSyncExternalStore
+ * loops, so a boolean is exactly the right shape here.
+ */
+export function subscribeGuestNotifications(onChange: () => void) {
+  guestListeners.add(onChange);
+  return () => {
+    guestListeners.delete(onChange);
+  };
+}
+
+/** Server snapshot: nothing is enabled until the browser says so. */
+export function getGuestNotificationsServerSnapshot(): boolean {
+  return false;
 }
