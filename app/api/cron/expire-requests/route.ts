@@ -88,13 +88,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!staleRequests || staleRequests.length === 0) {
-      return NextResponse.json({ expired: 0, checked: 0 });
-    }
-
+    /*
+     * No early return here any more. This used to bail out when there
+     * were no stale *pending* requests, which is the common case — and
+     * that skipped the stale-checkout and stale-tip sweeps below
+     * entirely, so on any night where every request got answered, the
+     * abandoned checkouts were never cleaned up at all.
+     */
     let expired = 0;
 
-    for (const songRequest of staleRequests) {
+    for (const songRequest of staleRequests ?? []) {
       const paymentIntentId = songRequest.stripe_payment_intent_id;
 
       if (!paymentIntentId) {
@@ -195,7 +198,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       expired,
-      checked: staleRequests.length,
+      checked: staleRequests?.length ?? 0,
       expiryHours: REQUEST_EXPIRY_HOURS,
       staleCheckoutsClosed: staleCheckouts?.length ?? 0,
       staleTipsClosed: staleTips?.length ?? 0,
