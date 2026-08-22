@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AnimatePresence,
   motion,
@@ -64,6 +64,13 @@ const rowVariants: Variants = {
   gone: { opacity: 0, scale: 0.97, transition: { duration: 0.16 } },
 };
 
+/* Same states, no travel and no duration, for reduced motion. */
+const staticRowVariants: Variants = {
+  hidden: { opacity: 1 },
+  visible: { opacity: 1 },
+  gone: { opacity: 0, transition: { duration: 0 } },
+};
+
 /** One shot, ending back at zero so it leaves nothing behind. */
 const flashVariants: Variants = {
   hidden: { opacity: 0 },
@@ -107,6 +114,82 @@ export default function PendingRequests({
   const [choosingReasonId, setChoosingReasonId] = useState<string | null>(
     null
   );
+
+  /*
+   * Opening the reason picker replaces the action row, which unmounts
+   * the Decline button the DJ just pressed. For a pointer that is
+   * invisible; for a keyboard it dropped focus onto <body>, so the next
+   * Tab restarted from the top of the page. Focus follows the
+   * interaction into the picker and back out to Decline when the DJ
+   * backs out of it.
+   */
+  const reasonsRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Which request's Decline button to restore focus to once the picker
+   * closes, held as an id rather than as the element.
+   *
+   * Storing the node itself does not work here: opening the picker
+   * replaces the action row, so the button that was clicked is detached
+   * by the time we want it back, and .focus() on a detached node is
+   * silently a no-op. Verified exactly that — Escape left focus sitting
+   * on the reason chip. React mounts a fresh button when the picker
+   * closes, so we find that one by id.
+   */
+  const restoreFocusRef = useRef<string | null>(null);
+
+  const closeReasons = () => {
+    restoreFocusRef.current = choosingReasonId;
+    setChoosingReasonId(null);
+  };
+
+  useEffect(() => {
+    if (choosingReasonId) return;
+
+    const id = restoreFocusRef.current;
+    if (!id) return;
+
+    restoreFocusRef.current = null;
+
+    const trigger = listRef.current?.querySelector<HTMLButtonElement>(
+      `[data-decline-for="${id}"]`
+    );
+
+    /*
+     * If the request is gone — declined, or accepted in another tab —
+     * there is no button to go back to, so focus lands on the section
+     * itself rather than falling to <body>, which would restart tabbing
+     * from the top of the page.
+     */
+    if (trigger) trigger.focus();
+    else listRef.current?.focus();
+  }, [choosingReasonId]);
+
+  useEffect(() => {
+    if (!choosingReasonId) return;
+
+    /* Directly, not via rAF: the picker is committed by the time this
+       runs, and rAF does not fire in a hidden tab. */
+    reasonsRef.current
+      ?.querySelector<HTMLButtonElement>("button:not([disabled])")
+      ?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+
+      /* Inlined rather than calling closeReasons(), which would pull a
+         re-created function into this effect's dependencies and
+         re-subscribe the listener on every render. */
+      restoreFocusRef.current = choosingReasonId;
+      setChoosingReasonId(null);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [choosingReasonId]);
+
 
   const runDecline = async (
     request: SongRequest,
@@ -153,11 +236,19 @@ export default function PendingRequests({
         {/* A count chip only when there is something to count. An
             amber pill reading "0" is a decoration, not information. */}
         {pendingRequests.length > 0 ? (
-          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-status-pending-surface/15 px-1.5 text-sm font-bold tabular-nums text-status-pending">
-            {pendingRequests.length}
+          <span
+            className="flex h-6 min-w-6 items-center justify-center rounded-full bg-status-pending-surface/15 px-1.5 text-sm font-bold tabular-nums text-status-pending"
+            aria-label={`${pendingRequests.length} waiting for a decision`}
+          >
+            <span aria-hidden>{pendingRequests.length}</span>
           </span>
         ) : (
-          <span className="text-sm font-bold tabular-nums text-zinc-600">0</span>
+          <span
+            className="text-sm font-bold tabular-nums text-zinc-600"
+            aria-label="Nothing waiting"
+          >
+            <span aria-hidden>0</span>
+          </span>
         )}
       </div>
 
@@ -170,7 +261,7 @@ export default function PendingRequests({
         ambiguous which one is authoritative.
       */}
       {!isTakingRequests && (
-        <div className="flex items-start gap-2.5 border-b border-status-declined/20 bg-status-declined/[0.07] px-4 py-2.5 sm:px-5">
+        <div role="status" className="flex items-start gap-2.5 border-b border-status-declined/20 bg-status-declined/[0.07] px-4 py-2.5 sm:px-5">
           <PauseCircle
             size={14}
             className="mt-0.5 shrink-0 text-status-declined"
@@ -188,7 +279,7 @@ export default function PendingRequests({
       )}
 
       {isTakingRequests && pendingRequests.length >= pendingCap && (
-        <div className="flex items-start gap-2.5 border-b border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-4 py-2.5 sm:px-5">
+        <div role="status" className="flex items-start gap-2.5 border-b border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-4 py-2.5 sm:px-5">
           <Inbox
             size={14}
             className="mt-0.5 shrink-0 text-status-pending"
@@ -205,7 +296,7 @@ export default function PendingRequests({
       )}
 
       {isTakingRequests && queueCount >= queueCap && (
-        <div className="flex items-start gap-2.5 border-b border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-4 py-2.5 sm:px-5">
+        <div role="status" className="flex items-start gap-2.5 border-b border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-4 py-2.5 sm:px-5">
           <ListChecks
             size={14}
             className="mt-0.5 shrink-0 text-status-pending"
@@ -221,7 +312,11 @@ export default function PendingRequests({
         </div>
       )}
 
-      <div className="flex flex-1 flex-col space-y-2 p-3 sm:p-4">
+      <div
+        ref={listRef}
+        tabIndex={-1}
+        className="flex flex-1 flex-col p-3 sm:p-4 focus:outline-none"
+      >
         {pendingRequests.length === 0 ? (
           /*
             No dashed box: an empty Needs You sat as a large outlined
@@ -257,6 +352,7 @@ export default function PendingRequests({
            * one-shot and honest: rows present on first render do not
            * animate in, rows added afterwards do.
            */
+          <ul className="space-y-2">
           <AnimatePresence initial={false}>
             {pendingRequests.map((request) => {
               const busy = action?.id === request.id;
@@ -270,10 +366,10 @@ export default function PendingRequests({
                   : null;
 
               return (
-                <motion.div
+                <motion.li
                   key={request.id}
                   layout={shouldReduceMotion ? false : "position"}
-                  variants={rowVariants}
+                  variants={shouldReduceMotion ? staticRowVariants : rowVariants}
                   initial={shouldReduceMotion ? false : "hidden"}
                   animate="visible"
                   exit="gone"
@@ -330,6 +426,7 @@ export default function PendingRequests({
                             variant="secondary"
                             className="h-12 flex-1 sm:h-11"
                             disabled={Boolean(action)}
+                            data-decline-for={request.id}
                             onClick={() => setChoosingReasonId(request.id)}
                           >
                             Decline
@@ -389,7 +486,11 @@ export default function PendingRequests({
                           }
                           animate={{ height: "auto", opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          transition={transition.state}
+                          transition={
+                            shouldReduceMotion
+                              ? { duration: 0 }
+                              : transition.state
+                          }
                           className="overflow-hidden"
                         >
                           <div className="mt-3 border-t border-white/5 pt-3">
@@ -401,14 +502,19 @@ export default function PendingRequests({
                               <button
                                 type="button"
                                 disabled={declining}
-                                onClick={() => setChoosingReasonId(null)}
-                                className="text-xs font-semibold text-zinc-500 transition hover:text-zinc-300 disabled:opacity-50"
+                                onClick={closeReasons}
+                                className="rounded text-xs font-semibold text-zinc-500 transition hover:text-zinc-300 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                               >
                                 Back
                               </button>
                             </div>
 
-                            <div className="mt-2.5 flex flex-wrap gap-2">
+                            <div
+                              ref={reasonsRef}
+                              role="group"
+                              aria-label={`Reason for declining ${request.song_title}`}
+                              className="mt-2.5 flex flex-wrap gap-2"
+                            >
                               {DECLINE_REASONS.map((reason) => (
                                 <button
                                   key={reason.key}
@@ -419,7 +525,7 @@ export default function PendingRequests({
                                      targets tapped one-handed mid-set,
                                      so they clear 44px like the primary
                                      actions do. */
-                                  className="inline-flex min-h-11 items-center rounded-full border border-white/10 bg-white/5 px-4 text-[13px] font-semibold text-zinc-200 transition hover:border-status-declined/40 hover:bg-status-declined/10 hover:text-status-declined disabled:opacity-50"
+                                  className="inline-flex min-h-11 items-center rounded-full border border-white/10 bg-white/5 px-4 text-[13px] font-semibold text-zinc-200 transition hover:border-status-declined/40 hover:bg-status-declined/10 hover:text-status-declined disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                                 >
                                   {reason.djLabel}
                                 </button>
@@ -429,7 +535,7 @@ export default function PendingRequests({
                                 type="button"
                                 disabled={declining}
                                 onClick={() => runDecline(request, null)}
-                                className="inline-flex min-h-11 items-center rounded-full px-4 text-[13px] font-semibold text-zinc-500 underline underline-offset-4 transition hover:text-zinc-300 disabled:opacity-50"
+                                className="inline-flex min-h-11 items-center rounded-full px-4 text-[13px] font-semibold text-zinc-500 underline underline-offset-4 transition hover:text-zinc-300 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                               >
                                 {declining ? "Declining..." : "No reason"}
                               </button>
@@ -439,10 +545,11 @@ export default function PendingRequests({
                       )}
                     </AnimatePresence>
                   </RequestCard>
-                </motion.div>
+                </motion.li>
               );
             })}
           </AnimatePresence>
+          </ul>
         )}
       </div>
     </Card>

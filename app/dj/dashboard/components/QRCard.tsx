@@ -4,7 +4,16 @@ import { Copy, Check, ChevronRight, Download, Printer } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import Eyebrow from "@/src/components/ui/Eyebrow";
-import QRFormatsModal from "./QRFormatsModal";
+import dynamic from "next/dynamic";
+
+/*
+ * Only opened when the DJ taps "Print your QR code", which is a
+ * once-per-setup action, and it carries its own QRCode + canvas code.
+ * No reason for it to be in the bundle every DJ downloads to run a gig.
+ */
+const QRFormatsModal = dynamic(() => import("./QRFormatsModal"), {
+  ssr: false,
+});
 
 type Props = {
   showQr: boolean;
@@ -226,9 +235,13 @@ export default function QRCard({
             */}
             {qrCodeUrl && (
               <div className="rounded-card bg-white p-3 shadow-2xl sm:p-5">
+                {/* eslint-disable-next-line @next/next/no-img-element --
+                    a client-generated data: URL. next/image has nothing
+                    to fetch, resize or cache here, and routing a data
+                    URL through the optimizer only adds work. */}
                 <img
                   src={qrCodeUrl}
-                  alt="QR Code"
+                  alt={`QR code linking to ${djName}'s request page`}
                   className="w-40 max-w-full sm:w-72"
                 />
               </div>

@@ -188,6 +188,19 @@ html {
   html {
     scroll-behavior: auto;
   }
+
+  /*
+   * CSS-driven motion is handled with Tailwind's own `motion-reduce:`
+   * variant at the component that owns it, not with a blanket
+   * !important reset here.
+   *
+   * A `*, *::before, *::after` block was tried first and is silently
+   * dropped by the v4 CSS pipeline — it never reached the served
+   * stylesheet, so it would have been a rule that looked like coverage
+   * without providing any. The variant compiles reliably and keeps the
+   * decision next to the animation it suppresses, which matches how the
+   * JS side already works through useReducedMotion.
+   */
 }
 
 /*

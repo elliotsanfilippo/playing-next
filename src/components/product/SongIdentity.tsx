@@ -58,11 +58,16 @@ export default function SongIdentity({
       */}
       <h3 className={cn("flex items-center gap-2", titleClasses[size])}>
         {isVip && (
-          <Crown
-            size={size === "compact" ? 12 : 16}
-            className="shrink-0 text-amber-400"
-            aria-label="VIP request"
-          />
+          <>
+            {/* aria-label on a bare <svg> is not reliably announced
+                without role="img". A visually hidden word is. */}
+            <Crown
+              size={size === "compact" ? 12 : 16}
+              className="shrink-0 text-amber-400"
+              aria-hidden
+            />
+            <span className="sr-only">VIP request</span>
+          </>
         )}
         <span className="min-w-0 truncate">{title}</span>
       </h3>
@@ -74,7 +79,7 @@ export default function SongIdentity({
           loudest thing in a queue row. */}
       {hasShoutout && (
         <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-zinc-500">
-          <Mic2 size={11} className="shrink-0" /> Shoutout
+          <Mic2 size={11} className="shrink-0" aria-hidden /> Shoutout
         </p>
       )}
     </div>

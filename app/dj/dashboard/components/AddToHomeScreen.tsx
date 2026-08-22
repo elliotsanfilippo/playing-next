@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Share, Smartphone, X } from "lucide-react";
 import Button from "@/src/components/ui/Button";
 
@@ -26,20 +26,65 @@ function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+/*
+ * Whether the install prompt applies is a fact about the browser, not
+ * React state, so it is read through useSyncExternalStore rather than
+ * written into state from a mount effect. Writing it in an effect made
+ * the component paint its hidden state and immediately re-render into
+ * the visible one, which is the cascading render the lint rule is
+ * about. The snapshot is memoised because useSyncExternalStore compares
+ * snapshots by identity and a fresh object each call would loop.
+ */
+type Eligibility = { ios: boolean } | null;
+
+let cachedEligibility: Eligibility | undefined;
+
+const readEligibility = (): Eligibility => {
+  if (cachedEligibility !== undefined) return cachedEligibility;
+
+  if (isStandalone()) cachedEligibility = null;
+  else if (window.localStorage.getItem(DISMISSED_KEY) === "true")
+    cachedEligibility = null;
+  else cachedEligibility = { ios: isIOS() };
+
+  return cachedEligibility;
+};
+
+/** Nothing to subscribe to: the value is fixed for the page's life,
+ *  apart from a dismissal, which re-reads through the listener below. */
+const listeners = new Set<() => void>();
+
+const subscribeEligibility = (onChange: () => void) => {
+  listeners.add(onChange);
+  return () => listeners.delete(onChange);
+};
+
+const dismissEligibility = () => {
+  window.localStorage.setItem(DISMISSED_KEY, "true");
+  cachedEligibility = null;
+  listeners.forEach((listener) => listener());
+};
+
 export default function AddToHomeScreen() {
-  const [dismissed, setDismissed] = useState(true);
-  const [ios, setIos] = useState(false);
+  /*
+   * `eligible` replaces a dismissed/ios pair that were both written
+   * synchronously inside the mount effect, which is a cascading render:
+   * the component painted its hidden state, then immediately re-rendered
+   * into its visible one. Both values are derived from the same one-off
+   * environment check, so they are now a single state written once.
+   */
+  const eligible = useSyncExternalStore(
+    subscribeEligibility,
+    readEligibility,
+    () => null
+  );
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installing, setInstalling] = useState(false);
 
+  /* Subscribe only: the effect now registers a listener and nothing
+     else, which is what an effect is for. */
   useEffect(() => {
-    if (isStandalone()) return;
-    if (window.localStorage.getItem(DISMISSED_KEY) === "true") return;
-
-    setDismissed(false);
-    setIos(isIOS());
-
     /*
      * Only Chromium-based browsers fire this — Safari (including iOS)
      * never does, since it has no equivalent API. Those get manual
@@ -55,10 +100,7 @@ export default function AddToHomeScreen() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  const dismiss = () => {
-    window.localStorage.setItem(DISMISSED_KEY, "true");
-    setDismissed(true);
-  };
+  const dismiss = dismissEligibility;
 
   const handleInstall = async () => {
     if (!installPrompt || installing) return;
@@ -78,7 +120,7 @@ export default function AddToHomeScreen() {
     }
   };
 
-  if (dismissed) return null;
+  if (!eligible) return null;
 
   return (
     <div className="relative mb-6 rounded-card border border-accent/15 bg-accent/5 p-5 sm:p-6">
@@ -113,7 +155,7 @@ export default function AddToHomeScreen() {
             >
               {installing ? "Adding..." : "Add to Home Screen"}
             </Button>
-          ) : ios ? (
+          ) : eligible.ios ? (
             <p className="mt-3 flex flex-wrap items-center gap-1.5 text-sm text-zinc-400">
               Tap
               <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2 py-0.5">

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/src/lib/cn";
 import { SPRING, transition } from "@/src/lib/motion";
 import SongIdentity from "./SongIdentity";
@@ -34,7 +34,8 @@ type Props = {
 
   size?: "compact" | "default";
   /** Enables Framer layout animation for reorder. Off by default so
-   *  static lists don't pay for layout measurement they never use. */
+   *  static lists don't pay for layout measurement they never use.
+   *  Honoured only when the viewer has not asked for reduced motion. */
   animateLayout?: boolean;
   /**
    * Visual state of the row. `accepted` keeps its green treatment
@@ -47,6 +48,12 @@ type Props = {
    * shouldn't imply the row itself is clickable.
    */
   interactive?: boolean;
+  /**
+   * Element to render as. Collections of requests are lists, so the
+   * queue and pending surfaces pass "li"; standalone cards keep the
+   * default div.
+   */
+  as?: "div" | "li";
   className?: string;
 };
 
@@ -109,14 +116,31 @@ export default function RequestCard({
   animateLayout = false,
   tone = "default",
   interactive = true,
+  as = "div",
   className,
 }: Props) {
   const toneClasses = TONE_CLASSES[tone];
+  const shouldReduceMotion = useReducedMotion();
+
+  /*
+   * Layout projection is the one thing here that scales with list
+   * length: each row with `layout` set becomes a projection node that
+   * Motion measures and drives every frame of a reorder. This component
+   * previously honoured `animateLayout` unconditionally, which meant a
+   * queue animated the same whether it held five rows or fifty, and
+   * animated at all for someone who had asked the OS for no motion.
+   *
+   * Reduced motion wins outright: the reorder still happens, it just
+   * lands immediately.
+   */
+  const animate = animateLayout && !shouldReduceMotion;
+
+  const Root = as === "li" ? motion.li : motion.div;
 
   return (
-    <motion.div
-      layout={animateLayout ? "position" : false}
-      transition={animateLayout ? SPRING.soft : transition.state}
+    <Root
+      layout={animate ? "position" : false}
+      transition={animate ? SPRING.soft : transition.state}
       className={cn(
         "rounded-card border p-3 transition-colors",
         toneClasses.base,
@@ -156,6 +180,6 @@ export default function RequestCard({
       {children}
 
       {actions && <div className="mt-2.5 flex gap-2 sm:mt-3">{actions}</div>}
-    </motion.div>
+    </Root>
   );
 }

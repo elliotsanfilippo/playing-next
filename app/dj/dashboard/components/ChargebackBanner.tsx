@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import Card from "@/src/components/ui/Card";
@@ -21,6 +21,20 @@ type Props = {
 
 export default function ChargebackBanner({ disputes, onResolved }: Props) {
   const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  /* Above the early return: hooks cannot run conditionally. */
+  const [now, setNow] = useState(0);
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const initial = setTimeout(tick, 0);
+    const interval = setInterval(tick, 60_000);
+
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, []);
 
   if (disputes.length === 0) return null;
 
@@ -81,18 +95,29 @@ export default function ChargebackBanner({ disputes, onResolved }: Props) {
 
             <p className="mt-1 text-sm text-zinc-400">
               A guest disputed the payment with their bank. You have 7 days
-              to respond before it's deducted from your payout automatically.
+              to respond before it&apos;s deducted from your payout automatically.
             </p>
 
             <div className="mt-5 space-y-3">
               {disputes.map((dispute) => {
-                const daysLeft = Math.max(
-                  0,
-                  Math.ceil(
-                    (new Date(dispute.respond_by).getTime() - Date.now()) /
-                      86_400_000
-                  )
-                );
+                /*
+                 * `now` is timer-driven state rather than Date.now()
+                 * read here. Reading the clock during render makes the
+                 * countdown depend on when React happens to re-render,
+                 * so a banner could sit at "3 days left" indefinitely
+                 * while the real deadline passed. 0 means not measured
+                 * yet, which renders no figure for one tick.
+                 */
+                const daysLeft =
+                  now === 0
+                    ? null
+                    : Math.max(
+                        0,
+                        Math.ceil(
+                          (new Date(dispute.respond_by).getTime() - now) /
+                            86_400_000
+                        )
+                      );
 
                 return (
                   <div
@@ -106,9 +131,11 @@ export default function ChargebackBanner({ disputes, onResolved }: Props) {
 
                       <p className="mt-1 text-sm text-zinc-500">
                         £{(dispute.disputed_amount / 100).toFixed(2)} ·{" "}
-                        {daysLeft > 0
-                          ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left to respond`
-                          : "Response window closing"}
+                        {daysLeft === null
+                          ? "Respond before your payout is deducted"
+                          : daysLeft > 0
+                            ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left to respond`
+                            : "Response window closing"}
                       </p>
                     </div>
 

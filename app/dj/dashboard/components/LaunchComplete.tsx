@@ -50,6 +50,9 @@ export default function LaunchComplete({
 
           {qrCodeUrl && (
             <div className="mx-auto mt-5 w-fit rounded-card bg-white p-4 shadow-2xl sm:mt-8 sm:p-5">
+              {/* eslint-disable-next-line @next/next/no-img-element --
+                  client-generated data: URL, nothing for next/image to
+                  optimize. */}
               <img
                 src={qrCodeUrl}
                 alt="Playing Next request QR code"

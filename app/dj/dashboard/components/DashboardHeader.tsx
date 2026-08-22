@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { DJProfile } from "@/src/types/dashboard";
 import {
   MonitorPlay,
@@ -24,9 +25,6 @@ type Props = {
   setAutoClose: (minutes: number | null) => Promise<void>;
   logout: () => Promise<void>;
   onShowQr: () => void;
-  router: {
-    push: (path: string) => void;
-  };
 };
 
 /*
@@ -55,7 +53,6 @@ export default function DashboardHeader({
   setAutoClose,
   logout,
   onShowQr,
-  router,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pending, setPending] = useState<"toggle" | "logout" | null>(null);
@@ -85,17 +82,27 @@ export default function DashboardHeader({
     }
   };
 
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  /* Closing must put focus back where it came from, or the DJ is
+     dropped at the top of the document. */
+  const closeMenu = (returnFocus = true) => {
+    setMenuOpen(false);
+    if (returnFocus) menuTriggerRef.current?.focus();
+  };
+
   useEffect(() => {
     if (!menuOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
+        /* A click elsewhere is already choosing where focus goes. */
+        closeMenu(false);
       }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") closeMenu();
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -107,38 +114,32 @@ export default function DashboardHeader({
     };
   }, [menuOpen]);
 
+  /*
+   * Navigations are links, not buttons.
+   *
+   * These were all <button onClick={router.push(...)}>, which looks
+   * identical and behaves worse: no middle-click, no cmd-click, no
+   * "open in new tab", nothing in the context menu, and no destination
+   * announced. Log out is the only genuine button here because it
+   * performs an action rather than going somewhere.
+   */
   const menuItems = [
     djProfile?.slug && {
       label: "Display screen",
       icon: MonitorPlay,
-      onClick: () =>
-        window.open(`/request/${djProfile.slug}/queue`, "_blank"),
+      href: `/request/${djProfile.slug}/queue`,
+      external: true,
     },
-    {
-      label: "Earnings",
-      icon: PoundSterling,
-      onClick: () => router.push("/dj/earnings"),
-    },
-    {
-      label: "Analytics",
-      icon: BarChart3,
-      onClick: () => router.push("/dj/analytics"),
-    },
-    {
-      label: "Settings",
-      icon: SettingsIcon,
-      onClick: () => router.push("/dj/settings"),
-    },
-    {
-      label: "Log out",
-      icon: LogOut,
-      onClick: handleLogout,
-      danger: true,
-    },
+    { label: "Earnings", icon: PoundSterling, href: "/dj/earnings" },
+    { label: "Analytics", icon: BarChart3, href: "/dj/analytics" },
+    { label: "Settings", icon: SettingsIcon, href: "/dj/settings" },
+    { label: "Log out", icon: LogOut, onClick: handleLogout, danger: true },
   ].filter(Boolean) as {
     label: string;
     icon: typeof MonitorPlay;
-    onClick: () => void;
+    href?: string;
+    external?: boolean;
+    onClick?: () => void;
     danger?: boolean;
   }[];
 
@@ -296,11 +297,21 @@ export default function DashboardHeader({
 
           <div className="relative" ref={menuRef}>
             <button
+              ref={menuTriggerRef}
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
               aria-label="More options"
               aria-expanded={menuOpen}
-              aria-haspopup="menu"
+              /*
+               * "dialog", not "menu". role=menu promises a list of
+               * menuitems and arrow-key navigation, and this popover
+               * leads with AutoCloseControl — a labelled group of form
+               * controls — which cannot legally be a menuitem. Claiming
+               * menu semantics over mixed content announces a broken
+               * menu; describing it as a small popover is honest and
+               * leaves Tab working the way it already did.
+               */
+              aria-haspopup="dialog"
               className={iconButton}
             >
               <MoreHorizontal size={18} />
@@ -308,7 +319,8 @@ export default function DashboardHeader({
 
             {menuOpen && (
               <div
-                role="menu"
+                role="group"
+                aria-label="Dashboard options"
                 className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-card border border-white/10 bg-surface-overlay shadow-2xl shadow-black/50"
               >
                 {/* Auto close lives here at every width now. It is a
@@ -324,27 +336,50 @@ export default function DashboardHeader({
                   />
                 </div>
 
-                {menuItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    role="menuitem"
-                    disabled={item.danger && pending === "logout"}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      item.onClick();
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors disabled:opacity-60",
-                      item.danger
-                        ? "text-status-declined hover:bg-status-declined/10"
-                        : "text-zinc-200 hover:bg-white/5"
-                    )}
-                  >
-                    <item.icon size={16} className="shrink-0" />
-                    {item.label}
-                  </button>
-                ))}
+                {menuItems.map((item) => {
+                  const itemClasses = cn(
+                    "flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors disabled:opacity-60",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60",
+                    item.danger
+                      ? "text-status-declined hover:bg-status-declined/10"
+                      : "text-zinc-200 hover:bg-white/5"
+                  );
+
+                  if (item.href) {
+                    return (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        target={item.external ? "_blank" : undefined}
+                        rel={item.external ? "noreferrer" : undefined}
+                        onClick={() => closeMenu(false)}
+                        className={itemClasses}
+                      >
+                        <item.icon size={16} className="shrink-0" aria-hidden />
+                        {item.label}
+                        {item.external && (
+                          <span className="sr-only">(opens in a new tab)</span>
+                        )}
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      disabled={item.danger && pending === "logout"}
+                      onClick={() => {
+                        closeMenu(false);
+                        item.onClick?.();
+                      }}
+                      className={itemClasses}
+                    >
+                      <item.icon size={16} className="shrink-0" aria-hidden />
+                      {item.label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ import type {
   DJProfile,
 } from "@/src/types/dashboard";
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { WifiOff } from "lucide-react";
@@ -31,7 +32,17 @@ import QRCard from "./components/QRCard";
 import HistoryCard from "./components/HistoryCard";
 import Onboarding from "./components/Onboarding";
 import LaunchComplete from "./components/LaunchComplete";
-import PostGigRecapModal from "./components/PostGigRecapModal";
+/*
+ * Lazy, and genuinely so: this only ever renders after a gig has ended
+ * with at least one played request, and it drags in the canvas
+ * share-image code with it. Loading it on every dashboard visit buys
+ * nothing. ssr:false because it is a canvas surface with no server
+ * rendering to do.
+ */
+const PostGigRecapModal = dynamic(
+  () => import("./components/PostGigRecapModal"),
+  { ssr: false }
+);
 import DashboardSkeleton from "./components/DashboardSkeleton";
 
 /**
@@ -56,7 +67,10 @@ export default function DJDashboardPage() {
   const [chargebacks, setChargebacks] = useState<ChargebackDispute[]>([]);
   const [events, setEvents] = useState<DjEvent[]>([]);
   const [eventsIsPro, setEventsIsPro] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [generatedQr, setGeneratedQr] = useState<{
+    link: string;
+    url: string;
+  } | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
@@ -277,13 +291,27 @@ export default function DJDashboardPage() {
   const notifyNewRequests = (newRequests: SongRequest[]) => {
     const prefs = getNotificationPreferences();
 
-    newRequests.forEach((request) => {
+    /*
+     * One toast per burst, not one per request. Five requests arriving
+     * together used to stack five toasts over the queue, which is both
+     * a wall of motion mid-set and five separate announcements for a
+     * screen reader. Realtime events are already coalesced upstream, so
+     * a burst arrives here as one batch and should read as one event.
+     */
+    if (newRequests.length === 1) {
+      const request = newRequests[0];
       const isMessage = request.request_type === "song_message";
 
       toast(isMessage ? "New Song + Message request" : "New song request", {
         description: `${request.song_title} by ${request.artist}`,
       });
-    });
+    } else {
+      toast(`${newRequests.length} new requests`, {
+        description: newRequests
+          .map((request) => request.song_title)
+          .join(", "),
+      });
+    }
 
     if (prefs.sound) {
       playNotificationSound();
@@ -418,7 +446,16 @@ export default function DJDashboardPage() {
     const { error } = await supabase.rpc("reorder_dj_queue");
 
     if (error) {
+      /*
+       * Silent until now. A failed resequence leaves the DJ's manual
+       * Top/Up/Down ordering discarded with nothing on screen to say
+       * so, and the queue they are reading from is then not the queue
+       * they arranged. The refetch that follows every caller still
+       * runs, so the UI stays truthful about the database — this only
+       * makes the discrepancy visible.
+       */
       console.log("Queue reorder error:", error);
+      toast.error("Couldn't reorder the queue. Your queue order may be out of date.");
     }
   };
 
@@ -461,7 +498,7 @@ export default function DJDashboardPage() {
       return;
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("song_requests")
       .update({ dj_hidden: true })
       .eq("dj_profile_id", djProfile.id)
@@ -508,13 +545,31 @@ export default function DJDashboardPage() {
       }
     }
 
-    await supabase
+    /*
+     * This update's error was not being read, so a failure here still
+     * fell through to reorderQueue(), fetchRequests() and a success
+     * toast. The capture above has already taken the guest's money at
+     * that point, so the DJ was told the request was accepted while the
+     * row stayed pending and the guest stayed charged. Nothing about
+     * the capture call itself changes; we just stop ignoring what the
+     * write tells us.
+     */
+    const { error: acceptError } = await supabase
       .from("song_requests")
       .update({
         request_status: "accepted",
         accepted_at: new Date().toISOString(),
       })
       .eq("id", request.id);
+
+    if (acceptError) {
+      console.log("Accept request error:", acceptError);
+      toast.error(
+        "The payment went through but we couldn't update this request. Refreshing — try accepting again."
+      );
+      await fetchRequests();
+      return;
+    }
 
     await reorderQueue();
     await fetchRequests();
@@ -605,9 +660,16 @@ export default function DJDashboardPage() {
     setShowQr(true);
 
     requestAnimationFrame(() => {
-      document
-        .getElementById("qr-card")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      /* The CSS rule in globals.css cannot override a behavior passed
+         explicitly here, so this has to ask as well. */
+      const reduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+      document.getElementById("qr-card")?.scrollIntoView({
+        behavior: reduced ? "auto" : "smooth",
+        block: "start",
+      });
     });
   };
 
@@ -620,8 +682,27 @@ export default function DJDashboardPage() {
     djProfile?.plan === "pro" &&
     djProfile?.stripe_subscription_status === "active";
 
+  /*
+   * Driven by a timer rather than read from the clock during render.
+   * `new Date()` in the render body is an impure read: the value
+   * depended on when React happened to re-render, so a scheduled close
+   * only took effect when something unrelated caused one, and the
+   * dashboard could sit past its close time still showing as open.
+   */
+  const autoCloseAt = djProfile?.auto_close_at;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!autoCloseAt) return;
+
+    const tick = () => setNow(Date.now());
+    const interval = setInterval(tick, 30_000);
+
+    return () => clearInterval(interval);
+  }, [autoCloseAt]);
+
   const autoClosed = Boolean(
-    djProfile?.auto_close_at && new Date(djProfile.auto_close_at) <= new Date()
+    autoCloseAt && new Date(autoCloseAt).getTime() <= now
   );
 
   const isTakingRequests =
@@ -648,12 +729,40 @@ export default function DJDashboardPage() {
    * silently clears the pending marker instead of popping up an empty
    * "0 requests played" modal.
    */
+  /*
+   * The DB write is the point here, not the local state, so the effect
+   * talks to the external system and lets the row that comes back drive
+   * React. dismissRecap() also called setDjProfile synchronously, which
+   * is what made this a cascading render; clearing the marker server-side
+   * and refetching is both lint-clean and more honest, since the profile
+   * then reflects what is actually stored.
+   */
   useEffect(() => {
     if (!djProfile?.session_started_at) return;
     if (isTakingRequests) return;
     if (sessionRequests.length > 0) return;
 
-    dismissRecap();
+    let cancelled = false;
+
+    const clearEmptySession = async () => {
+      const { error } = await supabase
+        .from("dj_profiles")
+        .update({ session_started_at: null })
+        .eq("id", djProfile.id);
+
+      if (error) {
+        console.log("Dismiss recap error:", error);
+        return;
+      }
+
+      if (!cancelled) await fetchDJProfile();
+    };
+
+    clearEmptySession();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [djProfile?.session_started_at, isTakingRequests, sessionRequests.length]);
 
@@ -701,6 +810,13 @@ export default function DJDashboardPage() {
     };
 
     checkAuth();
+    /*
+     * Deliberately mount-only. The fetchers are recreated on every
+     * render, so listing them here would re-run the whole initial load
+     * (and the last_active_at write) on every state change. This is the
+     * one-time bootstrap; everything after it is driven by realtime.
+     */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   /*
@@ -737,6 +853,10 @@ export default function DJDashboardPage() {
     let requestsTimer: ReturnType<typeof setTimeout> | undefined;
     let profileTimer: ReturnType<typeof setTimeout> | undefined;
     let offlineTimer: ReturnType<typeof setTimeout> | undefined;
+
+    /** False until the first successful subscribe, so the initial
+     *  load is not refetched a second time. */
+    let subscribed = false;
 
     const channel = supabase
       .channel(`dashboard:${djProfileId}`)
@@ -787,6 +907,21 @@ export default function DJDashboardPage() {
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           clearTimeout(offlineTimer);
+
+          /*
+           * Resubscribing only restores the feed from this moment on.
+           * Anything that changed while the socket was down produced no
+           * event and never will, so without this the dashboard comes
+           * back looking healthy while showing a queue from before the
+           * drop. `subscribed` guards the very first subscribe, which
+           * the initial load has already covered.
+           */
+          if (subscribed) {
+            realtimeHandlers.current.fetchRequests();
+            realtimeHandlers.current.fetchDJProfile();
+          }
+
+          subscribed = true;
           setRealtimeDown(false);
           return;
         }
@@ -824,21 +959,39 @@ export default function DJDashboardPage() {
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
+  /*
+   * The generated code is stored with the link it was generated from,
+   * and the value handed to the UI is derived rather than cleared.
+   *
+   * This effect used to call setQrCodeUrl("") synchronously in its body
+   * whenever the link was empty, which is a cascading render. Pairing
+   * the data URL with its source link removes that write entirely and
+   * closes a real gap at the same time: between a slug changing and the
+   * new code finishing generation, the old QR stayed on screen and
+   * would have pointed a guest at the previous request page.
+   */
   useEffect(() => {
-    if (!requestLink) {
-      setQrCodeUrl("");
-      return;
-    }
+    if (!requestLink) return;
+
+    let cancelled = false;
 
     QRCode.toDataURL(requestLink)
       .then((url) => {
-        setQrCodeUrl(url);
+        if (!cancelled) setGeneratedQr({ link: requestLink, url });
       })
       .catch((error) => {
+        if (cancelled) return;
         console.log("QR code error:", error);
         toast.error(error.message);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [requestLink]);
+
+  const qrCodeUrl =
+    generatedQr && generatedQr.link === requestLink ? generatedQr.url : "";
 
   const pendingRequests = requests.filter(
     (request) => request.request_status === "pending"
@@ -1038,7 +1191,6 @@ export default function DJDashboardPage() {
         setAutoClose={setAutoClose}
         logout={logout}
         onShowQr={showQrPanel}
-        router={router}
       />
 
       {/*
@@ -1061,6 +1213,20 @@ export default function DJDashboardPage() {
        * the larger one because density is not the problem.
        */}
       <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
+        {/*
+          The page had no h1 at all: the first heading was "Needs you"
+          at h2, so every section sat under nothing. The DJ's name is
+          the page's subject and it is already shown in the header on
+          desktop, so the visible design does not need a title bar —
+          the heading is here for structure only, and no visual
+          typography changes to accommodate it.
+        */}
+        <h1 className="sr-only">
+          {djProfile?.dj_name
+            ? `${djProfile.dj_name} dashboard`
+            : "DJ dashboard"}
+        </h1>
+
         {showRecap && djProfile && (
           <PostGigRecapModal
             djName={djProfile.dj_name}

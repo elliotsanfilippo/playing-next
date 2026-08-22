@@ -101,6 +101,13 @@ export default function PlayingNextCard({
       aria-label="Playing next"
       className="overflow-hidden rounded-card border border-accent/25 bg-accent/[0.06]"
     >
+      {/* One announcement when the cued track changes, carrying the
+          settled value rather than the whole card. */}
+      <p aria-live="polite" aria-atomic="true" className="sr-only">
+        Playing next: {currentPlayingNext.song_title} by{" "}
+        {currentPlayingNext.artist}
+      </p>
+
       <div className="p-3.5 sm:p-5">
         <div className="flex items-center gap-2">
           <span
@@ -120,9 +127,16 @@ export default function PlayingNextCard({
 
         {/* Truncated, not wrapped: a long title must not change this
             card's height, which is what the layout below it depends on. */}
-        <h2 className="mt-2.5 truncate text-2xl font-bold tracking-tight sm:text-3xl">
+        {/*
+          A <p>, not an <h2>. This is the song currently cued, which is
+          content inside the section, not a section heading — as an h2
+          it ranked as a peer of "Queue" and "Needs you", so a screen
+          reader's heading list read a track name as a landmark. The
+          section is already named by aria-label. Type is unchanged.
+        */}
+        <p className="mt-2.5 truncate text-2xl font-bold tracking-tight sm:text-3xl">
           {currentPlayingNext.song_title}
-        </h2>
+        </p>
 
         <p className="mt-1 truncate text-sm text-zinc-400 sm:text-base">
           {currentPlayingNext.artist}

@@ -24,9 +24,15 @@ export default function DashboardSkeleton() {
       </div>
 
       <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
-        <Skeleton className="h-28 rounded-card sm:h-24" />
+        {/* Measured against the real strip rather than estimated:
+            123px at 375-430 and 99px at sm and above. The old 112/96
+            left an 11px jump on a phone every time data landed. */}
+        <Skeleton className="h-[123px] rounded-card sm:h-[99px]" />
 
-        <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2">
+        {/* lg:items-stretch to match the real workspace, or the two
+            columns settle at different heights on first paint and then
+            equalise when data arrives. */}
+        <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2 lg:items-stretch">
           <Skeleton className="h-64 rounded-card" />
 
           {/* Playing Next is ~80px empty and ~180px populated, so the

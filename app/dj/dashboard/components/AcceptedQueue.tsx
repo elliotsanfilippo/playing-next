@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
@@ -42,6 +42,27 @@ type Props = {
  */
 const STALE_AFTER_MINUTES = 60;
 
+/*
+ * Above this many rows, queue reorder stops being layout-animated.
+ *
+ * The threshold is set on what the animation is actually for, not on a
+ * frame budget: a reorder animation exists so the DJ can see which row
+ * moved and where it went. A compact queue row is ~76px, so a phone
+ * shows about 10 and a desktop column about 12 at a time. Past roughly
+ * two screens' worth, the row being moved and its destination are
+ * usually not both visible, so the projection work is paid for on every
+ * row while the thing it buys cannot be seen.
+ *
+ * The cost is linear in row count: every row with `layout` set is a
+ * projection node Motion measures and drives each frame. Bounding the
+ * node count is the point; 24 keeps every realistically-watchable
+ * queue animated and stops an unbounded one from scaling.
+ *
+ * Worth knowing: max_queue_requests is DJ-configurable with no upper
+ * bound in settings validation, so a 50+ row queue is reachable.
+ */
+const ANIMATE_REORDER_UP_TO = 24;
+
 export default function AcceptedQueue({
   acceptedRequests,
   currentPlayingNext,
@@ -52,6 +73,77 @@ export default function AcceptedQueue({
   const shouldReduceMotion = useReducedMotion();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
+
+  /*
+   * The sheet is a modal surface, so it has to behave like one for a
+   * keyboard. Before this it did not: focus stayed on the ⋮ trigger
+   * sitting behind the backdrop, Escape did nothing, and nothing
+   * returned focus when it closed. Measured before the fix —
+   * focusMovedIntoSheet: false, escapeClosedIt: false.
+   */
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  const openSheet = (id: string, trigger: HTMLElement) => {
+    returnFocusRef.current = trigger;
+    setSheetId(id);
+  };
+
+  const closeSheet = () => {
+    setSheetId(null);
+    returnFocusRef.current?.focus();
+    returnFocusRef.current = null;
+  };
+
+  useEffect(() => {
+    if (!sheetId) return;
+
+    /*
+     * Focus the first enabled action, so the DJ can act immediately
+     * rather than tabbing in.
+     *
+     * Done straight in the effect body, not inside requestAnimationFrame.
+     * The panel is already in the DOM by the time an effect runs, so the
+     * frame bought nothing — and rAF does not fire in a backgrounded or
+     * hidden tab, which meant focus silently never moved there. Measured
+     * that exact failure while verifying this.
+     */
+    sheetRef.current
+      ?.querySelector<HTMLButtonElement>("button:not([disabled])")
+      ?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        closeSheet();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      /* Keep Tab inside the panel while it is open. */
+      const focusable = sheetRef.current?.querySelectorAll<HTMLElement>(
+        "button:not([disabled])"
+      );
+
+      if (!focusable?.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [sheetId]);
 
   /*
    * Reordering is scoped to a request's own VIP tier in
@@ -121,7 +213,7 @@ export default function AcceptedQueue({
     if (busyId) return;
 
     setBusyId(id);
-    setSheetId(null);
+    closeSheet();
 
     try {
       await fn();
@@ -147,7 +239,11 @@ export default function AcceptedQueue({
           Queue
         </h2>
 
-        <span className="text-sm font-bold tabular-nums text-zinc-500">
+        {/* The bare number announced as a naked digit after "Queue". */}
+        <span
+          className="text-sm font-bold tabular-nums text-zinc-500"
+          aria-label={`${acceptedRequests.length} in queue`}
+        >
           {acceptedRequests.length}
         </span>
       </div>
@@ -170,12 +266,13 @@ export default function AcceptedQueue({
             </p>
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <ul className="space-y-1.5">
             {acceptedRequests.map((request, index) => {
               const busy = busyId === request.id;
 
               return (
                 <RequestCard
+                  as="li"
                   key={request.id}
                   title={request.song_title}
                   artist={request.artist}
@@ -186,7 +283,9 @@ export default function AcceptedQueue({
                   }
                   position={index + 1}
                   size="compact"
-                  animateLayout
+                  animateLayout={
+                    acceptedRequests.length <= ANIMATE_REORDER_UP_TO
+                  }
                   interactive={false}
                   /*
                    * Neutral, not accent. Every accepted row used to carry
@@ -233,7 +332,12 @@ export default function AcceptedQueue({
                             ? "Play next"
                             : "Something is already playing next"
                         }
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/25 bg-accent/10 text-accent transition hover:bg-accent-strong hover:text-black disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-zinc-700 lg:h-9 lg:w-9"
+                        /* These two were the only interactive controls
+                           on the dashboard with no focus indicator at
+                           all: hand-rolled buttons rather than the
+                           shared Button, which carries the ring. On a
+                           near-black row, focus simply vanished. */
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/25 bg-accent/10 text-accent transition hover:bg-accent-strong hover:text-black disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-zinc-700 lg:h-9 lg:w-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised"
                       >
                         <Play size={15} />
                       </button>
@@ -242,13 +346,15 @@ export default function AcceptedQueue({
                           menu at every width now, not only on phones. */}
                       <button
                         type="button"
-                        onClick={() => setSheetId(request.id)}
+                        onClick={(event) =>
+                          openSheet(request.id, event.currentTarget)
+                        }
                         disabled={Boolean(busyId)}
                         aria-label={`Reorder ${request.song_title}`}
                         title="Reorder"
                         /* 44x44 at every width. The glyph stays small;
                            only the target is comfortable. */
-                        className="-mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
+                        className="-mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised"
                       >
                         <MoreVertical size={17} />
                       </button>
@@ -257,7 +363,7 @@ export default function AcceptedQueue({
                 />
               );
             })}
-          </div>
+          </ul>
         )}
 
         {/*
@@ -275,7 +381,10 @@ export default function AcceptedQueue({
           visible, the copy keeps it a nudge rather than a telling-off.
         */}
         {staleCount > 0 && (
-          <div className="mt-3 flex items-start gap-2.5 rounded-control border border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-3 py-2.5">
+          <div
+            role="status"
+            className="mt-3 flex items-start gap-2.5 rounded-control border border-status-pending-surface/20 bg-status-pending-surface/[0.07] px-3 py-2.5"
+          >
             <Clock
               size={14}
               className="mt-0.5 shrink-0 text-status-pending"
@@ -321,19 +430,23 @@ export default function AcceptedQueue({
                   initial={shouldReduceMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  onClick={() => setSheetId(null)}
+                  onClick={closeSheet}
                 />
 
                 <motion.div
+                  ref={sheetRef}
                   role="dialog"
+                  aria-modal="true"
                   aria-label={`Reorder ${sheetRequest.song_title}`}
                   className="fixed inset-x-0 bottom-0 z-50 rounded-t-card border-t border-white/10 bg-surface-overlay pb-[max(env(safe-area-inset-bottom),1rem)] sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-80 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card sm:border sm:pb-2"
                   initial={
                     shouldReduceMotion ? false : { opacity: 0, y: 24 }
                   }
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 24 }}
-                  transition={transition.state}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 24 }}
+                  transition={
+                    shouldReduceMotion ? { duration: 0 } : transition.state
+                  }
                 >
                   <div className="border-b border-white/10 px-5 py-4">
                     <p className="truncate text-[15px] font-bold">
@@ -378,8 +491,8 @@ export default function AcceptedQueue({
                   <div className="px-2 pb-1">
                     <button
                       type="button"
-                      onClick={() => setSheetId(null)}
-                      className="flex h-12 w-full items-center justify-center rounded-control text-sm font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white"
+                      onClick={closeSheet}
+                      className="flex h-12 w-full items-center justify-center rounded-control text-sm font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/70"
                     >
                       Cancel
                     </button>
@@ -412,7 +525,7 @@ function SheetAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-14 w-full items-center gap-3.5 rounded-control px-3.5 text-left transition active:bg-white/10 disabled:opacity-40 enabled:hover:bg-white/5 sm:min-h-12"
+      className="flex min-h-14 w-full items-center gap-3.5 rounded-control px-3.5 text-left transition active:bg-white/10 disabled:opacity-40 enabled:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/70 sm:min-h-12"
     >
       <span className="shrink-0 text-zinc-400">{icon}</span>
 

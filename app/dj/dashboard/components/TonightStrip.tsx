@@ -83,14 +83,26 @@ export default function TonightStrip({
           </p>
 
           <p className="mt-1 flex items-baseline gap-2.5">
-            {/* aria-live so the figure changing is announced once, with
-                the settled value rather than every interpolated step. */}
-            <span
-              aria-live="polite"
-              aria-atomic="true"
-              className="text-money text-accent"
-            >
+            {/*
+              The visible figure is not the live region.
+
+              It used to be, and the claim in this comment used to be
+              that it announced the settled value. It did the opposite:
+              animate()'s onUpdate calls setShown once per frame, so a
+              single accept rewrote the live region roughly forty times
+              in 0.7s. On a busy night that is an announcement storm on
+              its own, before any other state change is considered.
+
+              The count-up is decoration, so it is now aria-hidden, and
+              a separate visually hidden region carries the settled
+              target value. It updates once per real change.
+            */}
+            <span aria-hidden className="text-money text-accent">
               £{shown.toFixed(2)}
+            </span>
+
+            <span aria-live="polite" aria-atomic="true" className="sr-only">
+              Tonight so far £{tonightRevenue.toFixed(2)}
             </span>
 
             {/*
