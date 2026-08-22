@@ -3,7 +3,11 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 import { SERVICE_FEE, PRICING_VERSION } from "@/src/lib/pricing";
-import { isValidTipAmount } from "@/src/lib/tips";
+import { isValidTipAmount, TIP_MESSAGE_MAX_LENGTH } from "@/src/lib/tips";
+import {
+  MESSAGE_REJECTED_COPY,
+  messageNeedsRewording,
+} from "@/src/lib/messageModeration";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -27,6 +31,10 @@ type TipCheckoutBody = {
  * DJ the same way a request does.
  */
 export async function POST(request: NextRequest) {
+  /* Visible to the catch block so a failed Session creation can close
+     the tip row instead of leaving it pending forever. */
+  let createdTipId: string | null = null;
+
   try {
     const { allowed, retryAfterSeconds } = rateLimit(
       `tips-checkout:${getClientIp(request)}`,
@@ -48,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     const djSlug = body.djSlug?.trim().slice(0, 100);
     const amount = body.amount;
-    const message = body.message?.trim().slice(0, 300) || null;
+    const message = body.message?.trim().slice(0, TIP_MESSAGE_MAX_LENGTH) || null;
 
     if (!djSlug) {
       return NextResponse.json(
@@ -60,6 +68,29 @@ export async function POST(request: NextRequest) {
     if (!amount || !isValidTipAmount(amount)) {
       return NextResponse.json(
         { error: "Please choose a valid tip amount." },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * Guest-authored tip messages go through the same matcher as Song +
+     * Message shoutouts, and for the same reason: this is stranger-written
+     * text that ends up in front of the DJ and, at a wedding or a
+     * corporate gig, frequently read out loud. Only the request path was
+     * ever checked, so the tip field was an open channel to the same
+     * audience.
+     *
+     * Rejected before the row is inserted and before Stripe is touched,
+     * so a rejected message leaves no tip row and no payment flow behind.
+     * The offending text is never echoed back.
+     *
+     * Only the guest's own message is moderated. DJ names, song titles
+     * and artist names are not — those legitimately contain profanity and
+     * filtering them would block real songs and real people.
+     */
+    if (messageNeedsRewording(message)) {
+      return NextResponse.json(
+        { error: MESSAGE_REJECTED_COPY },
         { status: 400 }
       );
     }
@@ -141,6 +172,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    createdTipId = tip.id;
+
     const origin = request.nextUrl.origin;
 
     const paymentMetadata: Record<string, string> = {
@@ -206,6 +239,33 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/request/${encodeURIComponent(djProfile.slug)}`,
     });
 
+    /* Same fail-closed rule as the request path: never redirect into a
+       session we could not record. See app/api/stripe/checkout. */
+    const { error: sessionIdError } = await supabase
+      .from("tips")
+      .update({ stripe_checkout_session_id: session.id })
+      .eq("id", tip.id)
+      .eq("status", "pending");
+
+    if (sessionIdError) {
+      console.error("Failed to persist tip session id; expiring session:", {
+        tipId: tip.id,
+        sessionId: session.id,
+        sessionIdError,
+      });
+
+      await stripe.checkout.sessions
+        .expire(session.id)
+        .catch((expireError) => {
+          console.error("Could not expire unrecorded tip session:", expireError);
+        });
+
+      return NextResponse.json(
+        { error: "We couldn't start checkout securely. Please try again." },
+        { status: 500 }
+      );
+    }
+
     if (!session.url) {
       console.error(
         "Tip Checkout Session did not return a URL:",
@@ -221,6 +281,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Tip checkout error:", error);
+
+    /*
+     * No session exists, so checkout.session.expired can never fire for
+     * this tip. Without this the row sits at "pending" permanently — the
+     * exact defect that left two abandoned tips in the table. Closed by
+     * transition, never by deletion.
+     */
+    if (createdTipId) {
+      const { error: cleanupError } = await supabase
+        .from("tips")
+        .update({ status: "expired" })
+        .eq("id", createdTipId)
+        .eq("status", "pending");
+
+      if (cleanupError) {
+        console.error("Tip checkout failure cleanup error:", cleanupError);
+      }
+    }
 
     return NextResponse.json(
       {

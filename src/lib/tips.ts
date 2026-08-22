@@ -12,3 +12,10 @@ export function isValidTipAmount(pence: number): boolean {
     Number.isInteger(pence) && pence >= TIP_MIN_PENCE && pence <= TIP_MAX_PENCE
   );
 }
+
+/*
+ * Tip message length. The server truncates at this value, so the client
+ * must not allow more — the two were 200 and 300, which meant the
+ * counter and the cap disagreed about what "full" meant.
+ */
+export const TIP_MESSAGE_MAX_LENGTH = 300;

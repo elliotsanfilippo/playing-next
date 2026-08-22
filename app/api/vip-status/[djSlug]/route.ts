@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
-import { VIP_SLOT_LIMIT } from "@/src/lib/pricing";
+import {
+  VIP_SLOT_LIMIT,
+  CHECKOUT_RESERVATION_MINUTES,
+} from "@/src/lib/pricing";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,11 +69,31 @@ export async function GET(
       );
     }
 
-    const { count: pendingCount, error: pendingCountError } = await supabase
-      .from("song_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("dj_profile_id", djProfile.id)
-      .in("request_status", ["checkout_pending", "pending"]);
+    /* Same reservation window as the create route, or the guest page
+       would show "catching up" for checkouts the cap no longer counts. */
+    const reservationCutoff = new Date(
+      Date.now() - CHECKOUT_RESERVATION_MINUTES * 60_000
+    ).toISOString();
+
+    const [
+      { count: livePending, error: livePendingError },
+      { count: reserved, error: reservedError },
+    ] = await Promise.all([
+      supabase
+        .from("song_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("dj_profile_id", djProfile.id)
+        .eq("request_status", "pending"),
+      supabase
+        .from("song_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("dj_profile_id", djProfile.id)
+        .eq("request_status", "checkout_pending")
+        .gte("created_at", reservationCutoff),
+    ]);
+
+    const pendingCount = (livePending ?? 0) + (reserved ?? 0);
+    const pendingCountError = livePendingError ?? reservedError;
 
     if (pendingCountError) {
       return NextResponse.json(

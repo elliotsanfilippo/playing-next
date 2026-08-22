@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
-import { VIP_SLOT_LIMIT } from "@/src/lib/pricing";
+import {
+  VIP_SLOT_LIMIT,
+  CHECKOUT_RESERVATION_MINUTES,
+} from "@/src/lib/pricing";
 import { isEffectivelyTakingRequests } from "@/src/lib/djActivity";
 import {
   MESSAGE_REJECTED_COPY,
@@ -115,18 +118,40 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Caps how many unanswered requests a DJ can have at once. Counts
-     * checkout_pending too, not just pending — otherwise several
-     * guests mid-checkout at the same moment could all pass this
-     * check and push the real pending count past the cap once they
-     * all finish paying.
+     * Caps how many unanswered requests a DJ can have at once.
+     *
+     * checkout_pending still counts, for the original reason: several
+     * guests mid-checkout at the same moment could otherwise all pass
+     * this check and push the real pending count past the cap once they
+     * finish paying. But it now only counts for a bounded window —
+     * previously an abandoned checkout held its slot forever, so a
+     * handful of people opening Stripe and wandering off could tell every
+     * later guest the DJ was full when nothing was waiting at all.
+     *
+     * Counted in two parts because they are two different questions:
+     * everything genuinely pending, plus only the recent reservations.
      */
-    const { count: pendingCount, error: pendingCountError } =
-      await supabaseAdmin
-        .from("song_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("dj_profile_id", djProfile.id)
-        .in("request_status", ["checkout_pending", "pending"]);
+    const reservationCutoff = new Date(
+      Date.now() - CHECKOUT_RESERVATION_MINUTES * 60_000
+    ).toISOString();
+
+    const [{ count: livePending, error: livePendingError }, { count: reserved, error: reservedError }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("song_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("dj_profile_id", djProfile.id)
+          .eq("request_status", "pending"),
+        supabaseAdmin
+          .from("song_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("dj_profile_id", djProfile.id)
+          .eq("request_status", "checkout_pending")
+          .gte("created_at", reservationCutoff),
+      ]);
+
+    const pendingCount = (livePending ?? 0) + (reserved ?? 0);
+    const pendingCountError = livePendingError ?? reservedError;
 
     if (pendingCountError) {
       console.error("Pending count error:", pendingCountError);
@@ -140,8 +165,11 @@ export async function POST(request: NextRequest) {
     if ((pendingCount ?? 0) >= djProfile.max_pending_requests) {
       return NextResponse.json(
         {
+          /* The pending cap, not the accepted queue cap — the old copy
+             described the wrong limit, the same conflation fixed on the
+             guest page in 4A. */
           error:
-            "This DJ's queue is full right now. Try again in a few minutes.",
+            "This DJ has too many requests waiting for a decision right now. Try again in a few minutes.",
         },
         { status: 409 }
       );
@@ -171,7 +199,7 @@ export async function POST(request: NextRequest) {
 
       if ((vipCount ?? 0) >= VIP_SLOT_LIMIT) {
         return NextResponse.json(
-          { error: "VIP booths are full right now." },
+          { error: "All VIP slots are taken right now." },
           { status: 409 }
         );
       }

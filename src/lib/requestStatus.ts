@@ -142,8 +142,15 @@ const STATUS_DESCRIPTION_GUEST: Record<string, string> = {
     "The DJ couldn't take this one. Your card was never charged and the authorisation has been released.",
   cancelled:
     "You cancelled this request. Your card was never charged and the authorisation has been released.",
+  /*
+   * Two different things reach "expired": a request the DJ never
+   * answered, and a checkout the guest never completed. The old wording
+   * blamed the DJ for both. Abandoned checkouts are filtered out of My
+   * Requests, so this is normally the DJ-timeout case, but the sentence
+   * has to stay true either way.
+   */
   expired:
-    "The DJ didn't get to this one in time, so it expired. Your card was never charged.",
+    "This request expired without being accepted. Your card was never charged.",
   /*
    * No number of days. How long a refund takes to appear is the card
    * issuer's business, not ours, and quoting "3 to 5 working days" would

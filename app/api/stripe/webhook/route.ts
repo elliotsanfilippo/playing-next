@@ -167,13 +167,40 @@ export async function POST(request: Request) {
       case "checkout.session.expired": {
         const session = event.data.object as Stripe.Checkout.Session;
         const requestId = session.metadata?.requestId;
+        const tipId = session.metadata?.tipId;
 
         if (requestId) {
+          /*
+           * "expired", not "declined".
+           *
+           * This fires when a guest opened Checkout and never paid, which
+           * is nobody's fault and certainly not the DJ's — but "declined"
+           * tells the guest "The DJ couldn't take this one", blaming a DJ
+           * who never even saw the request. It also polluted the DJ's own
+           * declined figures with checkouts they never touched.
+           *
+           * Guarded on checkout_pending, so a session that expires after
+           * the guest actually paid (Stripe can emit both) is a no-op and
+           * cannot walk back an authorised request.
+           */
           await supabaseAdmin
             .from("song_requests")
-            .update({ request_status: "declined" })
+            .update({ request_status: "expired" })
             .eq("id", requestId)
             .eq("request_status", "checkout_pending");
+        }
+
+        /*
+         * Tips were simply not handled here: this case only ever read
+         * requestId, so an abandoned tip stayed "pending" forever no
+         * matter how long ago its session died. Same guard, same reason.
+         */
+        if (tipId) {
+          await supabaseAdmin
+            .from("tips")
+            .update({ status: "expired" })
+            .eq("id", tipId)
+            .eq("status", "pending");
         }
 
         break;

@@ -48,3 +48,21 @@ export const TYPICAL_REQUEST_PRICE_GBP = 5;
 export const PRO_BREAK_EVEN_REQUESTS = Math.round(
   PRO_BREAK_EVEN_MONTHLY_GBP / TYPICAL_REQUEST_PRICE_GBP
 );
+/*
+ * How long an unfinished checkout holds a slot in the DJ's pending cap.
+ *
+ * checkout_pending has to count for something, or several guests could
+ * enter Stripe at once, all pass the cap check, and all complete —
+ * pushing the real pending count past the DJ's limit. But counting it
+ * with no time bound means every abandoned checkout permanently burns a
+ * slot, and on a default cap of 8 it takes only eight people changing
+ * their mind before genuine guests are told the DJ is too busy.
+ *
+ * Thirty minutes is long enough to cover anyone actually paying, and
+ * short enough that abandonment costs the DJ almost nothing. It makes
+ * the cap a soft guarantee on purpose: a guest who returns to a still
+ * valid session after the window and pays is always honoured, even if
+ * that briefly puts pending one over. Never reject an authorised
+ * payment to defend a count.
+ */
+export const CHECKOUT_RESERVATION_MINUTES = 30;

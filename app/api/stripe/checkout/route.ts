@@ -25,6 +25,10 @@ type CheckoutBody = {
 type RequestType = "song_request" | "song_message";
 
 export async function POST(request: NextRequest) {
+  /* Declared out here so the catch block can resolve the row it was
+     working on without re-reading a body that has already been consumed. */
+  let checkoutRequestId: string | null = null;
+
   try {
     const { allowed, retryAfterSeconds } = rateLimit(
       `stripe-checkout:${getClientIp(request)}`,
@@ -44,6 +48,7 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as CheckoutBody;
     const requestId = body.requestId?.trim();
+    checkoutRequestId = requestId ?? null;
 
     /*
      * Validate before attempting any database update.
@@ -388,6 +393,58 @@ export async function POST(request: NextRequest) {
           )}`,
       });
 
+    /*
+     * ── Record the session before letting the guest anywhere near it ──
+     *
+     * A Session now exists in Stripe that can take this guest's money.
+     * If we cannot write its id down, we have a session we cannot
+     * reconcile from our side: no way to ask "is this row's checkout
+     * still live?", and no way for the stale sweep to tell an abandoned
+     * attempt from one still in progress.
+     *
+     * So we do not redirect into a session we failed to record. We expire
+     * it immediately, which both prevents any payment against it and
+     * fires checkout.session.expired — the same webhook that resolves an
+     * ordinary abandonment — so the row lands in a proper closed state
+     * rather than becoming another permanent orphan. The guest gets a
+     * plain retry, and a retry creates a fresh request and a fresh
+     * session.
+     *
+     * Deliberately fail-closed. The alternative, redirecting anyway and
+     * trusting metadata.requestId to save us, works right up until the
+     * webhook is the thing that fails, and then it is money taken against
+     * a row we never linked.
+     */
+    const { error: sessionIdError } = await supabase
+      .from("song_requests")
+      .update({ stripe_checkout_session_id: session.id })
+      .eq("id", songRequest.id)
+      .eq("request_status", "checkout_pending");
+
+    if (sessionIdError) {
+      console.error(
+        "Failed to persist checkout session id; expiring session:",
+        { requestId: songRequest.id, sessionId: session.id, sessionIdError }
+      );
+
+      await stripe.checkout.sessions
+        .expire(session.id)
+        .catch((expireError) => {
+          /* If even the expire fails, the session is still out there.
+             It cannot be paid without the guest having its URL, which we
+             never return, and Stripe closes it within 24h regardless. */
+          console.error("Could not expire unrecorded session:", expireError);
+        });
+
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't start checkout securely. Please try again.",
+        },
+        { status: 500 }
+      );
+    }
+
     if (!session.url) {
       console.error(
         "Stripe Checkout Session did not return a URL:",
@@ -407,6 +464,27 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Stripe checkout error:", error);
+
+    /*
+     * Session creation threw, so no session exists and none ever will —
+     * which means checkout.session.expired can never fire for this row.
+     * Without this it sits in checkout_pending permanently, holding a
+     * pending-cap slot for a checkout that never opened. Transitioned,
+     * never deleted: the row stays available for reconciliation, and the
+     * guard means a late event could still correct it.
+     */
+    if (checkoutRequestId) {
+      await supabase
+        .from("song_requests")
+        .update({ request_status: "expired" })
+        .eq("id", checkoutRequestId)
+        .eq("request_status", "checkout_pending")
+        .then(({ error: cleanupError }) => {
+          if (cleanupError) {
+            console.error("Checkout failure cleanup error:", cleanupError);
+          }
+        });
+    }
 
     return NextResponse.json(
       {

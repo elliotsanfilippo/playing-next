@@ -6,8 +6,16 @@ import { Heart, ChevronDown } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Button from "@/src/components/ui/Button";
 import { SERVICE_FEE } from "@/src/lib/pricing";
-import { TIP_PRESETS_PENCE, isValidTipAmount } from "@/src/lib/tips";
+import {
+  TIP_PRESETS_PENCE,
+  isValidTipAmount,
+  TIP_MESSAGE_MAX_LENGTH,
+} from "@/src/lib/tips";
 import { cn } from "@/src/lib/cn";
+import {
+  MESSAGE_REJECTED_COPY,
+  messageNeedsRewording,
+} from "@/src/lib/messageModeration";
 
 type Props = {
   djSlug: string;
@@ -16,7 +24,7 @@ type Props = {
 
 const money = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
-const TIP_MESSAGE_MAX = 200;
+const TIP_MESSAGE_MAX = TIP_MESSAGE_MAX_LENGTH;
 
 /*
  * Tipping, kept deliberately quiet and deliberately separate.
@@ -46,6 +54,7 @@ export default function TipCard({ djSlug, isTakingRequests }: Props) {
   const [customAmount, setCustomAmount] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [messageError, setMessageError] = useState("");
 
   const customPence = customAmount
     ? Math.round(parseFloat(customAmount) * 100)
@@ -61,6 +70,23 @@ export default function TipCard({ djSlug, isTakingRequests }: Props) {
       return;
     }
 
+    /*
+     * Mirrors the server check purely so the guest hears about it
+     * instantly instead of after a round trip. The server is still the
+     * authority — this cannot be the only gate, since anything can post
+     * to the endpoint directly.
+     *
+     * Nothing is cleared: the amount, the presets and the message all
+     * stay exactly as they were so the guest can reword and send. Losing
+     * someone's £10 selection because of a word in the message would be
+     * a worse outcome than the word.
+     */
+    if (messageNeedsRewording(message.trim() || null)) {
+      setMessageError(MESSAGE_REJECTED_COPY);
+      return;
+    }
+
+    setMessageError("");
     setSubmitting(true);
 
     try {
@@ -77,6 +103,14 @@ export default function TipCard({ djSlug, isTakingRequests }: Props) {
       const data = await response.json();
 
       if (!response.ok || !data.url) {
+        /* A 400 from the moderation check belongs beside the field, not
+           in a toast that fades before they can act on it. */
+        if (response.status === 400 && data.error) {
+          setMessageError(data.error);
+          setSubmitting(false);
+          return;
+        }
+
         throw new Error(data.error || "Something went wrong starting checkout.");
       }
 
@@ -200,14 +234,32 @@ export default function TipCard({ djSlug, isTakingRequests }: Props) {
             <textarea
               id="tip-message"
               value={message}
-              onChange={(event) =>
-                setMessage(event.target.value.slice(0, TIP_MESSAGE_MAX))
-              }
+              onChange={(event) => {
+                setMessage(event.target.value.slice(0, TIP_MESSAGE_MAX));
+                if (messageError) setMessageError("");
+              }}
               maxLength={TIP_MESSAGE_MAX}
               rows={2}
               placeholder="Great set!"
-              className="mt-1.5 w-full rounded-control border border-white/10 bg-surface-base px-3.5 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
+              aria-invalid={Boolean(messageError)}
+              aria-describedby={messageError ? "tip-message-error" : undefined}
+              className={cn(
+                "mt-1.5 w-full rounded-control border bg-surface-base px-3.5 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:ring-2",
+                messageError
+                  ? "border-status-declined/60 focus:border-status-declined focus:ring-status-declined/25"
+                  : "border-white/10 focus:border-accent/50 focus:ring-accent/25"
+              )}
             />
+
+            {messageError && (
+              <p
+                id="tip-message-error"
+                role="alert"
+                className="mt-1.5 text-[13px] leading-5 text-status-declined"
+              >
+                {messageError}
+              </p>
+            )}
           </div>
 
           {/* The same fee the song-request summary shows, for the same

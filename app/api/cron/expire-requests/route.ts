@@ -24,6 +24,26 @@ const supabaseAdmin = createClient(
 const BATCH_LIMIT = 100;
 
 /*
+ * Defence in depth for rows stuck mid-checkout.
+ *
+ * The primary mechanism is Stripe's own checkout.session.expired
+ * webhook, plus the immediate cleanup when Session creation fails. This
+ * sweep exists for everything those two cannot cover: a process that
+ * died between creating the row and creating the session, a webhook that
+ * never arrived, a delivery that failed every retry.
+ *
+ * A Stripe Checkout Session lives 24 hours by default and this code
+ * never overrides that, so the threshold has to clear 24h with room to
+ * spare — closing anything sooner could kill a session a guest is
+ * genuinely still able to pay. 26 hours gives the webhook a two-hour
+ * head start to do its job properly first.
+ */
+const STALE_CHECKOUT_HOURS = 26;
+
+const staleCheckoutCutoffISO = () =>
+  new Date(Date.now() - STALE_CHECKOUT_HOURS * 3_600_000).toISOString();
+
+/*
  * Releases the card authorisation on requests the DJ never got round to
  * answering. Runs on a schedule (see vercel.json) rather than being
  * triggered by a user, so it authenticates with CRON_SECRET instead of
@@ -138,10 +158,48 @@ export async function GET(request: NextRequest) {
       expired += 1;
     }
 
+    /*
+     * ── Stale checkout sweep ─────────────────────────────────────────
+     *
+     * Transitions, never deletes. A row that has been mid-checkout for
+     * more than a day is not going to complete, but the record still has
+     * to exist: if a late event somehow arrives for it, there must be
+     * something to reconcile against. Every write below is guarded on the
+     * row still being in its unfinished state, so a guest who paid in the
+     * meantime is untouched.
+     */
+    const checkoutCutoff = staleCheckoutCutoffISO();
+
+    const { data: staleCheckouts, error: staleCheckoutError } =
+      await supabaseAdmin
+        .from("song_requests")
+        .update({ request_status: "expired" })
+        .eq("request_status", "checkout_pending")
+        .lt("created_at", checkoutCutoff)
+        .select("id");
+
+    if (staleCheckoutError) {
+      console.error("Stale checkout sweep failed:", staleCheckoutError);
+    }
+
+    const { data: staleTips, error: staleTipError } = await supabaseAdmin
+      .from("tips")
+      .update({ status: "expired" })
+      .eq("status", "pending")
+      .lt("created_at", checkoutCutoff)
+      .select("id");
+
+    if (staleTipError) {
+      console.error("Stale tip sweep failed:", staleTipError);
+    }
+
     return NextResponse.json({
       expired,
       checked: staleRequests.length,
       expiryHours: REQUEST_EXPIRY_HOURS,
+      staleCheckoutsClosed: staleCheckouts?.length ?? 0,
+      staleTipsClosed: staleTips?.length ?? 0,
+      staleCheckoutHours: STALE_CHECKOUT_HOURS,
     });
   } catch (error) {
     console.error("Request expiry sweep error:", error);

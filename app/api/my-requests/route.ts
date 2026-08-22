@@ -47,11 +47,32 @@ export async function POST(request: Request) {
      */
     const { data, error } = await supabase
       .from("song_requests")
+      /*
+       * stripe_payment_intent_id is selected but never returned — it is
+       * stripped below. It is here only to tell an abandoned checkout
+       * apart from a genuinely expired request, and must not join the
+       * response: this route is unauthenticated by design and returning
+       * a Stripe identifier to whoever holds a request id would widen it
+       * considerably.
+       */
       .select(
-        "id, song_title, artist, message, request_type, request_status, queue_position, is_vip, decline_reason, reported_not_played_at"
+        "id, song_title, artist, message, request_type, request_status, queue_position, is_vip, decline_reason, reported_not_played_at, stripe_payment_intent_id"
       )
       .in("id", safeRequestIds)
       .neq("request_status", "archived")
+      /*
+       * An unfinished checkout is not a request the guest made — it is
+       * one they started. It used to be returned and rendered as
+       * "Confirming Payment", so simply opening Stripe and closing it
+       * put a request in My Requests that claimed a payment was being
+       * confirmed when the guest may never have seen a payment form.
+       *
+       * The row still exists, and still matters for Stripe
+       * reconciliation and for the pending-cap reservation. It is just
+       * not something to show the guest until payment is authorised and
+       * the status becomes "pending".
+       */
+      .neq("request_status", "checkout_pending")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -61,9 +82,31 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
-      requests: data || [],
+    /*
+     * An abandoned checkout ends up "expired" once its Stripe session
+     * dies, and would otherwise reappear here as a request the guest
+     * never actually made. The two kinds of expiry are told apart by
+     * whether a payment was ever authorised: a request the DJ let time
+     * out has a PaymentIntent, an abandoned checkout never got one.
+     *
+     * Deliberately narrow. Only "expired" is filtered this way, so a row
+     * that ever reached authorisation can never be hidden from the guest
+     * who paid for it.
+     */
+    const visible = (data || []).filter(
+      (row) =>
+        !(row.request_status === "expired" && !row.stripe_payment_intent_id)
+    );
+
+    /* Strip the Stripe id back out before it leaves the server. */
+    const requests = visible.map((row) => {
+      const rest = { ...row };
+      delete (rest as { stripe_payment_intent_id?: string | null })
+        .stripe_payment_intent_id;
+      return rest;
     });
+
+    return NextResponse.json({ requests });
   } catch (error) {
     return NextResponse.json(
       {
