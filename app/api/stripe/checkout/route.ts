@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
+import {
+  CONNECT_NOT_READY_MESSAGE,
+  logConnectNotReady,
+  resolveConnectAccount,
+} from "@/src/lib/stripeEnvironment";
 
 import {
   SERVICE_FEE,
@@ -132,6 +137,8 @@ export async function POST(request: NextRequest) {
           shoutout_price,
           stripe_account_id,
           stripe_connected,
+          stripe_test_account_id,
+          stripe_test_connected,
           plan,
           stripe_subscription_status
         `
@@ -155,13 +162,19 @@ export async function POST(request: NextRequest) {
      * Connect account before we let a guest pay — otherwise the
      * guest's money would be captured with nowhere for the DJ's
      * share to go.
+     *
+     * Resolved by the mode of the running Stripe key rather than read
+     * straight off the row. A test-mode charge aimed at the live Connect
+     * account is rejected by Stripe outright, which is what made the
+     * guest happy path impossible to run outside production.
      */
-    if (!djProfile.stripe_account_id || !djProfile.stripe_connected) {
+    const connect = resolveConnectAccount(djProfile);
+
+    if (!connect.accountId || !connect.connected) {
+      logConnectNotReady("stripe/checkout", songRequest.dj_profile_id);
+
       return NextResponse.json(
-        {
-          error:
-            "This DJ has not finished setting up payments yet. Please try again later.",
-        },
+        { error: CONNECT_NOT_READY_MESSAGE },
         { status: 409 }
       );
     }
@@ -328,7 +341,7 @@ export async function POST(request: NextRequest) {
            * stays in the platform's own Stripe balance.
            */
           transfer_data: {
-            destination: djProfile.stripe_account_id,
+            destination: connect.accountId,
             amount: djEarnings,
           },
         },

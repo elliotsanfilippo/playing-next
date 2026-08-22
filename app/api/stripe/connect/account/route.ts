@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import {
+  CONNECT_SELECT,
+  connectColumns,
+  resolveConnectAccount,
+  stripeMode,
+} from "@/src/lib/stripeEnvironment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
-      .select("id, dj_name, stripe_account_id")
+      .select(`id, dj_name, ${CONNECT_SELECT}`)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -80,10 +86,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (djProfile.stripe_account_id) {
+    const existing = resolveConnectAccount(djProfile);
+
+    if (existing.accountId) {
       return NextResponse.json({
-        accountId: djProfile.stripe_account_id,
+        accountId: existing.accountId,
         created: false,
+        mode: existing.mode,
       });
     }
 
@@ -135,15 +144,23 @@ export async function POST(request: NextRequest) {
         },
       },
       {
-        idempotencyKey: `playing-next-connect-${djProfile.id}`,
+        /* Mode in the key so a test account is not deduped against
+           the live one created for the same DJ. */
+        idempotencyKey: `playing-next-connect-${stripeMode()}-${djProfile.id}`,
       }
     );
 
     const { error: saveError } = await supabaseAdmin
       .from("dj_profiles")
+      /*
+       * Written to the columns for the current mode. This is the write
+       * that must never cross environments: putting a sandbox account id
+       * into stripe_account_id would break a real DJ's real payouts, and
+       * we could not recover the original from our side.
+       */
       .update({
-        stripe_account_id: account.id,
-        stripe_connected: false,
+        [connectColumns().accountId]: account.id,
+        [connectColumns().connected]: false,
       })
       .eq("id", djProfile.id);
 

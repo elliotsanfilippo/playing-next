@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import {
+  CONNECT_SELECT,
+  resolveConnectAccount,
+} from "@/src/lib/stripeEnvironment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -60,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
-      .select("stripe_account_id")
+      .select(CONNECT_SELECT)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -73,7 +77,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!djProfile?.stripe_account_id) {
+    const connect = resolveConnectAccount(djProfile);
+
+    if (!connect.accountId) {
       return NextResponse.json(
         { error: "Create your Stripe account before starting onboarding." },
         { status: 400 }
@@ -83,7 +89,7 @@ export async function POST(request: NextRequest) {
     const origin = request.nextUrl.origin;
 
     const accountLink = await stripe.accountLinks.create({
-      account: djProfile.stripe_account_id,
+      account: connect.accountId,
       type: "account_onboarding",
       return_url: `${origin}/dj/settings/payments?connect=return`,
       refresh_url: `${origin}/dj/settings/payments?connect=refresh`,

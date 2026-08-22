@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
+import {
+  CONNECT_SELECT,
+  resolveConnectAccount,
+} from "@/src/lib/stripeEnvironment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -91,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
-      .select("stripe_account_id, stripe_connected")
+      .select(CONNECT_SELECT)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -104,14 +108,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!djProfile?.stripe_account_id || !djProfile.stripe_connected) {
+    const connect = resolveConnectAccount(djProfile);
+
+    if (!connect.accountId || !connect.connected) {
       return NextResponse.json(
         { error: "Connect Stripe before withdrawing." },
         { status: 409 }
       );
     }
 
-    const stripeAccount = djProfile.stripe_account_id;
+    const stripeAccount = connect.accountId;
 
     /*
      * Re-check the live balance server-side rather than trusting the

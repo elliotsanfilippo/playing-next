@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import {
+  CONNECT_SELECT,
+  connectColumns,
+  resolveConnectAccount,
+} from "@/src/lib/stripeEnvironment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -60,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
-      .select("id, stripe_account_id")
+      .select(`id, ${CONNECT_SELECT}`)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -73,7 +78,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!djProfile?.stripe_account_id) {
+    const connect = resolveConnectAccount(djProfile);
+
+    if (!connect.accountId) {
       return NextResponse.json({
         hasAccount: false,
         connected: false,
@@ -84,9 +91,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const account = await stripe.accounts.retrieve(
-      djProfile.stripe_account_id
-    );
+    const account = await stripe.accounts.retrieve(connect.accountId);
 
     const detailsSubmitted = account.details_submitted;
     const payoutsEnabled = account.payouts_enabled;
@@ -104,10 +109,10 @@ export async function GET(request: NextRequest) {
 
     const { error: updateError } = await supabaseAdmin
       .from("dj_profiles")
-      .update({
-        stripe_connected: connected,
-      })
-      .eq("id", djProfile.id);
+      /* Written to whichever column belongs to the running mode, so a
+         test-mode status check can never flip a DJ's live flag. */
+      .update({ [connectColumns().connected]: connected })
+      .eq("id", djProfile!.id);
 
     if (updateError) {
       console.error("Stripe status save failed:", updateError);

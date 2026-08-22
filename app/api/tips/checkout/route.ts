@@ -5,6 +5,12 @@ import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 import { SERVICE_FEE, PRICING_VERSION } from "@/src/lib/pricing";
 import { isValidTipAmount, TIP_MESSAGE_MAX_LENGTH } from "@/src/lib/tips";
 import {
+  CONNECT_NOT_READY_MESSAGE,
+  CONNECT_SELECT,
+  logConnectNotReady,
+  resolveConnectAccount,
+} from "@/src/lib/stripeEnvironment";
+import {
   MESSAGE_REJECTED_COPY,
   messageNeedsRewording,
 } from "@/src/lib/messageModeration";
@@ -98,7 +104,7 @@ export async function POST(request: NextRequest) {
     const { data: djProfile, error: profileError } = await supabase
       .from("dj_profiles")
       .select(
-        "id, slug, stripe_account_id, stripe_connected, plan, stripe_subscription_status"
+        `id, slug, plan, stripe_subscription_status, ${CONNECT_SELECT}`
       )
       .eq("slug", djSlug)
       .maybeSingle();
@@ -110,12 +116,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!djProfile.stripe_account_id || !djProfile.stripe_connected) {
+    /* Same environment resolution as the request checkout route. */
+    const connect = resolveConnectAccount(djProfile);
+
+    if (!connect.accountId || !connect.connected) {
+      logConnectNotReady("tips/checkout", djProfile.slug);
+
       return NextResponse.json(
-        {
-          error:
-            "This DJ has not finished setting up payments yet. Please try again later.",
-        },
+        { error: CONNECT_NOT_READY_MESSAGE },
         { status: 409 }
       );
     }
@@ -197,7 +205,7 @@ export async function POST(request: NextRequest) {
       payment_intent_data: {
         metadata: paymentMetadata,
         transfer_data: {
-          destination: djProfile.stripe_account_id,
+          destination: connect.accountId,
           amount: djEarnings,
         },
       },

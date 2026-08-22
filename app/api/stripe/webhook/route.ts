@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendPushToDJ } from "@/src/lib/webpush";
 import { checkAndMarkQrBoxEligible } from "@/src/lib/qrBoxIncentive";
 import { createChargebackDispute } from "@/src/lib/chargebacks";
+import { connectColumns } from "@/src/lib/stripeEnvironment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -396,8 +397,10 @@ export async function POST(request: Request) {
 
         await supabaseAdmin
           .from("dj_profiles")
-          .update({ stripe_connected: connected })
-          .eq("stripe_account_id", account.id);
+          /* Matched and written on the columns for this key's mode: a
+             test-mode account.updated must not touch live flags. */
+          .update({ [connectColumns().connected]: connected })
+          .eq(connectColumns().accountId, account.id);
 
         break;
       }
