@@ -47,7 +47,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import { readConnectHealth } from "../src/lib/connectHealth.ts";
+import { backfillConnectStatus } from "../src/lib/backfillConnectStatus.ts";
 import { connectColumns, stripeMode } from "../src/lib/stripeEnvironment.ts";
 
 const APPLY = process.argv.includes("--apply");
@@ -98,41 +98,6 @@ const supabase = createClient(supabaseUrl, serviceRole, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-type Row = {
-  id: string;
-  dj_name: string | null;
-  slug: string | null;
-  [key: string]: unknown;
-};
-
-/*
- * Stripe masks keys in its own error messages, but only to the last four
- * characters — "Invalid API Key provided: sk_live_****************0000".
- * That is still key material on a terminal and in scrollback, and this
- * script exists to be run with a live key its operator cannot otherwise
- * see. Anything key-shaped is removed before it is printed.
- */
-const scrub = (text: string) =>
-  text.replace(/\b[sr]k_(live|test)_[A-Za-z0-9*_-]+/g, "[key hidden]");
-
-/*
- * Counts every write actually attempted. Printed at the end so a dry run
- * proves it wrote nothing rather than asking to be trusted about it.
- */
-let writeAttempts = 0;
-
-const summary = {
-  checked: 0,
-  unchanged: 0,
-  wouldChange: 0,
-  changed: 0,
-  failed: 0,
-  /* Not a change, but worth surfacing: a flag set true with no account
-     to back it. Reported and deliberately not touched, because there is
-     nothing to evaluate it against. */
-  anomalies: 0,
-};
-
 async function run() {
   console.log("");
   console.log("  Stripe mode      " + mode.toUpperCase());
@@ -141,120 +106,57 @@ async function run() {
   console.log("  Mode             " + (APPLY ? "APPLY (writes)" : "DRY RUN (no writes)"));
   console.log("");
 
-  const { data, error } = await supabase
-    .from("dj_profiles")
-    .select(`id, dj_name, slug, ${columns.accountId}, ${columns.connected}`)
-    .order("dj_name");
+  /* Same function the admin route runs, so the two cannot disagree
+     about what a backfill does. */
+  const result = await backfillConnectStatus({ stripe, supabase, apply: APPLY });
 
-  if (error) {
-    console.error("Could not load DJ profiles:", error.message);
-    process.exit(1);
+  for (const anomaly of result.anomalies) {
+    console.log(
+      `  ANOMALY  ${(anomaly.djName ?? anomaly.slug ?? "?").padEnd(18)} ` +
+        `${columns.connected}=true with no ${columns.accountId}. Not changed.`
+    );
   }
-
-  const rows = (data ?? []) as Row[];
-
-  /* Flagged connected with no account id at all. Cannot be evaluated,
-     so it is reported rather than guessed at. */
-  for (const row of rows) {
-    if (!row[columns.accountId] && row[columns.connected] === true) {
-      summary.anomalies += 1;
-      console.log(
-        `  ANOMALY  ${(row.dj_name ?? row.slug ?? row.id).padEnd(18)} ` +
-          `${columns.connected}=true with no ${columns.accountId}. Not changed.`
-      );
-    }
-  }
-
-  const withAccounts = rows.filter((row) => Boolean(row[columns.accountId]));
 
   console.log(
-    `  ${withAccounts.length} of ${rows.length} DJs have a ${mode} Connect account.\n`
+    `  ${result.summary.checked} of ${result.summary.profiles} DJs have a ${mode} Connect account.\n`
   );
 
-  for (const row of withAccounts) {
-    const label = (row.dj_name ?? row.slug ?? row.id).padEnd(18);
-    const accountId = row[columns.accountId] as string;
-    const current = row[columns.connected] === true;
+  for (const entry of result.entries) {
+    const label = (entry.djName ?? entry.slug ?? entry.accountId).padEnd(18);
 
-    summary.checked += 1;
-
-    let health;
-
-    try {
-      /* Read only. Nothing in this script writes to Stripe. */
-      const account = await stripe.accounts.retrieve(accountId);
-      health = readConnectHealth(account);
-    } catch (caughtError) {
-      /* One DJ failing must not end the run: the next one may be the
-         one that is actually blocked. */
-      summary.failed += 1;
-      const message = scrub(
-        caughtError instanceof Error ? caughtError.message : String(caughtError)
-      );
-      console.log(`  FAILED   ${label} ${accountId}  ${message.slice(0, 90)}`);
+    if (entry.error) {
+      console.log(`  FAILED   ${label} ${entry.accountId}  ${entry.error.slice(0, 90)}`);
       continue;
     }
 
-    const next = health.canReceiveEarnings;
-
-    if (next === current) {
-      summary.unchanged += 1;
-      console.log(
-        `  ok       ${label} ${String(current).padEnd(5)} ` +
-          `state=${health.state}`
-      );
+    if (entry.next === entry.current) {
+      console.log(`  ok       ${label} ${String(entry.current).padEnd(5)} state=${entry.state}`);
       continue;
     }
 
-    const arrow = `${current} -> ${next}`;
+    const arrow = `${entry.current} -> ${entry.next}`;
 
-    if (!APPLY) {
-      summary.wouldChange += 1;
-      console.log(
-        `  WOULD    ${label} ${arrow.padEnd(16)} state=${health.state} ` +
-          `transfers=${next ? "active" : "not active"} payouts=${health.canPayOut}`
-      );
-      continue;
-    }
-
-    /* The only write in the script, and only ever this one column.
-       Unreachable unless --apply was passed: the dry-run branch above
-       continues before this point. */
-    writeAttempts += 1;
-
-    const { error: updateError } = await supabase
-      .from("dj_profiles")
-      .update({ [columns.connected]: next })
-      .eq("id", row.id);
-
-    if (updateError) {
-      summary.failed += 1;
-      console.log(`  FAILED   ${label} update: ${scrub(updateError.message)}`);
-      continue;
-    }
-
-    summary.changed += 1;
-    console.log(`  CHANGED  ${label} ${arrow.padEnd(16)} state=${health.state}`);
+    console.log(
+      `  ${entry.changed ? "CHANGED " : "WOULD   "} ${label} ${arrow.padEnd(16)} ` +
+        `state=${entry.state} payouts=${entry.canPayOut}`
+    );
   }
+
+  const s = result.summary;
 
   console.log("");
   console.log("  ── Summary ──────────────────────────────");
-  console.log(`  checked       ${summary.checked}`);
-  console.log(`  unchanged     ${summary.unchanged}`);
+  console.log(`  checked       ${s.checked}`);
+  console.log(`  unchanged     ${s.unchanged}`);
+  console.log(APPLY ? `  changed       ${s.changed}` : `  would change  ${s.wouldChange}`);
+  console.log(`  failed        ${s.failed}`);
+  console.log(`  anomalies     ${s.anomalies}`);
   console.log(
-    APPLY
-      ? `  changed       ${summary.changed}`
-      : `  would change  ${summary.wouldChange}`
-  );
-  console.log(`  failed        ${summary.failed}`);
-  console.log(`  anomalies     ${summary.anomalies}`);
-  console.log(
-    `  writes made   ${writeAttempts}` +
-      (APPLY ? "" : "   (dry run cannot write)")
+    `  writes made   ${s.writesAttempted}` + (APPLY ? "" : "   (dry run cannot write)")
   );
   console.log("");
 
-  if (!APPLY && summary.wouldChange > 0) {
+  if (!APPLY && s.wouldChange > 0) {
     console.log(
       "  Nothing was written. Re-run with --apply" +
         (mode === "live" ? " --confirm-live" : "") +
@@ -266,7 +168,7 @@ async function run() {
 run().catch((error) => {
   console.error(
     "Backfill aborted:",
-    scrub(error instanceof Error ? error.message : String(error))
+    error instanceof Error ? error.message : String(error)
   );
   process.exit(1);
 });

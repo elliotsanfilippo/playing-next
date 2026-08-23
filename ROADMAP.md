@@ -783,3 +783,10 @@ semantics.
       places that write `stripe_connected`. Without it Settings cannot
       distinguish a healthy account from one with a payout hold, which is
       why it deliberately does not claim "Ready" today.
+
+- [ ] **Delete `app/api/admin/backfill-connect-status/route.ts`** once the
+      live backfill has been applied, and redeploy. It is admin-only,
+      POST-only, dry-run by default and goes inert after 2026-09-30, but
+      a one-off migration endpoint should not outlive its migration.
+      `src/lib/backfillConnectStatus.ts` and the CLI script can stay:
+      they are inert without a key.
