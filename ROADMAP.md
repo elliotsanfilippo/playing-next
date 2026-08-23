@@ -748,13 +748,27 @@ through the events.
 - [ ] Decide the Preview webhook strategy. The sandbox endpoint currently
       points at the *production* URL, which is not a sensible arrangement
       for branch deployments.
-- [ ] Verify the **live** Pro price matches `PRO_MONTHLY_PRICE_GBP`
-      (£49.99). The test-mode price is £14.99, and `pricing.ts` warns in
-      a comment that the constant and the Stripe Price must be changed
-      together or the UI and the real charge disagree.
+- [x] Pro price wiring — settled in 5F. Production now points explicitly
+      at the live £49.99 price `price_1U4KDzGRxPSSRHvG4W9jOgOk`, and
+      local plus Vercel Preview at the canonical test £49.99 price
+      `price_1U7itBGRxPSSRHvGXYQOp3l0`. The old test price belonged to
+      the legacy platform `acct_1TSMPHKI3XKO9XCA` and did not resolve at
+      all, so a Pro upgrade had never been runnable outside production.
+      The full flow was then verified end to end in test mode: a
+      Checkout Session built with the route's own parameters totalled
+      £49.99, a completed subscription came back active with a paid
+      £49.99 invoice, cancel-at-period-end kept entitlement, and an
+      immediate cancel dropped it. Everything created was cleaned up.
+- [ ] **Archive the live £14.99 price.** It is still active on the live
+      Pro product and is marked Default, which is the price Stripe uses
+      when a subscription is created without one — from the Dashboard,
+      or by any future integration. The app always passes
+      `STRIPE_PRO_PRICE_ID` explicitly so it is unaffected, and there
+      are zero subscriptions, so archiving costs nothing and removes the
+      only route to the wrong price.
 - [ ] Confirm every Stripe-related variable in Vercel Preview is
-      test-mode, not just `STRIPE_SECRET_KEY` — `STRIPE_WEBHOOK_SECRET`
-      and `STRIPE_PRO_PRICE_ID` too.
+      test-mode, not just `STRIPE_SECRET_KEY` and `STRIPE_PRO_PRICE_ID`
+      — `STRIPE_WEBHOOK_SECRET` too.
 
 ---
 
