@@ -9,7 +9,10 @@ import Badge from "@/src/components/ui/Badge";
 type Props = {
   showHistory: boolean;
   setShowHistory: (value: boolean) => void;
+  /** Already filtered to what the DJ has not cleared. */
   playedRequests: SongRequest[];
+  /** How many played requests a previous clear is hiding. */
+  clearedCount: number;
   clearPlayedHistory: () => Promise<void>;
 };
 
@@ -17,6 +20,7 @@ export default function HistoryCard({
   showHistory,
   setShowHistory,
   playedRequests,
+  clearedCount,
   clearPlayedHistory,
 }: Props) {
   const [clearing, setClearing] = useState(false);
@@ -59,9 +63,13 @@ export default function HistoryCard({
            * QrBoxBanner handles its own final choice.
            *
            * Worth being precise in the copy: this sets dj_hidden on the
-           * finished requests rather than deleting them, so earnings and
-           * totals are genuinely untouched. There is no unhide anywhere
-           * in the product though, so for the DJ it really is one-way.
+           * played requests rather than deleting them, so earnings and
+           * totals are genuinely untouched. That claim is now load
+           * bearing and true: as of 5A.1 nothing outside this list
+           * reads the flag, and Tonight's earnings and played count are
+           * both derived from the unfiltered dataset. There is no
+           * unhide anywhere in the product though, so for the DJ it
+           * really is one-way.
            */}
           {confirming ? (
             <div className="flex flex-col gap-3 lg:items-end">
@@ -112,15 +120,35 @@ export default function HistoryCard({
           {playedRequests.length === 0 ? (
             /* Compact, matching Needs You and Queue. A 14x14 icon in a
                dashed box with p-10 is a marketing empty state, not one
-               for a live tool. */
-            <div className="px-6 py-9 text-center">
-              <p className="text-sm font-semibold text-zinc-300">
-                Nothing played yet
-              </p>
+               for a live tool.
 
-              <p className="mt-1 text-[13px] text-zinc-600">
-                Tracks you mark as played appear here.
-              </p>
+               Two empty states rather than one. An empty list after a
+               clear is not the same fact as an empty list before
+               anything has played, and now that Tonight keeps counting
+               played tracks the DJ can see "3 played" above a list
+               saying "Nothing played yet". This says which one it is. */
+            <div className="px-6 py-9 text-center">
+              {clearedCount > 0 ? (
+                <>
+                  <p className="text-sm font-semibold text-zinc-300">
+                    Activity cleared
+                  </p>
+
+                  <p className="mt-1 text-[13px] text-zinc-600">
+                    Your tonight totals and earnings are unchanged.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-zinc-300">
+                    Nothing played yet
+                  </p>
+
+                  <p className="mt-1 text-[13px] text-zinc-600">
+                    Tracks you mark as played appear here.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-2">

@@ -179,27 +179,48 @@ export type Transaction = {
   isVip: boolean;
 };
 
+/*
+ * An unfinished checkout is not a transaction.
+ *
+ * checkout_pending means someone opened Stripe and may never have looked
+ * at a payment form — 4D.1 established that and hid it from the guest's
+ * My Requests for exactly this reason. On the DJ's side it rendered as
+ * "Confirming · No earnings", which is honest but is clutter in a
+ * financial history: nothing happened, and nothing is going to happen
+ * until it does. The row itself is untouched and still reconciles
+ * against Stripe.
+ *
+ * Every other status stays. A declined or expired request earned
+ * nothing, but the DJ made a decision about it and that is real history.
+ */
+export const NON_TRANSACTION_STATUSES = ["checkout_pending"] as const;
+
+const isTransaction = (status: string) =>
+  !(NON_TRANSACTION_STATUSES as readonly string[]).includes(status);
+
 export function buildTransactions(
   requests: RequestRow[],
   tips: TipRow[]
 ): Transaction[] {
   const rows: Transaction[] = [
-    ...requests.map((r) => ({
-      id: r.id,
-      kind: "request" as const,
-      title: r.song_title || "Untitled",
-      subtitle: r.artist,
-      status: r.request_status,
-      createdAt: r.created_at,
-      /*
-       * null, not zero, for anything that did not capture. A cancelled
-       * or expired request still carries a pricing snapshot, and showing
-       * that snapshot next to real earnings made money that never
-       * existed look like income.
-       */
-      earned: isEarning(r.request_status) ? pence(r.dj_earnings) : null,
-      isVip: r.is_vip === true,
-    })),
+    ...requests
+      .filter((r) => isTransaction(r.request_status))
+      .map((r) => ({
+        id: r.id,
+        kind: "request" as const,
+        title: r.song_title || "Untitled",
+        subtitle: r.artist,
+        status: r.request_status,
+        createdAt: r.created_at,
+        /*
+         * null, not zero, for anything that did not capture. A cancelled
+         * or expired request still carries a pricing snapshot, and
+         * showing that snapshot next to real earnings made money that
+         * never existed look like income.
+         */
+        earned: isEarning(r.request_status) ? pence(r.dj_earnings) : null,
+        isVip: r.is_vip === true,
+      })),
     ...tips.map((t) => ({
       id: t.id,
       kind: "tip" as const,
@@ -271,3 +292,66 @@ export function buildEarningsCsv(transactions: Transaction[]): string {
 export function csvEarnedTotal(transactions: Transaction[]): number {
   return transactions.reduce((total, t) => total + (t.earned ?? 0), 0);
 }
+
+/*
+ * ── Dashboard "Tonight" ──────────────────────────────────────────────
+ *
+ * These live here, beside summariseEarnings, for one reason: the
+ * dashboard strip and the earnings page have to agree, and the only way
+ * to guarantee that is to make them the same code. They share
+ * EARNING_STATUSES and they share isToday, so "Tonight so far" and
+ * "Today" on /dj/earnings are the same figure by construction rather
+ * than by two implementations happening to match.
+ *
+ * Nothing here reads dj_hidden, and that is the whole point of 5A.1.
+ * dj_hidden is what the DJ wants to look at; this is what happened.
+ */
+export type TonightRow = {
+  request_status: string;
+  created_at: string;
+  dj_earnings: number | null;
+};
+
+/**
+ * What tonight's accepted, playing and played requests are worth to the
+ * DJ, in pence. Local day, by created_at, matching the earnings page.
+ */
+export function tonightRequestEarnings(
+  requests: TonightRow[],
+  now = new Date()
+): number {
+  return requests
+    .filter((r) => isEarning(r.request_status) && isToday(r.created_at, now))
+    .reduce((total, r) => total + pence(r.dj_earnings), 0);
+}
+
+/**
+ * How many requests were played tonight.
+ *
+ * Was all-time, sitting under a heading that says Tonight, which made it
+ * the one number in the strip that answered a different question from
+ * the rest of it. Same local-day basis as the earnings above so the two
+ * halves of the strip describe the same night.
+ *
+ * created_at, not a played-at timestamp, because there is no such
+ * column — and because tonightRequestEarnings uses created_at too, so a
+ * played request always contributes to both figures or to neither. The
+ * usual caveat applies: a set running past midnight splits across two
+ * days until Events Mode gives us a real gig day.
+ */
+export function playedTonightCount(
+  requests: TonightRow[],
+  now = new Date()
+): number {
+  return requests.filter(
+    (r) => r.request_status === "played" && isToday(r.created_at, now)
+  ).length;
+}
+
+/**
+ * The history list's rule, and the only place dj_hidden is allowed to
+ * be read. Written as a predicate so it is greppable: if this function
+ * gains a second caller that is not a display surface, that is a bug.
+ */
+export const isVisibleInHistory = (row: { dj_hidden?: boolean | null }) =>
+  row.dj_hidden !== true;

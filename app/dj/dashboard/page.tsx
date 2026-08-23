@@ -11,6 +11,18 @@ import QRCode from "qrcode";
 import { WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
+/*
+ * The dashboard's money and the earnings page's money come from the
+ * same module on purpose. Tonight so far and /dj/earnings Today used to
+ * be two separate implementations of the same sum, which is exactly the
+ * arrangement that lets them drift apart.
+ */
+import {
+  isToday,
+  isVisibleInHistory,
+  playedTonightCount,
+  tonightRequestEarnings,
+} from "../../../src/lib/earnings";
 import {
   getNotificationPreferences,
   playNotificationSound,
@@ -180,12 +192,14 @@ export default function DJDashboardPage() {
      * against the browser's. The strip was adding a UTC-day tip total to
      * a local-day request total, so just after midnight UK time it
      * showed tonight's requests beside yesterday's tips. Same clock for
-     * both halves now.
+     * both halves now, and the same isToday the earnings page uses.
+     *
+     * The route only ever returns succeeded tips, so there is no status
+     * filter to apply here — and that is what makes this total equal to
+     * the earnings page's todayFromTips, which filters explicitly.
      */
-    const todayString = new Date().toDateString();
-
     const tipsTodayPence = ((data.tips ?? []) as { dj_earnings: number | null; created_at: string }[])
-      .filter((tip) => new Date(tip.created_at).toDateString() === todayString)
+      .filter((tip) => isToday(tip.created_at))
       .reduce((total, tip) => total + (tip.dj_earnings ?? 0), 0);
 
     setTipsToday(tipsTodayPence / 100);
@@ -266,11 +280,35 @@ export default function DJDashboardPage() {
       return;
     }
 
+    /*
+     * No dj_hidden filter here any more.
+     *
+     * dj_hidden is set by "clear activity" and is a preference about
+     * what the DJ wants to *look* at. Filtering it at the query meant
+     * the flag also removed those rows from every calculation built on
+     * this array — tonightRevenue, the played count, and the gig recap.
+     * Pressing Clear during a set therefore reduced the night's
+     * earnings figure on screen, which is a display preference editing
+     * the DJ's money.
+     *
+     * Worth being exact about the symptom, because it was easy to
+     * misread. ELSAN showed £17.00 on /dj/earnings against £0.00 on the
+     * strip, but those two are not the same measure: Earned is
+     * all-time, Tonight is the local day, and all four of those played
+     * rows were from the previous day, so £0.00 was the correct answer
+     * to the question the strip asks. The bug the filter caused is
+     * real and provable, it was simply latent here — re-date those same
+     * rows to today and clearing history takes Tonight from £17.00 to
+     * £0.00 and 4 played to 0.
+     *
+     * The array is now the operational and financial truth. dj_hidden
+     * is applied once, further down, to the one surface that is
+     * actually a history list.
+     */
     const { data, error } = await supabase
       .from("song_requests")
       .select("*")
       .eq("dj_profile_id", profile.id)
-      .neq("dj_hidden", true)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -514,19 +552,26 @@ export default function DJDashboardPage() {
       return;
     }
 
+    /*
+     * played only.
+     *
+     * This used to also stamp dj_hidden on declined, cancelled, expired,
+     * refunded and disputed rows. Nothing has ever read those flags:
+     * Recent Activity is the only surface that reads dj_hidden at all
+     * and it is only ever given played requests. So the write was
+     * invisible by definition — a presentation flag being set on
+     * refunded and disputed payment rows, where the next person to look
+     * at the column would reasonably assume it meant something.
+     *
+     * Rows stamped by the old behaviour are left alone. The flag is
+     * inert on them, and rewriting historical payment rows to tidy up a
+     * field nothing reads is not worth touching those rows for.
+     */
     const { error } = await supabase
       .from("song_requests")
       .update({ dj_hidden: true })
       .eq("dj_profile_id", djProfile.id)
-      .in("request_status", [
-        "played",
-        "declined",
-        "cancelled",
-        "expired",
-        "refunded",
-        "disputed",
-      ])
-      .select();
+      .eq("request_status", "played");
 
     if (error) {
       console.log("Clear history error:", error);
@@ -724,6 +769,12 @@ export default function DJDashboardPage() {
   const isTakingRequests =
     djProfile?.request_status === "taking_requests" && !autoClosed;
 
+  /*
+   * The gig recap, counted from the full dataset. Clearing the activity
+   * list mid-set used to empty the recap of a night that had already
+   * happened, because `requests` had the hidden rows filtered out of it
+   * at the query.
+   */
   const sessionRequests = djProfile?.session_started_at
     ? requests.filter(
         (request) =>
@@ -1021,24 +1072,48 @@ export default function DJDashboardPage() {
     (request) => request.request_status === "playing_next"
   );
 
+  /*
+   * Everything played, whether or not the DJ has cleared their activity
+   * list, so that the visible list can be measured against it below.
+   */
   const playedRequests = requests.filter(
     (request) => request.request_status === "played"
   );
 
+  /*
+   * The history list, and the only place dj_hidden is read. Clearing
+   * activity empties this and changes nothing else on the page.
+   */
+  const visiblePlayedRequests = playedRequests.filter(isVisibleInHistory);
+
+  /*
+   * Told apart so the empty state can be honest. "Nothing played yet"
+   * is a lie when four tracks were played and then cleared, and it is
+   * the one place a DJ might otherwise read the cleared list as the
+   * night having been wiped.
+   */
+  const clearedPlayedCount = playedRequests.length - visiblePlayedRequests.length;
+
   const currentPlayingNext = playingNextRequests[0];
 
-  const todayString = new Date().toDateString();
+  /*
+   * Tonight's three counts do not all share one basis, deliberately.
+   *
+   * pending and queued are live operational state: how many requests
+   * are waiting on a decision right now, and how many are sitting in
+   * the queue right now. Scoping those to the local day would be wrong
+   * in the one case it would ever matter — a request taken at 23:55 and
+   * still unanswered at 00:05 has not stopped needing an answer, and
+   * dropping it off the counter is how a DJ misses it.
+   *
+   * played is a record of the night rather than a live queue, so it is
+   * the local day, matching the earnings beside it.
+   *
+   * None of the three reads dj_hidden.
+   */
+  const playedTonight = playedTonightCount(requests);
 
-  const tonightRevenue =
-    requests
-      .filter(
-        (request) =>
-          ["accepted", "playing_next", "played"].includes(
-            request.request_status
-          ) && new Date(request.created_at).toDateString() === todayString
-      )
-      .reduce((total, request) => total + (request.dj_earnings ?? 0), 0) /
-    100;
+  const tonightRevenue = tonightRequestEarnings(requests) / 100;
 
   /*
    * Every condition here is a fact about the DJ's saved profile, not
@@ -1280,7 +1355,7 @@ export default function DJDashboardPage() {
         <TonightStrip
           pendingCount={pendingRequests.length}
           queueCount={acceptedRequests.length}
-          playedCount={playedRequests.length}
+          playedCount={playedTonight}
           tonightRevenue={tonightRevenue}
           tipsToday={tipsToday}
         />
@@ -1365,7 +1440,8 @@ export default function DJDashboardPage() {
           <HistoryCard
             showHistory={showHistory}
             setShowHistory={setShowHistory}
-            playedRequests={playedRequests}
+            playedRequests={visiblePlayedRequests}
+            clearedCount={clearedPlayedCount}
             clearPlayedHistory={clearPlayedHistory}
           />
         </div>

@@ -5,10 +5,15 @@ import { animate, useReducedMotion } from "motion/react";
 import { Heart } from "lucide-react";
 
 type Props = {
+  /** Live state: awaiting a decision right now, at any age. */
   pendingCount: number;
+  /** Live state: sitting in the queue right now, at any age. */
   queueCount: number;
+  /** Tonight's local day, the same basis as the two figures below. */
   playedCount: number;
+  /** Tonight's request earnings, in pounds. */
   tonightRevenue: number;
+  /** Tonight's succeeded tips, in pounds. */
   tipsToday: number;
 };
 

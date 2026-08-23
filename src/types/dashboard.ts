@@ -11,6 +11,12 @@ export type SongRequest = {
   /** Set when the DJ accepts. Already selected (the query is select("*")),
    *  it was simply never declared here. */
   accepted_at?: string | null;
+  /** Set by "clear activity" on played requests. A display preference
+   *  and nothing more: it decides whether a row appears in Recent
+   *  Activity, and must never reach earnings, the Tonight counts, the
+   *  queue, analytics or anything else. Read it through
+   *  isVisibleInHistory in src/lib/earnings.ts. */
+  dj_hidden?: boolean | null;
   dj_earnings: number | null;
   is_vip: boolean;
 };
