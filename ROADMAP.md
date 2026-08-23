@@ -724,6 +724,11 @@ and assumes an account, and guests deliberately have neither.
 
 ## 12. 💳 Stripe pre-launch payment QA
 
+Phase 5F closed. Subscription flow, entitlement policy, pricing,
+duplicate-subscription protection and the plan-aware UX are accepted.
+The two items marked below as QA are deliberately not blockers to the
+next product phase.
+
 The sandbox happy path is proven end to end: checkout → authorisation →
 Waiting for DJ → accept → capture → In Queue → Playing Next → Played,
 with the money verified at every transition. What is *not* proven is the
@@ -759,16 +764,35 @@ through the events.
       £49.99, a completed subscription came back active with a paid
       £49.99 invoice, cancel-at-period-end kept entitlement, and an
       immediate cancel dropped it. Everything created was cleaned up.
-- [ ] **Archive the live £14.99 price.** It is still active on the live
-      Pro product and is marked Default, which is the price Stripe uses
-      when a subscription is created without one — from the Dashboard,
-      or by any future integration. The app always passes
-      `STRIPE_PRO_PRICE_ID` explicitly so it is unaffected, and there
-      are zero subscriptions, so archiving costs nothing and removes the
-      only route to the wrong price.
+- [x] Archive the live £14.99 price — done by Elliot at the close of 5F,
+      with Production explicitly wired to the verified live £49.99 price
+      and zero active subscriptions, so archiving cost nothing. It had
+      been marked Default, which is the price Stripe reaches for when a
+      subscription is created without one; the app was never affected
+      because it always passes `STRIPE_PRO_PRICE_ID` explicitly.
+      Recorded rather than verified: confirming live Stripe state needs
+      a live key, which this side deliberately does not hold.
 - [ ] Confirm every Stripe-related variable in Vercel Preview is
       test-mode, not just `STRIPE_SECRET_KEY` and `STRIPE_PRO_PRICE_ID`
       — `STRIPE_WEBHOOK_SECRET` too.
+- [ ] **Signed subscription webhook delivery.** 5F verified the mapping
+      from Stripe status to `plan`, `stripe_subscription_status` and
+      entitlement, but not the HTTP path: there is no
+      `STRIPE_WEBHOOK_SECRET` locally, so a signed event cannot be
+      delivered to the local endpoint. Needs
+      `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+      and one each of `customer.subscription.created`, `.updated` and
+      `.deleted`. Carried as QA, not a blocker: the three events are
+      confirmed enabled on the live endpoint and the handler logic is
+      covered by tests.
+- [ ] **One Preview Free to Pro checkout in a browser.** Everything
+      between the Upgrade button and Stripe was proven by replicating
+      the subscribe route's own parameters, but nobody has clicked it:
+      the route needs a DJ session and no test DJ was signed into.
+      Sign up a Free account on a Preview deploy, upgrade with
+      `4242 4242 4242 4242`, and confirm Settings flips to Pro once the
+      webhook lands. Also the natural moment to watch the past_due path,
+      since 5F changed what a failed renewal costs a DJ.
 
 ---
 
