@@ -1,16 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
-import { Check, Copy, Lock } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import { getCroppedImageBlob } from "@/src/lib/cropImage";
 import {
   FREE_PLATFORM_FEE_BPS,
-  PRO_MONTHLY_PRICE_GBP,
   PRO_PLATFORM_FEE_BPS,
 } from "@/src/lib/pricing";
 import {
@@ -26,9 +24,9 @@ import Button from "@/src/components/ui/Button";
 import { Input, Textarea } from "@/src/components/ui/Input";
 import Skeleton from "@/src/components/ui/Skeleton";
 import MoneyValue from "@/src/components/product/MoneyValue";
-import Field from "./components/Field";
-import Switch from "./components/Switch";
-import Section from "./components/Section";
+import SettingsGroup from "./components/SettingsGroup";
+import SettingRow, { ActionRow, StaticRow } from "./components/SettingRow";
+import SwitchRow from "./components/SwitchRow";
 import {
   getNotificationPreferences,
   isBrowserNotificationSupported,
@@ -81,6 +79,63 @@ type FormState = {
 const parseCount = (input: string): number | null =>
   /^\d{1,3}$/.test(input.trim()) ? Number(input.trim()) : null;
 
+/** The resting value for a price row. Shows what is in the box when it
+ *  cannot be parsed, so a half-typed value is never dressed up as a
+ *  price the DJ has not actually set. */
+const priceLabel = (pounds: string): string => {
+  const pence = poundsToPence(pounds);
+  return pence === null ? pounds || "Not set" : `£${penceToPounds(pence)}`;
+};
+
+/** The £ prefix is decoration over an ordinary text input: a number
+ *  input would let a spinner produce values the validator then has to
+ *  reject, and its arrows are useless for money on a phone. */
+function PriceInput({
+  value,
+  onChange,
+  ...props
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  id: string;
+  "aria-describedby": string | undefined;
+  "aria-invalid": boolean | undefined;
+}) {
+  return (
+    <div className="relative">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400"
+      >
+        £
+      </span>
+
+      <Input
+        {...props}
+        inputMode="decimal"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="pl-8"
+      />
+    </div>
+  );
+}
+
+/** Row order, so a failed save opens the topmost problem rather than
+ *  whichever key the validator happened to write first. */
+const ROW_ORDER: (keyof FormState)[] = [
+  "djName",
+  "genres",
+  "bio",
+  "requestPrice",
+  "messagePrice",
+  "maxPending",
+  "maxQueue",
+];
+
+const firstErroredRow = (errors: FieldErrors): keyof FormState | null =>
+  ROW_ORDER.find((row) => errors[row as keyof FieldErrors]) ?? null;
+
 const toPayload = (form: FormState) => ({
   djName: form.djName,
   bio: form.bio,
@@ -118,7 +173,17 @@ function DJSettingsPageContent() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
-  const [subscribing, setSubscribing] = useState(false);
+  /*
+   * Which row is open for editing, if any. One at a time: the point of
+   * the row treatment is that a DJ changing a price is looking at that
+   * price, not at every field on the page at once.
+   */
+  const [openRow, setOpenRow] = useState<keyof FormState | null>(null);
+
+  /* The Photo row is a row like any other, so the file input it drives
+     lives outside the list and is clicked programmatically. */
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   const [openingPortal, setOpeningPortal] = useState(false);
   const [qrBoxAvailable, setQrBoxAvailable] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -228,12 +293,20 @@ function DJSettingsPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const dirty = useMemo(
-    () =>
-      Boolean(form && baseline) &&
-      JSON.stringify(form) !== JSON.stringify(baseline),
-    [form, baseline]
-  );
+  /*
+   * Counted per field rather than as a boolean, so the bar can say how
+   * much is outstanding. Same comparison the dirty flag has always
+   * used; nothing about when a save is allowed has changed.
+   */
+  const changeCount = useMemo(() => {
+    if (!form || !baseline) return 0;
+
+    return (Object.keys(form) as (keyof FormState)[]).filter(
+      (key) => form[key] !== baseline[key]
+    ).length;
+  }, [form, baseline]);
+
+  const dirty = changeCount > 0;
 
   /*
    * Unsaved settings are easy to walk away from: nothing on this page
@@ -261,6 +334,18 @@ function DJSettingsPageContent() {
     router.push(destination);
   };
 
+  const toggleRow = (row: keyof FormState) =>
+    setOpenRow((current) => (current === row ? null : row));
+
+  const discard = () => {
+    if (!baseline) return;
+
+    setForm(baseline);
+    setFieldErrors({});
+    setSaveError("");
+    setOpenRow(null);
+  };
+
   const saveSettings = async () => {
     if (!form || saving) return;
 
@@ -277,6 +362,8 @@ function DJSettingsPageContent() {
     if (!local.ok) {
       setFieldErrors(local.errors);
       setSaveError("Some settings need fixing before this can save.");
+      /* An error inside a collapsed row is an error nobody can see. */
+      setOpenRow(firstErroredRow(local.errors));
       return;
     }
 
@@ -310,7 +397,10 @@ function DJSettingsPageContent() {
          * that clears the form on failure loses work the DJ has to
          * redo, and one that keeps the form but says "saved" is worse.
          */
-        if (result.errors) setFieldErrors(result.errors as FieldErrors);
+        if (result.errors) {
+          setFieldErrors(result.errors as FieldErrors);
+          setOpenRow(firstErroredRow(result.errors as FieldErrors));
+        }
         setSaveError(result.error || "Your settings couldn't be saved.");
         return;
       }
@@ -338,6 +428,7 @@ function DJSettingsPageContent() {
       setForm(next);
       setBaseline(next);
       setJustSaved(true);
+      setOpenRow(null);
       toast.success("Settings saved");
     } catch (error) {
       console.log("Settings save error:", error);
@@ -367,38 +458,6 @@ function DJSettingsPageContent() {
     } = await supabase.auth.getSession();
 
     return session?.access_token ?? null;
-  };
-
-  const upgradeToPro = async () => {
-    if (subscribing) return;
-    setSubscribing(true);
-
-    try {
-      const token = await getAccessToken();
-
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
-      const response = await fetch("/api/stripe/subscribe", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.url) {
-        throw new Error(result.error || "Unable to start the Pro upgrade.");
-      }
-
-      window.location.href = result.url;
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Something went wrong."
-      );
-      setSubscribing(false);
-    }
   };
 
   const manageBilling = async () => {
@@ -650,7 +709,7 @@ function DJSettingsPageContent() {
   const preview =
     requestPence !== null ? previewPrice(requestPence, isActivePro) : null;
 
-  const genreCount = parseGenres(form.genres).length;
+  const genreList = parseGenres(form.genres);
   const requestLink = `${typeof window === "undefined" ? "" : window.location.origin}/request/${profile.slug}`;
 
   return (
@@ -658,58 +717,45 @@ function DJSettingsPageContent() {
       <section className="mx-auto max-w-3xl">
         {header}
 
-        {/* ── 1. Your profile ──────────────────────────────────────── */}
-        <Section
-          title="Your profile"
-          description="What a guest sees when they scan your code."
-        >
-          <div>
-            <p className="text-[13px] font-semibold text-zinc-200">
-              Profile image
-            </p>
+        {/*
+          Four groups instead of six expanded forms.
 
-            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-              {profileImageUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={profileImageUrl}
-                  alt=""
-                  className="h-20 w-20 shrink-0 rounded-full object-cover"
-                />
+          Each row states its name and what it is currently set to, and
+          opens an editor only when it is pressed. The old page showed
+          every input and 303 words of explanation permanently, so a DJ
+          changing one price read the whole page to find it. A value on
+          the right explains a setting better than a sentence under it.
+        */}
+
+        {/* ── Your profile ─────────────────────────────────────────── */}
+        <SettingsGroup title="Your profile">
+          <ActionRow
+            label="Photo"
+            value={
+              profileImageUrl ? (
+                <span className="inline-flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={profileImageUrl}
+                    alt=""
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                  <span>Change</span>
+                </span>
               ) : (
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs text-zinc-400">
-                  No image
-                </div>
-              )}
+                "Add a photo"
+              )
+            }
+            onClick={() => imageInputRef.current?.click()}
+            disabled={uploadingImage}
+          />
 
-              <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-control border border-white/10 bg-white/5 px-4 text-[13px] font-semibold text-white transition hover:bg-white/10 sm:w-auto">
-                {uploadingImage
-                  ? "Uploading..."
-                  : profileImageUrl
-                    ? "Change image"
-                    : "Upload image"}
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={selectProfileImage}
-                  disabled={uploadingImage}
-                  className="sr-only"
-                />
-              </label>
-            </div>
-
-            {/* Saves on its own, so it says so rather than letting the
-                Save button below look responsible for it. */}
-            <p className="mt-2 text-xs text-zinc-400">
-              Your image saves as soon as you crop it.
-            </p>
-          </div>
-
-          <Field
+          <SettingRow
             label="DJ name"
+            value={form.djName || "Not set"}
             error={fieldErrors.djName}
-            counter={`${form.djName.length} / ${LIMITS.djName.max}`}
+            expanded={openRow === "djName"}
+            onToggle={() => toggleRow("djName")}
           >
             {(props) => (
               <Input
@@ -719,13 +765,15 @@ function DJSettingsPageContent() {
                 onChange={(event) => update("djName", event.target.value)}
               />
             )}
-          </Field>
+          </SettingRow>
 
-          <Field
+          <SettingRow
             label="Genres"
-            hint="Separate with commas. Shown on your request page."
+            value={genreList.length ? genreList.join(", ") : "None"}
+            hint={`Separate with commas. Up to ${LIMITS.genres.maxCount}.`}
             error={fieldErrors.genres}
-            counter={`${genreCount} / ${LIMITS.genres.maxCount}`}
+            expanded={openRow === "genres"}
+            onToggle={() => toggleRow("genres")}
           >
             {(props) => (
               <Input
@@ -735,13 +783,15 @@ function DJSettingsPageContent() {
                 onChange={(event) => update("genres", event.target.value)}
               />
             )}
-          </Field>
+          </SettingRow>
 
-          <Field
+          <SettingRow
             label="Bio"
-            hint="Plain text. A line or two about what you play."
+            value={form.bio.trim() ? form.bio.trim() : "Not set"}
+            hint={`${form.bio.length} of ${LIMITS.bio.max} characters.`}
             error={fieldErrors.bio}
-            counter={`${form.bio.length} / ${LIMITS.bio.max}`}
+            expanded={openRow === "bio"}
+            onToggle={() => toggleRow("bio")}
           >
             {(props) => (
               <Textarea
@@ -749,369 +799,298 @@ function DJSettingsPageContent() {
                 value={form.bio}
                 rows={4}
                 maxLength={LIMITS.bio.max}
+                placeholder="A line or two about what you play."
                 onChange={(event) => update("bio", event.target.value)}
               />
             )}
-          </Field>
+          </SettingRow>
 
           {/*
-            Read-only, and explained rather than simply disabled.
-
-            The slug is not editable anywhere in the product and should
-            not become editable casually: it is encoded into every
-            printed QR code, and it keys the guest's own request history
-            in their browser storage (myRequestIds_<slug>). Changing it
-            would both break printed material and cut guests off from
-            requests they have already paid for.
+            Read-only and explained in one sentence rather than three.
+            The slug is encoded in every printed QR code and it keys the
+            guest's own request history in their browser storage, so it
+            is the one thing on this page whose consequence is worth
+            stating even though nobody can trigger it.
           */}
-          <div>
-            <p className="text-[13px] font-semibold text-zinc-200">
-              Your request link
-            </p>
-
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <p className="min-w-0 flex-1 truncate rounded-control border border-white/10 bg-surface-base/60 px-3 py-3 text-[13px] text-zinc-300">
+          <StaticRow
+            label="Request link"
+            note="Fixed, because it is printed on your QR codes and saved on your guests' phones."
+          >
+            <div className="flex items-center gap-2">
+              {/* Deliberately not styled like an input. It was a bordered
+                  box the width of a field, which is what an editable
+                  value looks like everywhere else on this page. */}
+              <p className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-300">
                 {requestLink}
               </p>
 
               <Button
                 variant="secondary"
-                className="h-11 shrink-0 px-4 text-[13px]"
+                className="h-11 shrink-0 px-3 text-xs"
                 onClick={copyRequestLink}
               >
                 {copied ? (
                   <>
-                    <Check size={14} aria-hidden className="mr-1.5" />
+                    <Check size={13} aria-hidden className="mr-1.5" />
                     Copied
                   </>
                 ) : (
                   <>
-                    <Copy size={14} aria-hidden className="mr-1.5" />
-                    Copy link
+                    <Copy size={13} aria-hidden className="mr-1.5" />
+                    Copy
                   </>
                 )}
               </Button>
             </div>
+          </StaticRow>
 
-            <p className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-zinc-400">
-              <Lock size={12} aria-hidden className="mt-0.5 shrink-0" />
-              <span>
-                This link is fixed. Changing it would break any QR code
-                you have already printed, and the request history your
-                guests have saved on their phones. Your QR code lives on
-                the dashboard.
-              </span>
-            </p>
-          </div>
-
-          <Switch
+          <SwitchRow
             label="Show me in Find Your DJ"
-            description="Lets guests find you by name on the Playing Next homepage. Turning this off does not affect your request link or your QR code, which keep working either way."
+            description="Lets guests find you by name on the homepage."
+            note="Your request link and QR code still work."
             checked={form.showInDiscovery}
             onChange={(next) => update("showInDiscovery", next)}
           />
-        </Section>
+        </SettingsGroup>
 
-        {/* ── 2. Request pricing ───────────────────────────────────── */}
-        <Section
-          title="Request pricing"
-          description="What you charge per request. Changes take effect immediately for new requests. Anything already paid for keeps the price it was charged."
+        {/* ── Requests ─────────────────────────────────────────────── */}
+        <SettingsGroup
+          title="Requests"
+          footer="Guests also pay Playing Next's fixed 50p service fee. Changes apply to new requests, and anything already paid for keeps the price it was charged."
         >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Standard request" error={fieldErrors.requestPrice}>
-              {(props) => (
-                <div className="relative">
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400"
-                  >
-                    £
-                  </span>
-                  <Input
-                    {...props}
-                    inputMode="decimal"
-                    value={form.requestPrice}
-                    onChange={(event) =>
-                      update("requestPrice", event.target.value)
-                    }
-                    className="pl-8"
-                  />
-                </div>
-              )}
-            </Field>
-
-            <Field
-              label="Song + Message"
-              error={fieldErrors.messagePrice}
-              hint="Must cost more than a standard request."
-            >
-              {(props) => (
-                <div className="relative">
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400"
-                  >
-                    £
-                  </span>
-                  <Input
-                    {...props}
-                    inputMode="decimal"
-                    value={form.messagePrice}
-                    onChange={(event) =>
-                      update("messagePrice", event.target.value)
-                    }
-                    className="pl-8"
-                  />
-                </div>
-              )}
-            </Field>
-          </div>
-
-          {/*
-            The two numbers a DJ types are neither what the guest pays
-            nor what the DJ receives. Same constants and the same
-            arithmetic as the checkout route, so this cannot quote a
-            figure the real charge disagrees with.
-          */}
-          {preview && (
-            <div className="rounded-control border border-white/10 bg-surface-base/60 p-3.5">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-400">
-                On a standard request
-              </p>
-
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1.5 text-[13px]">
-                <span className="text-zinc-300">
-                  Guest pays{" "}
-                  <MoneyValue
-                    pence={preview.guestPays}
-                    compact={false}
-                    className="font-bold text-white"
-                  />
-                </span>
-
-                <span className="text-zinc-300">
-                  You receive{" "}
-                  <MoneyValue
-                    pence={preview.djReceives}
-                    compact={false}
-                    className="font-bold text-accent"
-                  />
-                </span>
-              </div>
-
-              <p className="mt-2 text-xs leading-5 text-zinc-400">
-                Guests pay a{" "}
-                <MoneyValue
-                  pence={preview.serviceFee}
-                  className="text-zinc-300"
-                />{" "}
-                service fee on top of your price. That is ours, not yours:
-                you cannot change it and it never comes out of what you
-                earn. Your {feePercent}% platform fee on the{" "}
-                {isActivePro ? "Pro" : "Free"} plan is already taken off
-                the figure above.
-              </p>
-            </div>
-          )}
-        </Section>
-
-        {/* ── 3. Capacity ──────────────────────────────────────────── */}
-        <Section
-          title="Capacity"
-          description="How much can pile up at once. Changes take effect immediately."
-        >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label="Needs You limit"
-              hint="Requests waiting on your decision. At this many, guests are told you are catching up rather than being taken payment from."
-              error={fieldErrors.maxPending}
-            >
-              {(props) => (
-                <Input
+          <SettingRow
+            label="Song request"
+            value={priceLabel(form.requestPrice)}
+            error={fieldErrors.requestPrice}
+            expanded={openRow === "requestPrice"}
+            onToggle={() => toggleRow("requestPrice")}
+          >
+            {(props) => (
+              <>
+                <PriceInput
                   {...props}
-                  inputMode="numeric"
-                  value={form.maxPending}
-                  onChange={(event) => update("maxPending", event.target.value)}
+                  value={form.requestPrice}
+                  onChange={(next) => update("requestPrice", next)}
                 />
-              )}
-            </Field>
 
-            <Field
-              label="Queue limit"
-              hint="Songs you have accepted and not yet played. At this many, you cannot accept another until one is played."
-              error={fieldErrors.maxQueue}
-            >
-              {(props) => (
-                <Input
-                  {...props}
-                  inputMode="numeric"
-                  value={form.maxQueue}
-                  onChange={(event) => update("maxQueue", event.target.value)}
-                />
-              )}
-            </Field>
-          </div>
+                {/* The only place the fee split appears. It used to be
+                    44 words of small print under the fields, repeating
+                    what the Plan group already says. */}
+                {preview && (
+                  <p className="mt-2 text-xs leading-5 text-zinc-400">
+                    Guest pays{" "}
+                    <MoneyValue
+                      pence={preview.guestPays}
+                      compact={false}
+                      className="font-semibold text-zinc-200"
+                    />
+                    , you receive{" "}
+                    <MoneyValue
+                      pence={preview.djReceives}
+                      compact={false}
+                      className="font-semibold text-accent"
+                    />
+                    .
+                  </p>
+                )}
+              </>
+            )}
+          </SettingRow>
 
-          <p className="text-xs leading-5 text-zinc-400">
-            Anything from {LIMITS.maxPending.min} to {LIMITS.maxPending.max}.
-            Past twenty you stop being able to read your own queue mid-set.
-          </p>
-        </Section>
+          <SettingRow
+            label="Song + Message"
+            value={priceLabel(form.messagePrice)}
+            hint="Costs more than a standard request."
+            error={fieldErrors.messagePrice}
+            expanded={openRow === "messagePrice"}
+            onToggle={() => toggleRow("messagePrice")}
+          >
+            {(props) => (
+              <PriceInput
+                {...props}
+                value={form.messagePrice}
+                onChange={(next) => update("messagePrice", next)}
+              />
+            )}
+          </SettingRow>
 
-        {/* ── 4. Alerts ────────────────────────────────────────────── */}
-        <Section
-          title="Alerts"
-          description="How you hear about a new request. These are per-device and save on their own, so the Save button below does not cover them. Set them up on whatever you run the dashboard on tonight."
+          <SettingRow
+            label="Needs You limit"
+            value={form.maxPending || "Not set"}
+            hint={`How many requests can wait for your decision. ${LIMITS.maxPending.min} to ${LIMITS.maxPending.max}. Guests are told you are catching up once it is reached.`}
+            error={fieldErrors.maxPending}
+            expanded={openRow === "maxPending"}
+            onToggle={() => toggleRow("maxPending")}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                inputMode="numeric"
+                value={form.maxPending}
+                onChange={(event) => update("maxPending", event.target.value)}
+              />
+            )}
+          </SettingRow>
+
+          <SettingRow
+            label="Queue limit"
+            value={form.maxQueue || "Not set"}
+            hint={`How many accepted songs can wait to be played. ${LIMITS.maxQueue.min} to ${LIMITS.maxQueue.max}. You cannot accept another until one is played.`}
+            error={fieldErrors.maxQueue}
+            expanded={openRow === "maxQueue"}
+            onToggle={() => toggleRow("maxQueue")}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                inputMode="numeric"
+                value={form.maxQueue}
+                onChange={(event) => update("maxQueue", event.target.value)}
+              />
+            )}
+          </SettingRow>
+        </SettingsGroup>
+
+        {/* ── Notifications ────────────────────────────────────────── */}
+        <SettingsGroup
+          title="Notifications"
+          footer="Per-device, and saved as you switch them."
         >
-          <Switch
+          <SwitchRow
             label="Sound"
-            description="Plays a short chime when a new request comes in."
+            description="A short chime when a request comes in."
             checked={notificationPrefs.sound}
             onChange={toggleSound}
           />
 
-          <Switch
-            label="Browser notifications"
-            description="Alerts you even if this tab is not focused."
+          <SwitchRow
+            label="Browser"
+            description="Alerts you when this tab is not focused."
             checked={notificationPrefs.browser}
             onChange={toggleBrowserNotifications}
           />
 
-          <Switch
-            label="Push notifications"
-            description="Alerts you even if this tab or browser is closed."
+          <SwitchRow
+            label="Push"
+            description="Alerts you when the browser is closed."
             checked={pushEnabled}
             disabled={togglingPush}
             onChange={togglePushNotifications}
           />
-        </Section>
+        </SettingsGroup>
 
-        {/* ── 5. Plan ──────────────────────────────────────────────── */}
-        <Section title="Plan">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <p className="text-lg font-bold">
-              {isActivePro ? "Pro" : "Free"}
-              <span className="ml-2 text-[13px] font-medium text-zinc-400">
-                {/* From the constants, not typed in. The old page had
-                    "15%" and "0%" as literal strings in three places. */}
-                {feePercent}% platform fee per accepted request
-              </span>
-            </p>
-
-            {/* Only Pro has a subscription state worth badging. A Free
-                DJ used to be shown a green "Active" pill, which reads as
-                a subscription being active when there is none. */}
-            {hasPaymentIssue && (
-              <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-400">
-                Payment issue
-              </span>
-            )}
-          </div>
-
-          {hasPaymentIssue && (
-            <p className="text-[13px] leading-5 text-amber-400">
-              There is a problem with your Pro payment, so you are being
-              charged the Free rate of {FREE_PLATFORM_FEE_BPS / 100}% until
-              it is resolved.
-            </p>
-          )}
-
+        {/* ── Account ──────────────────────────────────────────────── */}
+        <SettingsGroup title="Account">
+          {/*
+            A Free DJ's Plan row goes to /plans rather than straight into
+            Stripe. The row cannot show the subscription price without
+            becoming a paragraph, and a tap that starts a £49.99-a-month
+            checkout without stating the price first is not a decision
+            the DJ has been given the chance to make. /plans states it
+            and owns the upgrade. Pro goes to the billing portal, which
+            is management rather than a purchase.
+          */}
           {isActivePro ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[13px] text-zinc-400">
-                Manage your card, invoices, or cancel Pro.
-              </p>
-
-              <Button
-                variant="secondary"
-                className="h-11 shrink-0 px-4 text-[13px]"
-                onClick={manageBilling}
-                disabled={openingPortal}
-              >
-                {openingPortal ? "Opening..." : "Manage billing"}
-              </Button>
-            </div>
+            <ActionRow
+              label="Plan"
+              value={openingPortal ? "Opening..." : `Pro · ${feePercent}% fee`}
+              onClick={manageBilling}
+              disabled={openingPortal}
+            />
           ) : (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-[13px] text-zinc-300">
-                  Pro is £{PRO_MONTHLY_PRICE_GBP.toFixed(2)} a month, with a{" "}
-                  {PRO_PLATFORM_FEE_BPS / 100}% platform fee and full
-                  analytics.
-                </p>
-
-                <Link
-                  href="/plans"
-                  className="mt-1 inline-flex min-h-11 items-center text-[13px] font-semibold text-zinc-400 underline underline-offset-4 hover:text-white"
-                >
-                  Compare plans
-                </Link>
-
-                {qrBoxAvailable && (
-                  <p className="text-xs font-semibold text-amber-400">
-                    First 50 DJs to go Pro get a free QR display block, just
-                    pay shipping.
-                  </p>
-                )}
-              </div>
-
-              <Button
-                variant="secondary"
-                className="h-11 shrink-0 px-4 text-[13px]"
-                onClick={upgradeToPro}
-                disabled={subscribing}
-              >
-                {subscribing ? "Opening..." : "Upgrade to Pro"}
-              </Button>
-            </div>
+            <ActionRow
+              label="Plan"
+              value={
+                hasPaymentIssue ? "Payment issue" : `Free · ${feePercent}% fee`
+              }
+              onClick={() => leave("/plans")}
+            />
           )}
-        </Section>
 
-        {/* ── 6. Payments ──────────────────────────────────────────── */}
-        <Section title="Payments">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[13px] leading-5 text-zinc-400">
-              {profile.stripe_connected
-                ? "Stripe is connected. Manage your payout account and bank details."
-                : "You need a connected Stripe account before guests can pay you."}
-            </p>
+          <ActionRow
+            label="Payments"
+            value={profile.stripe_connected ? "Connected" : "Not connected"}
+            onClick={() => leave("/dj/settings/payments")}
+          />
+        </SettingsGroup>
 
-            <Button
-              variant="secondary"
-              className="h-11 shrink-0 px-4 text-[13px]"
-              onClick={() => leave("/dj/settings/payments")}
-            >
-              {profile.stripe_connected ? "Manage payments" : "Connect Stripe"}
-            </Button>
-          </div>
-        </Section>
+        {hasPaymentIssue && (
+          <p className="mt-2 px-1 text-xs leading-5 text-amber-400">
+            There is a problem with your Pro payment, so you are being
+            charged the Free rate of {FREE_PLATFORM_FEE_BPS / 100}% until it
+            is resolved.
+          </p>
+        )}
+
+        {!isActivePro && qrBoxAvailable && (
+          <p className="mt-2 px-1 text-xs leading-5 text-amber-400">
+            First 50 DJs to go Pro get a free QR display block, just pay
+            shipping.
+          </p>
+        )}
+
+        <p className="mt-4 px-1 text-xs text-zinc-400">
+          Pausing requests and auto-close live on your{" "}
+          <button
+            type="button"
+            onClick={() => leave("/dj/dashboard")}
+            className="font-semibold text-zinc-300 underline underline-offset-4 hover:text-white"
+          >
+            dashboard
+          </button>
+          .
+        </p>
       </section>
 
+      {/* The file picker lives outside the row so the Photo row can be a
+          plain button like every other row in the list. */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        onChange={selectProfileImage}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+      />
+
       {/*
-        The save bar covers the form above it and nothing else. Alerts,
-        plan and payments each act on their own and say so, which is what
-        the old single "Save Settings" button at the bottom of everything
-        quietly implied it was doing.
+        The bar reports state, not scope.
+
+        It used to read "Profile, pricing and capacity", which is the
+        page's own category list rather than anything a DJ wants to
+        know. The rows it covers are the rows with editors in them, and
+        the two groups that save on their own say so themselves.
       */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-surface-raised/95 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-3xl items-center gap-3">
+        <div className="mx-auto flex max-w-3xl items-center gap-2.5">
           <div className="min-w-0 flex-1">
             {saveError ? (
               <p role="alert" className="text-xs leading-5 text-status-declined">
                 {saveError}
               </p>
             ) : (
-              <p role="status" className="text-xs leading-5 text-zinc-400">
+              <p role="status" className="text-[13px] leading-5 text-zinc-300">
                 {saving
-                  ? "Saving your settings"
-                  : justSaved
-                    ? "Settings saved"
+                  ? "Saving..."
+                  : justSaved && !dirty
+                    ? "Saved"
                     : dirty
-                      ? "You have unsaved changes"
-                      : "Profile, pricing and capacity"}
+                      ? `${changeCount} unsaved change${changeCount === 1 ? "" : "s"}`
+                      : "All changes saved"}
               </p>
             )}
           </div>
+
+          {dirty && !saving && (
+            <Button
+              variant="secondary"
+              className="h-11 shrink-0 px-4 text-[13px]"
+              onClick={discard}
+            >
+              Discard
+            </Button>
+          )}
 
           <Button
             className="h-11 shrink-0 px-5 text-[13px]"
@@ -1119,7 +1098,7 @@ function DJSettingsPageContent() {
             disabled={saving || !dirty}
             aria-busy={saving}
           >
-            {saving ? "Saving..." : justSaved && !dirty ? "Saved" : "Save"}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
