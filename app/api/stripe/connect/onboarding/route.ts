@@ -5,6 +5,7 @@ import {
   CONNECT_SELECT,
   resolveConnectAccount,
 } from "@/src/lib/stripeEnvironment";
+import { classifyAccountError } from "@/src/lib/connectHealth";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -101,11 +102,20 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Stripe onboarding link error:", error);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to start Stripe onboarding.";
+    /* An account link failing usually means the stored id is unusable.
+       Told plainly, without the raw Stripe text, and classified so the
+       page can offer recovery rather than another Start setup button. */
+    const reason = classifyAccountError(error);
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          reason === "temporary"
+            ? "Unable to start Stripe onboarding."
+            : "We couldn't reach your Stripe account.",
+        reason,
+      },
+      { status: 500 }
+    );
   }
 }

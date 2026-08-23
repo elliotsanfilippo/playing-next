@@ -170,6 +170,17 @@ export async function POST(request: NextRequest) {
      */
     const connect = resolveConnectAccount(djProfile);
 
+    /*
+     * Blocks only when the transfer genuinely cannot land.
+     *
+     * `connected` now means exactly "a destination transfer to this
+     * account can succeed", so a DJ whose bank payouts Stripe has
+     * paused, or who has a verification item outstanding, keeps taking
+     * requests — the money still arrives and sits in their Stripe
+     * balance. What still fails here, before any guest is charged, is an
+     * account whose transfers capability is not active or that Stripe
+     * has restricted.
+     */
     if (!connect.accountId || !connect.connected) {
       logConnectNotReady("stripe/checkout", songRequest.dj_profile_id);
 

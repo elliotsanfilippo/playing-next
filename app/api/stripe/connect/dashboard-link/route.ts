@@ -86,10 +86,33 @@ export async function POST(request: NextRequest) {
 
     const connect = resolveConnectAccount(djProfile);
 
-    if (!connect.accountId || !connect.connected) {
+    if (!connect.accountId) {
       return NextResponse.json(
         { error: "Connect Stripe before viewing your dashboard." },
         { status: 400 }
+      );
+    }
+
+    /*
+     * Gated on Stripe's own minimum, not on the account being perfect.
+     *
+     * This used to require the cached "connected" flag, which under the
+     * old formula meant payouts enabled and nothing outstanding — so the
+     * Express Dashboard, the one place a DJ resolves a payout hold or
+     * uploads a document, was locked exactly when they needed it.
+     * Stripe only requires that onboarding has been submitted, so that
+     * is the bar. An account that has not got that far is sent to the
+     * onboarding flow instead, which is the correct destination for it.
+     */
+    const account = await stripe.accounts.retrieve(connect.accountId);
+
+    if (!account.details_submitted) {
+      return NextResponse.json(
+        {
+          error: "Finish setting up your Stripe account first.",
+          code: "onboarding_incomplete",
+        },
+        { status: 409 }
       );
     }
 
@@ -103,11 +126,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Stripe dashboard link error:", error);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to open your Stripe dashboard.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to open your Stripe dashboard." },
+      { status: 500 }
+    );
   }
 }

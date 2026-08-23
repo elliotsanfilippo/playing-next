@@ -165,36 +165,65 @@ export async function POST(request: NextRequest) {
       .eq("id", djProfile.id);
 
     if (saveError) {
-      console.error("Connected account save failed:", saveError);
-
-      return NextResponse.json(
-        {
-          error:
-            "The Stripe account was created but could not be saved to your profile.",
-        },
-        { status: 500 }
+      /*
+       * Stripe has an account; we could not record it. This is the one
+       * path that can orphan a Connect account, so it fails loudly and
+       * never invites another attempt.
+       *
+       * The idempotency key above dedupes retries, but Stripe expires
+       * those after 24 hours — so a retry a day later, with the column
+       * still empty, would create a second account and leave the first
+       * stranded. The `code` below is what the payments page keys on to
+       * show a recovery state instead of a Start setup button, and the
+       * id is logged at error level so the account can be reattached by
+       * hand rather than abandoned.
+       *
+       * Retried once first, because the overwhelmingly likely cause is a
+       * transient database error rather than anything about Stripe.
+       */
+      console.error(
+        `Connect account ${account.id} created but NOT saved for dj_profile ${djProfile.id}:`,
+        saveError
       );
+
+      const { error: retryError } = await supabaseAdmin
+        .from("dj_profiles")
+        .update({
+          [connectColumns().accountId]: account.id,
+          [connectColumns().connected]: false,
+        })
+        .eq("id", djProfile.id);
+
+      if (retryError) {
+        console.error(
+          `RECONCILE MANUALLY: dj_profile ${djProfile.id} -> ${account.id} (${stripeMode()})`,
+          retryError
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Your Stripe account was created but we couldn't link it to your profile. Please contact support rather than trying again, so we can attach the existing account.",
+            code: "account_created_not_linked",
+          },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
       accountId: account.id,
       created: true,
     });
-  } catch (error: any) {
-  console.error("========== STRIPE ACCOUNT ERROR ==========");
-  console.error("Message:", error?.message);
-  console.error("Type:", error?.type);
-  console.error("Code:", error?.code);
-  console.error("Param:", error?.param);
-  console.error("Raw:", error?.raw);
+  } catch (error) {
+    /* Full detail to the log, a generic sentence to the client. The old
+       response forwarded Stripe's own message and status code straight
+       through, which names internal parameters and key prefixes. */
+    console.error("Stripe connected account error:", error);
 
-  return NextResponse.json(
-    {
-      error:
-        error?.message ||
-        "Stripe rejected the connected account request.",
-    },
-    { status: error?.statusCode || 500 }
-  );
-}
+    return NextResponse.json(
+      { error: "Stripe could not set up your account. Please try again." },
+      { status: 500 }
+    );
+  }
 }

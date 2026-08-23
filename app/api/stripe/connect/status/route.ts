@@ -6,6 +6,11 @@ import {
   connectColumns,
   resolveConnectAccount,
 } from "@/src/lib/stripeEnvironment";
+import {
+  NO_ACCOUNT_HEALTH,
+  classifyAccountError,
+  readConnectHealth,
+} from "@/src/lib/connectHealth";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -81,37 +86,54 @@ export async function GET(request: NextRequest) {
     const connect = resolveConnectAccount(djProfile);
 
     if (!connect.accountId) {
+      return NextResponse.json({ health: NO_ACCOUNT_HEALTH, reachable: true });
+    }
+
+    let account;
+
+    try {
+      account = await stripe.accounts.retrieve(connect.accountId);
+    } catch (retrieveError) {
+      /*
+       * The account could not be read, which is not the same as the
+       * account being unhealthy.
+       *
+       * The cached flag is deliberately left alone here. Writing false
+       * on a failed read would let a momentary Stripe blip take a DJ
+       * offline for every guest, since that column gates checkout — the
+       * exact failure this phase exists to remove. An unreadable account
+       * is reported as unknown and the last known state stands.
+       */
+      const reason = classifyAccountError(retrieveError);
+
+      console.error(
+        `Connect account ${connect.accountId} unreadable (${reason}):`,
+        retrieveError
+      );
+
       return NextResponse.json({
-        hasAccount: false,
-        connected: false,
-        detailsSubmitted: false,
-        payoutsEnabled: false,
-        transfersActive: false,
-        currentlyDue: [],
+        reachable: false,
+        reason,
+        /* So the page can offer recovery without guessing whether an
+           account was ever stored. */
+        hasStoredAccount: true,
       });
     }
 
-    const account = await stripe.accounts.retrieve(connect.accountId);
+    const health = readConnectHealth(account);
 
-    const detailsSubmitted = account.details_submitted;
-    const payoutsEnabled = account.payouts_enabled;
-    const transfersActive =
-      account.capabilities?.transfers === "active";
-
-    const currentlyDue =
-      account.requirements?.currently_due ?? [];
-
-    const connected =
-      detailsSubmitted &&
-      payoutsEnabled &&
-      transfersActive &&
-      currentlyDue.length === 0;
-
+    /*
+     * The cached boolean now answers exactly one question: can a
+     * destination transfer to this account succeed. That is what guest
+     * checkout gates on, and it is the only thing it should ever have
+     * gated on. Payout health lives in this response and is never
+     * flattened into the column.
+     */
     const { error: updateError } = await supabaseAdmin
       .from("dj_profiles")
       /* Written to whichever column belongs to the running mode, so a
          test-mode status check can never flip a DJ's live flag. */
-      .update({ [connectColumns().connected]: connected })
+      .update({ [connectColumns().connected]: health.canReceiveEarnings })
       .eq("id", djProfile!.id);
 
     if (updateError) {
@@ -123,22 +145,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      hasAccount: true,
-      connected,
-      detailsSubmitted,
-      payoutsEnabled,
-      transfersActive,
-      currentlyDue,
-    });
+    return NextResponse.json({ health, reachable: true });
   } catch (error) {
+    /* Logged in full, reported generically. Raw Stripe messages name
+       internal parameters and key prefixes and are no use to a DJ. */
     console.error("Stripe Connect status error:", error);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to check your Stripe status.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to check your Stripe status." },
+      { status: 500 }
+    );
   }
 }

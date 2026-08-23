@@ -60,6 +60,7 @@ type DJProfile = {
   plan: string | null;
   stripe_subscription_status: string | null;
   stripe_connected: boolean | null;
+  stripe_account_id: string | null;
 };
 
 /** The editable form, as strings, exactly as the inputs hold it. */
@@ -216,7 +217,7 @@ function DJSettingsPageContent() {
     const { data, error } = await supabase
       .from("dj_profiles")
       .select(
-        "id, slug, dj_name, genres, bio, request_price, shoutout_price, max_pending_requests, max_queue_requests, hidden_from_discovery, profile_image_url, plan, stripe_subscription_status, stripe_connected"
+        "id, slug, dj_name, genres, bio, request_price, shoutout_price, max_pending_requests, max_queue_requests, hidden_from_discovery, profile_image_url, plan, stripe_subscription_status, stripe_connected, stripe_account_id"
       )
       .eq("user_id", session.user.id)
       .limit(1)
@@ -258,6 +259,7 @@ function DJSettingsPageContent() {
       plan: data.plan,
       stripe_subscription_status: data.stripe_subscription_status,
       stripe_connected: data.stripe_connected,
+      stripe_account_id: data.stripe_account_id,
     });
     setProfileImageUrl(data.profile_image_url ?? "");
     setForm(next);
@@ -1007,9 +1009,26 @@ function DJSettingsPageContent() {
             />
           )}
 
+          {/*
+            Says only what the cached flag can prove.
+
+            That column now means "can receive Playing Next earnings",
+            so a DJ whose bank payouts Stripe has paused reads as
+            receiving earnings here rather than as disconnected, which
+            is what it used to say. It deliberately does not claim
+            "Ready": payout health needs a live Stripe call, and this
+            page should not make one on load. The payments page owns
+            that distinction and this row routes to it.
+          */}
           <ActionRow
             label="Payments"
-            value={profile.stripe_connected ? "Connected" : "Not connected"}
+            value={
+              profile.stripe_connected
+                ? "Receiving earnings"
+                : profile.stripe_account_id
+                  ? "Finish setup"
+                  : "Not connected"
+            }
             onClick={() => leave("/dj/settings/payments")}
           />
         </SettingsGroup>

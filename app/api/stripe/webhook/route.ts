@@ -5,6 +5,7 @@ import { sendPushToDJ } from "@/src/lib/webpush";
 import { checkAndMarkQrBoxEligible } from "@/src/lib/qrBoxIncentive";
 import { createChargebackDispute } from "@/src/lib/chargebacks";
 import { connectColumns } from "@/src/lib/stripeEnvironment";
+import { readConnectHealth } from "@/src/lib/connectHealth";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -384,22 +385,25 @@ export async function POST(request: Request) {
       case "account.updated": {
         const account = event.data.object as Stripe.Account;
 
-        const detailsSubmitted = account.details_submitted;
-        const payoutsEnabled = account.payouts_enabled;
-        const transfersActive = account.capabilities?.transfers === "active";
-        const currentlyDue = account.requirements?.currently_due ?? [];
-
-        const connected =
-          Boolean(detailsSubmitted) &&
-          Boolean(payoutsEnabled) &&
-          transfersActive &&
-          currentlyDue.length === 0;
+        /*
+         * One question, asked through the shared model: can a
+         * destination transfer to this account succeed.
+         *
+         * This handler used to fold payouts_enabled and currently_due
+         * into the same flag, and because it fires the instant Stripe
+         * changes anything, a DJ whose bank payouts were paused mid-set
+         * was cut off from taking requests immediately. Their earnings
+         * could have kept arriving perfectly well. Payout health is
+         * real and is surfaced on the payments page; it is not this
+         * column's business.
+         */
+        const { canReceiveEarnings } = readConnectHealth(account);
 
         await supabaseAdmin
           .from("dj_profiles")
           /* Matched and written on the columns for this key's mode: a
              test-mode account.updated must not touch live flags. */
-          .update({ [connectColumns().connected]: connected })
+          .update({ [connectColumns().connected]: canReceiveEarnings })
           .eq(connectColumns().accountId, account.id);
 
         break;

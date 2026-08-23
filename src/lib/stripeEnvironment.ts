@@ -82,7 +82,17 @@ export type ConnectProfileFields = {
 
 export type ResolvedConnectAccount = {
   accountId: string | null;
-  /** Onboarding finished: charges and payouts enabled. */
+  /**
+   * Can a destination transfer to this account succeed. That is the
+   * whole meaning, and it is the only question guest checkout needs
+   * answered.
+   *
+   * It used to also require payouts_enabled and an empty requirements
+   * list, which made a paused bank payout indistinguishable from a
+   * broken account and stopped the DJ taking requests at all. Payout
+   * health is real, but it is read live from Stripe on the payments
+   * page rather than folded in here — see src/lib/connectHealth.ts.
+   */
   connected: boolean;
   mode: StripeMode;
 };

@@ -116,7 +116,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    /* Same environment resolution as the request checkout route. */
+    /* Same environment resolution and the same gate as the request
+       checkout route: blocked only when a destination transfer cannot
+       land, not when bank payouts are merely paused. */
     const connect = resolveConnectAccount(djProfile);
 
     if (!connect.accountId || !connect.connected) {
