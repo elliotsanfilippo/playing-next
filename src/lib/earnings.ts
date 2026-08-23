@@ -2,6 +2,7 @@ import {
   FREE_PLATFORM_FEE_BPS,
   PRO_PLATFORM_FEE_BPS,
 } from "@/src/lib/pricing";
+import { isDjFacingRequest } from "@/src/lib/requestStatus";
 
 /*
  * One definition of what a DJ has earned.
@@ -180,31 +181,31 @@ export type Transaction = {
 };
 
 /*
- * An unfinished checkout is not a transaction.
+ * An unfinished checkout is not a transaction, and neither is a legacy
+ * row from a status vocabulary we no longer use.
  *
  * checkout_pending means someone opened Stripe and may never have looked
  * at a payment form — 4D.1 established that and hid it from the guest's
- * My Requests for exactly this reason. On the DJ's side it rendered as
- * "Confirming · No earnings", which is honest but is clutter in a
- * financial history: nothing happened, and nothing is going to happen
- * until it does. The row itself is untouched and still reconciles
- * against Stripe.
+ * My Requests for exactly this reason. "archived" is worse: it has no
+ * entry in any label map, so 60 of one DJ's transactions rendered as the
+ * literal internal word "archived" with an amber dot, and exported into
+ * their CSV the same way.
  *
- * Every other status stays. A declined or expired request earned
+ * Both are excluded through the shared rule in requestStatus.ts rather
+ * than a list of strings kept here, so Analytics and Earnings cannot
+ * disagree about what counts as a request. Neither row is deleted, and
+ * neither ever carried earnings, so no total moves.
+ *
+ * Every genuine outcome stays. A declined or expired request earned
  * nothing, but the DJ made a decision about it and that is real history.
  */
-export const NON_TRANSACTION_STATUSES = ["checkout_pending"] as const;
-
-const isTransaction = (status: string) =>
-  !(NON_TRANSACTION_STATUSES as readonly string[]).includes(status);
-
 export function buildTransactions(
   requests: RequestRow[],
   tips: TipRow[]
 ): Transaction[] {
   const rows: Transaction[] = [
     ...requests
-      .filter((r) => isTransaction(r.request_status))
+      .filter((r) => isDjFacingRequest(r.request_status))
       .map((r) => ({
         id: r.id,
         kind: "request" as const,

@@ -217,3 +217,117 @@ export function reportActionLabel(status: string): string {
     ? "I didn't hear this track"
     : "Report a problem";
 }
+
+/*
+ * ── Which rows are a request at all ──────────────────────────────────
+ *
+ * The song_requests table holds three kinds of row that look alike in
+ * SQL and mean entirely different things to a DJ, and every DJ-facing
+ * count has to tell them apart the same way. Before 5B each surface
+ * decided for itself, which is how Analytics ended up counting
+ * abandoned checkouts against a DJ's acceptance rate.
+ *
+ * The rule lives here, once, beside the status vocabulary it belongs
+ * to. Nothing may re-derive it with its own list of status strings.
+ */
+
+/**
+ * Rows created by our own checkout machinery that never became a
+ * request. 4D.1 established checkout_pending as an internal state and
+ * hid it from the guest; it is hidden from the DJ for the same reason.
+ */
+export const INTERNAL_REQUEST_STATUSES = ["checkout_pending"] as const;
+
+/**
+ * A status no code in this repository writes any more.
+ *
+ * 60 rows carry it, all from one account in May 2026, all £0, none with
+ * an accepted_at. It predates the current status vocabulary, has no
+ * entry in any label map, and /api/my-requests already refuses to serve
+ * it. Left in the database untouched; simply never counted or shown.
+ */
+export const LEGACY_REQUEST_STATUSES = ["archived"] as const;
+
+const NOT_A_REQUEST: readonly string[] = [
+  ...INTERNAL_REQUEST_STATUSES,
+  ...LEGACY_REQUEST_STATUSES,
+];
+
+/**
+ * An expired row with no PaymentIntent is a checkout the guest walked
+ * away from, not a request the DJ failed to answer.
+ *
+ * Two different journeys end at "expired": a real authorised request the
+ * DJ never answered within REQUEST_EXPIRY_HOURS, and a Stripe Checkout
+ * Session nobody completed. Only the first is a request. The test is the
+ * same one /api/my-requests already uses to decide what a guest sees.
+ */
+export function isAbandonedCheckout(row: {
+  request_status: string;
+  stripe_payment_intent_id?: string | null;
+}): boolean {
+  return row.request_status === "expired" && !row.stripe_payment_intent_id;
+}
+
+/**
+ * A request a guest actually submitted: their card was authorised and
+ * the request reached the DJ.
+ *
+ * Includes cancelled and DJ-timeout expired rows, because the guest did
+ * submit those and the DJ could have answered them. Excludes internal
+ * checkout rows, legacy rows, and abandoned checkouts. This is the
+ * denominator behind "Guests submitted N requests".
+ */
+export function isSubmittedRequest(row: {
+  request_status: string;
+  stripe_payment_intent_id?: string | null;
+}): boolean {
+  return (
+    !NOT_A_REQUEST.includes(row.request_status) && !isAbandonedCheckout(row)
+  );
+}
+
+/**
+ * Whether a row may be shown to a DJ as history at all.
+ *
+ * Weaker than isSubmittedRequest on purpose: the Earnings transaction
+ * list wants abandoned checkouts gone but keeps every genuine outcome,
+ * and it has no PaymentIntent column to test with.
+ */
+export function isDjFacingRequest(status: string): boolean {
+  return !NOT_A_REQUEST.includes(status);
+}
+
+/**
+ * Statuses that prove the DJ accepted the request at some point.
+ *
+ * refunded and disputed are in here deliberately. Both can only be
+ * reached from a captured charge, and capture only happens when a DJ
+ * presses Accept: checkout creates the PaymentIntent with
+ * capture_method "manual", and /api/stripe/capture is the only caller.
+ * The refund webhook makes this explicit, transitioning only rows
+ * already in accepted/playing_next/played. So a later refund or
+ * chargeback is a payment event, not a decision the DJ took back, and
+ * removing those rows from the decision history would quietly rewrite
+ * what the DJ actually did.
+ */
+export const ACCEPTED_OUTCOME_STATUSES = [
+  "accepted",
+  "playing_next",
+  "played",
+  "refunded",
+  "disputed",
+] as const;
+
+export function isAcceptedOutcome(status: string): boolean {
+  return (ACCEPTED_OUTCOME_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * A request the DJ answered, one way or the other. The only honest
+ * denominator for an acceptance rate: pending has not been answered
+ * yet, and cancelled and expired were never answered at all.
+ */
+export function isDjDecision(status: string): boolean {
+  return isAcceptedOutcome(status) || status === "declined";
+}
