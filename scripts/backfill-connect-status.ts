@@ -105,6 +105,22 @@ type Row = {
   [key: string]: unknown;
 };
 
+/*
+ * Stripe masks keys in its own error messages, but only to the last four
+ * characters — "Invalid API Key provided: sk_live_****************0000".
+ * That is still key material on a terminal and in scrollback, and this
+ * script exists to be run with a live key its operator cannot otherwise
+ * see. Anything key-shaped is removed before it is printed.
+ */
+const scrub = (text: string) =>
+  text.replace(/\b[sr]k_(live|test)_[A-Za-z0-9*_-]+/g, "[key hidden]");
+
+/*
+ * Counts every write actually attempted. Printed at the end so a dry run
+ * proves it wrote nothing rather than asking to be trusted about it.
+ */
+let writeAttempts = 0;
+
 const summary = {
   checked: 0,
   unchanged: 0,
@@ -172,8 +188,9 @@ async function run() {
       /* One DJ failing must not end the run: the next one may be the
          one that is actually blocked. */
       summary.failed += 1;
-      const message =
-        caughtError instanceof Error ? caughtError.message : String(caughtError);
+      const message = scrub(
+        caughtError instanceof Error ? caughtError.message : String(caughtError)
+      );
       console.log(`  FAILED   ${label} ${accountId}  ${message.slice(0, 90)}`);
       continue;
     }
@@ -200,7 +217,11 @@ async function run() {
       continue;
     }
 
-    /* The only write in the script, and only ever this one column. */
+    /* The only write in the script, and only ever this one column.
+       Unreachable unless --apply was passed: the dry-run branch above
+       continues before this point. */
+    writeAttempts += 1;
+
     const { error: updateError } = await supabase
       .from("dj_profiles")
       .update({ [columns.connected]: next })
@@ -208,7 +229,7 @@ async function run() {
 
     if (updateError) {
       summary.failed += 1;
-      console.log(`  FAILED   ${label} update: ${updateError.message}`);
+      console.log(`  FAILED   ${label} update: ${scrub(updateError.message)}`);
       continue;
     }
 
@@ -227,6 +248,10 @@ async function run() {
   );
   console.log(`  failed        ${summary.failed}`);
   console.log(`  anomalies     ${summary.anomalies}`);
+  console.log(
+    `  writes made   ${writeAttempts}` +
+      (APPLY ? "" : "   (dry run cannot write)")
+  );
   console.log("");
 
   if (!APPLY && summary.wouldChange > 0) {
@@ -239,6 +264,9 @@ async function run() {
 }
 
 run().catch((error) => {
-  console.error("Backfill aborted:", error);
+  console.error(
+    "Backfill aborted:",
+    scrub(error instanceof Error ? error.message : String(error))
+  );
   process.exit(1);
 });
