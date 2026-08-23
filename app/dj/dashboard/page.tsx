@@ -1363,6 +1363,7 @@ export default function DJDashboardPage() {
           playedCount={playedTonight}
           tonightRevenue={tonightRevenue}
           tipsToday={tipsToday}
+          isPro={isDjPro}
         />
 
         {/*

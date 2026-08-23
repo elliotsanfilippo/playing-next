@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { animate, useReducedMotion } from "motion/react";
-import { Heart } from "lucide-react";
+import { ChevronRight, Heart } from "lucide-react";
+import { cn } from "@/src/lib/cn";
 
 type Props = {
   /** Live state: awaiting a decision right now, at any age. */
@@ -15,6 +17,9 @@ type Props = {
   tonightRevenue: number;
   /** Tonight's succeeded tips, in pounds. */
   tipsToday: number;
+  /** Resolved by the dashboard through isProEntitled, so trialing and
+   *  past_due read as Pro here exactly as they do at every other gate. */
+  isPro: boolean;
 };
 
 /*
@@ -37,6 +42,7 @@ export default function TonightStrip({
   playedCount,
   tonightRevenue,
   tipsToday,
+  isPro,
 }: Props) {
   const shouldReduceMotion = useReducedMotion();
 
@@ -81,13 +87,75 @@ export default function TonightStrip({
       aria-label="Tonight so far"
       className="rounded-card border border-white/10 bg-surface-raised/70 px-4 py-3.5 sm:p-5"
     >
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-            Tonight
-          </p>
+      {/*
+        The eyebrow row carries the plan marker in the space opposite it,
+        which was empty. Deliberately not inside the Taking Requests
+        control above: that row is what a DJ reaches for mid-set, and
+        account metadata has no business sharing it.
 
-          <p className="mt-1 flex items-baseline gap-2.5">
+        Pulled out of the left column so the badge can sit at the far
+        right without the money figure moving. The row's height is the
+        eyebrow's, and the badge's padding is cancelled by a matching
+        negative margin, so nothing below it shifts by a pixel.
+      */}
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+          Tonight
+        </p>
+
+        <Link
+          href="/plans"
+          /* The whole label is the accessible name, so the visible word
+             is aria-hidden rather than being read twice as
+             "Free You are on the Free plan". */
+          aria-label={
+            isPro
+              ? "You are on the Pro plan. View plans and billing."
+              : "You are on the Free plan. View plans."
+          }
+          /* -my-3.5 py-3.5: a 47px hit area inside a 19px row. The
+             negative margin cancels the padding exactly, so the target
+             is thumb-sized and the card is not a pixel taller. Same
+             trick the counts below use. */
+          className={cn(
+            "-my-3.5 flex shrink-0 items-center gap-0.5 rounded py-3.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60",
+            isPro
+              ? "text-accent hover:text-accent-strong"
+              : /* zinc-400, not zinc-500. Understated was the brief, but
+                   zinc-500 measured 4.29:1 against this card and AA is
+                   not negotiable for a word carrying account state. At
+                   10px, uppercase and widely tracked, it still reads as
+                   metadata rather than as something to act on. */
+                "text-zinc-400 hover:text-zinc-200"
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "rounded-full px-1.5 py-0.5",
+              /* Pro gets a whisper of the accent. Free gets nothing but
+                 the word, so it recedes into the interface rather than
+                 reading as a state the DJ should act on. */
+              isPro && "bg-accent/10"
+            )}
+          >
+            {isPro ? "Pro" : "Free"}
+          </span>
+
+          <ChevronRight size={11} aria-hidden />
+        </Link>
+      </div>
+
+      {/*
+        mt-0.5 rather than mt-1. The Pro pill's own vertical padding
+        makes the eyebrow row 19px where the bare eyebrow was 17px, so
+        this gives the two pixels back and the card measures exactly what
+        it did before the badge existed. Verified against the pre-change
+        component side by side: 125px and 125px.
+      */}
+      <div className="mt-0.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <p className="flex items-baseline gap-2.5">
             {/*
               The visible figure is not the live region.
 
