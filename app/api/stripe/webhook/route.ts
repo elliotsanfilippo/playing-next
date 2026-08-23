@@ -345,35 +345,88 @@ export async function POST(request: Request) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const event_subscription = event.data.object as Stripe.Subscription;
+
+        /*
+         * Read the subscription back from Stripe rather than trusting
+         * the payload's status.
+         *
+         * Webhook delivery is not ordered. A delayed past_due arriving
+         * after the active that recovered it would otherwise overwrite
+         * the good status with a stale one, and that now decides
+         * commission as well as features. Retrieving asks Stripe what is
+         * true right now, which is order-independent by construction and
+         * needs no extra column to track event times.
+         *
+         * If the retrieve fails, the payload is still better than
+         * nothing and is used as the fallback.
+         */
+        let subscription = event_subscription;
+
+        try {
+          subscription = await stripe.subscriptions.retrieve(
+            event_subscription.id
+          );
+        } catch (retrieveError) {
+          console.error(
+            `Subscription ${event_subscription.id} re-read failed, using the event payload:`,
+            retrieveError
+          );
+        }
+
         const customerId =
           typeof subscription.customer === "string"
             ? subscription.customer
             : subscription.customer.id;
 
         /*
-         * A subscription that's ended (cancelled, or never completed
-         * payment) puts the DJ back on Free. Anything else — active,
-         * trialing, even past_due/unpaid while a card retries — keeps
-         * them marked as Pro; the 0% fee itself is gated separately in
-         * the checkout route on stripe_subscription_status === "active",
-         * so a lapsed payment falls back to the 15% fee automatically
-         * without needing to flip plan back and forth here too.
+         * `plan` records that a subscription exists at all; the status
+         * beside it decides what that subscription currently entitles
+         * the DJ to. Only a subscription that is genuinely over puts
+         * them back on Free. Which statuses count as entitled lives in
+         * src/lib/planEntitlement.ts and is deliberately not duplicated
+         * here.
          */
         const terminalStatuses = ["canceled", "incomplete_expired"];
         const plan = terminalStatuses.includes(subscription.status)
           ? "free"
           : "pro";
 
-        const { data: updatedProfiles } = await supabaseAdmin
-          .from("dj_profiles")
-          .update({
-            stripe_subscription_id: subscription.id,
-            stripe_subscription_status: subscription.status,
-            plan,
-          })
-          .eq("stripe_customer_id", customerId)
-          .select("id");
+        const { data: updatedProfiles, error: subscriptionUpdateError } =
+          await supabaseAdmin
+            .from("dj_profiles")
+            .update({
+              stripe_subscription_id: subscription.id,
+              stripe_subscription_status: subscription.status,
+              plan,
+            })
+            .eq("stripe_customer_id", customerId)
+            .select("id");
+
+        if (subscriptionUpdateError) {
+          console.error(
+            "Subscription status save failed:",
+            subscriptionUpdateError
+          );
+        }
+
+        /*
+         * Nobody matched that customer.
+         *
+         * This is the quiet way a DJ pays and gets nothing: if
+         * stripe_customer_id was never saved against their profile —
+         * which the subscribe route's own save-failure path can produce
+         * — the update touches zero rows and the subscription can never
+         * be mapped back. It used to pass in silence. It is loud now,
+         * with both ids, so it can be reconciled by hand.
+         */
+        if (!subscriptionUpdateError && (updatedProfiles ?? []).length === 0) {
+          console.error(
+            `RECONCILE MANUALLY: subscription ${subscription.id} (${subscription.status}) ` +
+              `has customer ${customerId}, which matches no dj_profile. ` +
+              `This DJ is being billed with no entitlement recorded.`
+          );
+        }
 
         if (plan === "pro" && updatedProfiles && updatedProfiles.length > 0) {
           await checkAndMarkQrBoxEligible(updatedProfiles[0].id);

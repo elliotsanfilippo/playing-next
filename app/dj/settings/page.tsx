@@ -11,6 +11,7 @@ import {
   FREE_PLATFORM_FEE_BPS,
   PRO_PLATFORM_FEE_BPS,
 } from "@/src/lib/pricing";
+import { hasBillingProblem, isProEntitled } from "@/src/lib/planEntitlement";
 import {
   LIMITS,
   parseGenres,
@@ -698,12 +699,10 @@ function DJSettingsPageContent() {
     );
   }
 
-  const isActivePro =
-    profile.plan === "pro" && profile.stripe_subscription_status === "active";
-  const hasPaymentIssue =
-    profile.plan === "pro" &&
-    profile.stripe_subscription_status !== null &&
-    profile.stripe_subscription_status !== "active";
+  const isActivePro = isProEntitled(profile);
+  /* Entitled, but Stripe is retrying the card. Worth saying; not worth
+     taking anything away for. */
+  const hasPaymentIssue = hasBillingProblem(profile);
   const feePercent =
     (isActivePro ? PRO_PLATFORM_FEE_BPS : FREE_PLATFORM_FEE_BPS) / 100;
 
@@ -1033,11 +1032,15 @@ function DJSettingsPageContent() {
           />
         </SettingsGroup>
 
+        {/* Says what is true now. This used to tell the DJ they were
+            being charged the Free rate during dunning, which is no
+            longer how it works: Pro stays Pro, 0% included, while
+            Stripe retries the card. */}
         {hasPaymentIssue && (
           <p className="mt-2 px-1 text-xs leading-5 text-amber-400">
-            There is a problem with your Pro payment, so you are being
-            charged the Free rate of {FREE_PLATFORM_FEE_BPS / 100}% until it
-            is resolved.
+            Your last Pro payment didn&apos;t go through and Stripe is
+            retrying it. You keep everything Pro includes in the meantime.
+            Update your card so it doesn&apos;t lapse.
           </p>
         )}
 

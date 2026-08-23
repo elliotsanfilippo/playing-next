@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isProEntitled } from "@/src/lib/planEntitlement";
 
 /*
  * Which event, if any, is actually in force for a DJ right now.
@@ -34,9 +35,9 @@ export type EventsEntitlementProfile = {
 export function hasEventsEntitlement(
   profile: EventsEntitlementProfile | null | undefined
 ): boolean {
-  return (
-    profile?.plan === "pro" && profile?.stripe_subscription_status === "active"
-  );
+  /* Events entitlement is Pro entitlement; there is no separate rule.
+     Kept as its own name because the callers read better for it. */
+  return isProEntitled(profile);
 }
 
 export type ActiveEvent = {

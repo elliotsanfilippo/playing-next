@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEvent } from "@/src/lib/eventValidation";
+import { isProEntitled } from "@/src/lib/planEntitlement";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseAdmin = createClient(
@@ -58,9 +59,8 @@ async function loadDjProfile(userId: string) {
   return data;
 }
 
-function isPro(profile: { plan?: string | null; stripe_subscription_status?: string | null }) {
-  return profile.plan === "pro" && profile.stripe_subscription_status === "active";
-}
+/* One definition, shared with every other Pro gate. */
+const isPro = isProEntitled;
 
 /*
  * Lists this DJ's events, most recent first, each with a summed

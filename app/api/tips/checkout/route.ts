@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveEffectiveEvent } from "@/src/lib/activeEvent";
+import { isProEntitled } from "@/src/lib/planEntitlement";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
@@ -137,9 +138,7 @@ export async function POST(request: NextRequest) {
      * the Free-plan platform fee only applies to paid requests. Only
      * the flat guest service fee applies here.
      */
-    const isPro =
-      djProfile.plan === "pro" &&
-      djProfile.stripe_subscription_status === "active";
+    const isPro = isProEntitled(djProfile);
 
     const planAtCheckout: "free" | "pro" = isPro ? "pro" : "free";
     const platformFeeRateBps = 0;

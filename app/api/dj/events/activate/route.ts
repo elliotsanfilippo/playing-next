@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isProEntitled } from "@/src/lib/planEntitlement";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseAdmin = createClient(
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!(profile.plan === "pro" && profile.stripe_subscription_status === "active")) {
+    if (!isProEntitled(profile)) {
       return NextResponse.json(
         { error: "Events are a Pro feature." },
         { status: 403 }

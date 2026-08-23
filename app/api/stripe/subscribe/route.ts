@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  canStartNewSubscription,
+  isProEntitled,
+} from "@/src/lib/planEntitlement";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
@@ -82,12 +86,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      djProfile.plan === "pro" &&
-      djProfile.stripe_subscription_status === "active"
-    ) {
+    /*
+     * Refuses whenever a subscription already exists in any form, not
+     * only an active one.
+     *
+     * Subscription-mode Checkout creates a new subscription every time
+     * it is called, and Stripe will not dedupe them. The old guard only
+     * caught "active", so a DJ sitting on past_due, incomplete, unpaid
+     * or paused could open a second checkout and pay twice for one plan
+     * — with the webhook storing only one subscription id, leaving the
+     * other invisible to the app but still billing.
+     *
+     * Those DJs belong in the billing portal, so the response says so
+     * and carries a code the page can route on.
+     */
+    if (!canStartNewSubscription(djProfile)) {
       return NextResponse.json(
-        { error: "You're already subscribed to Pro." },
+        {
+          error: isProEntitled(djProfile)
+            ? "You're already on Pro. Manage your billing to change or cancel it."
+            : "You already have a Pro subscription that needs attention. Open billing to sort it out.",
+          code: "subscription_exists",
+        },
         { status: 409 }
       );
     }
@@ -160,13 +180,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
+    /* Logged in full, reported generically. A raw Stripe message names
+       the price id and other internals and helps nobody upgrading. */
     console.error("Stripe subscribe error:", error);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to start the Pro subscription checkout.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to start the Pro subscription checkout." },
+      { status: 500 }
+    );
   }
 }

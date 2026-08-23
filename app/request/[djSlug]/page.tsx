@@ -1,4 +1,5 @@
 "use client";
+import { isProEntitled, type PlanProfile } from "@/src/lib/planEntitlement";
 
 import {
   useEffect,
@@ -306,8 +307,7 @@ export default function RequestPage() {
 
       /* Same rule as resolveEffectiveEvent on the server: an active row
          is only in force while the DJ is entitled to Events. */
-      const entitled =
-        row.plan === "pro" && row.stripe_subscription_status === "active";
+      const entitled = isProEntitled(row as PlanProfile);
 
       const event = entitled
         ? ((events ?? []).find((candidate) => candidate.is_active !== false) ??

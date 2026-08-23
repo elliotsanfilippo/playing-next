@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isProEntitled } from "@/src/lib/planEntitlement";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
@@ -253,9 +254,9 @@ export async function POST(request: NextRequest) {
      * and it recovers automatically the moment the subscription's
      * status flips back to "active" via the webhook.
      */
-    const isPro =
-      djProfile.plan === "pro" &&
-      djProfile.stripe_subscription_status === "active";
+    /* Shared rule. A DJ mid-dunning keeps 0% while Stripe retries their
+       card, rather than being moved to 15% by a failed attempt. */
+    const isPro = isProEntitled(djProfile);
 
     const planAtCheckout: "free" | "pro" = isPro ? "pro" : "free";
 

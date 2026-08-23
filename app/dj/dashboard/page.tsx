@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import { WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../../../src/lib/supabase";
+import { isProEntitled } from "@/src/lib/planEntitlement";
 /*
  * The dashboard's money and the earnings page's money come from the
  * same module on purpose. Tonight so far and /dj/earnings Today used to
@@ -745,9 +746,7 @@ export default function DJDashboardPage() {
     router.push("/login");
   };
 
-  const isDjPro =
-    djProfile?.plan === "pro" &&
-    djProfile?.stripe_subscription_status === "active";
+  const isDjPro = isProEntitled(djProfile);
 
   /*
    * Driven by a timer rather than read from the clock during render.

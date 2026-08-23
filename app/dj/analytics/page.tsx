@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import { PRO_MONTHLY_PRICE_GBP } from "@/src/lib/pricing";
+import { isProEntitled } from "@/src/lib/planEntitlement";
 import {
   DEFAULT_RANGE,
   MIN_ROWS_FOR_RATE,
@@ -46,7 +47,6 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [isActivePro, setIsActivePro] = useState(false);
-  const [subscribing, setSubscribing] = useState(false);
   const [range, setRange] = useState<RangeKey>(DEFAULT_RANGE);
 
   const [rows, setRows] = useState<AnalyticsRow[]>([]);
@@ -92,8 +92,7 @@ export default function AnalyticsPage() {
       return;
     }
 
-    const activePro =
-      profile.plan === "pro" && profile.stripe_subscription_status === "active";
+    const activePro = isProEntitled(profile);
 
     setIsActivePro(activePro);
 
@@ -201,39 +200,6 @@ export default function AnalyticsPage() {
     fetchAnalytics(range);
   };
 
-  const upgradeToPro = async () => {
-    if (subscribing) return;
-
-    setSubscribing(true);
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-
-      const response = await fetch("/api/stripe/subscribe", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.url) {
-        throw new Error(result.error || "Unable to start the Pro upgrade.");
-      }
-
-      window.location.href = result.url;
-    } catch (error) {
-      console.log("Analytics upgrade error:", error);
-      setSubscribing(false);
-    }
-  };
-
   const summary = summariseAnalytics(rows);
   const since = rangeSince(range);
   const tipBehaviour = summariseTips(
@@ -326,18 +292,16 @@ export default function AnalyticsPage() {
             </p>
 
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button onClick={upgradeToPro} disabled={subscribing}>
-                {subscribing
-                  ? "Opening..."
-                  : `Upgrade to Pro (£${PRO_MONTHLY_PRICE_GBP.toFixed(2)}/mo)`}
+              {/*
+                Goes to /plans rather than straight into Stripe.
+                Everywhere else that offers Pro now routes through the
+                page that shows what it costs, what it includes and how
+                often it bills; a checkout that starts from a feature
+                gate skips all three.
+              */}
+              <Button onClick={() => router.push("/plans")}>
+                See Pro (£{PRO_MONTHLY_PRICE_GBP.toFixed(2)}/mo)
               </Button>
-
-              <Link
-                href="/plans"
-                className="text-sm font-semibold text-zinc-400 underline underline-offset-4 hover:text-white"
-              >
-                Compare plans
-              </Link>
             </div>
           </Card>
         </section>
