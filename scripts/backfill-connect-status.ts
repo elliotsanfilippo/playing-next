@@ -1,20 +1,23 @@
 /*
- * Backfill stripe_connected under the Phase 5D semantics.
+ * Audit, and if necessary repair, stripe_connected against Stripe.
  *
- * Until 5D that column meant
+ * Written for the Phase 5D migration, which turned out not to be needed:
+ * that column used to mean
  *
  *   details_submitted && payouts_enabled && transfers active && nothing due
  *
- * and it gates guest checkout. It now means one thing: can a destination
- * transfer to this account succeed. Rows written under the old formula
- * can therefore say false for a DJ who is perfectly able to receive
- * earnings — they are simply having a payout held or a document checked.
- * Those DJs stay blocked from taking any requests until something
- * refreshes them.
+ * and now means one thing, can a destination transfer to this account
+ * succeed. Rows written under the old formula could have said false for
+ * a DJ perfectly able to receive earnings, and since the column gates
+ * guest checkout those DJs would have been unable to take any requests.
+ * The live dry run found no such rows, so nothing was applied.
  *
- * They do self-heal: any account.updated webhook, or the DJ opening
- * their payments page, rewrites the flag correctly. This script exists
- * so nobody has to wait for that.
+ * It is kept as maintenance tooling rather than deleted, because the
+ * question it answers recurs: does the cached flag still agree with
+ * Stripe. A dry run is a drift audit — any DJ listed as WOULD change is
+ * one whose checkout gate is out of step with their real account, which
+ * is worth knowing whether it was caused by a semantics change, a missed
+ * account.updated webhook, or something new.
  *
  * ── Safety ───────────────────────────────────────────────────────────
  *
@@ -40,7 +43,13 @@
  * apply cannot happen by muscle memory on the wrong environment.
  *
  * Credentials are read from the process environment, falling back to
- * .env.local. Point STRIPE_SECRET_KEY at the live key to backfill live.
+ * .env.local. Note that this needs the key in hand: the live key is a
+ * Vercel Sensitive variable and cannot be read back out, so a live run
+ * from here is only possible for someone who holds it separately. The
+ * 5D migration was run instead from a temporary admin route inside
+ * Production, which has since been deleted. Recreate that route from
+ * git history if a live run is ever needed again rather than exposing
+ * the key.
  */
 
 import fs from "node:fs";

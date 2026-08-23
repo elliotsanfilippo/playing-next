@@ -784,9 +784,14 @@ semantics.
       distinguish a healthy account from one with a payout hold, which is
       why it deliberately does not claim "Ready" today.
 
-- [ ] **Delete `app/api/admin/backfill-connect-status/route.ts`** once the
-      live backfill has been applied, and redeploy. It is admin-only,
-      POST-only, dry-run by default and goes inert after 2026-09-30, but
-      a one-off migration endpoint should not outlive its migration.
-      `src/lib/backfillConnectStatus.ts` and the CLI script can stay:
-      they are inert without a key.
+- [x] `stripe_connected` backfill — not needed. The live dry run, run
+      from a temporary admin route inside Vercel Production because the
+      live key is a Sensitive variable that cannot be read out, checked
+      all 10 live Connect accounts and found **zero** rows disagreeing
+      with the new semantics. That also answers the open question from
+      the 5D audit: the four DJs reading `false` are genuinely
+      `setup_incomplete` — their transfers capability is not active —
+      rather than DJs with a paused payout who were wrongly blocked. No
+      rows were written and no apply was run. The temporary route has
+      been deleted; the shared module and CLI script remain as drift
+      auditing tooling.
