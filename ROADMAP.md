@@ -755,3 +755,31 @@ through the events.
 - [ ] Confirm every Stripe-related variable in Vercel Preview is
       test-mode, not just `STRIPE_SECRET_KEY` — `STRIPE_WEBHOOK_SECRET`
       and `STRIPE_PRO_PRICE_ID` too.
+
+---
+
+## 13. 🔌 Connect follow-ups after Phase 5D
+
+Logged during 5D and deliberately not fixed there. None of them block the
+beta; all three were found while correcting the `stripe_connected`
+semantics.
+
+- [ ] Authenticated Payments QA. The health model and the auth gates are
+      tested, but nobody has signed in and walked the real flow: start
+      onboarding, return from Stripe, hit the refresh return path, open
+      Manage in Stripe from a `payouts_paused` account, and confirm the
+      `onboarding_incomplete` fallback routes to hosted onboarding. Needs
+      a real DJ session, so it cannot be done from a test harness.
+- [ ] `/api/stripe/connect/payouts` silently writes to Stripe on every
+      Earnings load: it retrieves the account and, if the payout schedule
+      is not `manual`, calls `accounts.update` to force it. That was a
+      migration for DJs onboarded before manual payouts became the
+      default, and it has been running on every page load ever since. It
+      should be a one-off backfill or move to account creation, not a
+      write hidden inside a read path.
+- [ ] Optional: cache richer payout health so Settings can say "Ready" or
+      "Action required" rather than only "Receiving earnings". Needs a
+      column (payouts enabled, requirements due) written by the same
+      places that write `stripe_connected`. Without it Settings cannot
+      distinguish a healthy account from one with a payout hold, which is
+      why it deliberately does not claim "Ready" today.
