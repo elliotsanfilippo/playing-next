@@ -99,9 +99,14 @@ export default function DjTermsPage() {
         a 0% platform fee:
         you keep 100% of the request price on accepted requests. Billed
         monthly via Stripe; manage or cancel your subscription any time
-        from your account settings. If your payment fails, your account
-        automatically reverts to the Free plan&rsquo;s 15% fee until it&rsquo;s
-        resolved, rather than being suspended outright.
+        from your account settings. Tips always pay out in full to you on
+        both plans.
+      </P>
+      <P>
+        If a payment fails, you keep Pro and the 0% fee while your card is
+        retried, and during any trial period we offer. Pro ends, and the
+        Free plan&rsquo;s 15% fee applies again, once your subscription is
+        cancelled or payment is no longer being attempted.
       </P>
       <P>
         If we ever change these rates, we&rsquo;ll give existing DJs

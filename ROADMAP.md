@@ -346,10 +346,14 @@ figure.
 - [x] Webhooks to keep Supabase subscription state accurate —
       `customer.subscription.created/updated/deleted` now handled
 - [x] Free = 15%
-- [x] Pro = 0% — only while `stripe_subscription_status === "active"`;
-      any other status (past_due, unpaid, etc.) falls back to the 15%
-      Free rate automatically, no separate grace-period logic, recovers
-      the moment the subscription goes active again
+- [x] Pro = 0% — entitlement is decided by `isProEntitled()` in
+      `src/lib/planEntitlement.ts`, the single rule every gate reads.
+      Since Phase 5F: `active`, `trialing` and `past_due` all keep Pro,
+      the 0% request fee included, so a DJ whose card is being retried
+      is not moved to 15% for Stripe's dunning schedule. `incomplete`,
+      `incomplete_expired`, `unpaid`, `paused` and `canceled` are not
+      entitled. This section previously described the older rule, where
+      anything but `active` fell back to 15%.
 - [x] Downgrade/cancellation behaviour — subscription end (via Portal or
       webhook) flips `plan` back to `free`
 - [x] Pricing UI — DJ Settings' "Coming Soon" card now a real "Upgrade
@@ -870,3 +874,78 @@ did not do, and what would have to be true first.
       problem it solves. If a lapsed Pro subscription is renewed months
       later, the old event becomes effective again and the prompt is
       what catches it. A firmer rule can replace this if it ever bites.
+
+---
+
+## 15. 🧭 Free vs Pro: the principle
+
+Recorded so it is not re-litigated by accident, and so nothing on the
+candidate list below gets built as a Pro feature by drift.
+
+**Free should remain genuinely usable and let a DJ earn from their first
+guest without a subscription wall. Pro should become more valuable
+through additional professional tools and lower commission, rather than
+by removing core earning functionality from Free.**
+
+This is the product's actual difference from competitors rather than a
+nice sentiment: the 2026-08-15 competitor review found PlayThatNext
+gates tipping entirely behind a paid plan, while Playing Next's Free
+plan can charge for requests from the first guest. Moving an existing
+Free earning feature behind Pro would give that away.
+
+### Shipped Pro entitlements
+
+Verified against every `isProEntitled()` call site and against `/plans`.
+This list is complete: nothing else is gated, and nothing listed here is
+accidentally free.
+
+- 0% platform fee on accepted requests (Free is 15%). Tips pay out 100%
+  to the DJ on **both** plans, so the 0% benefit is about requests only.
+- Analytics
+- Events Mode
+- Scheduled auto-close
+
+### Deliberately Free, decided explicitly
+
+- Tips, at 100% to the DJ on both plans
+- Earnings, payouts and Withdraw
+- Post-gig share cards — free on purpose, since more sharers means more
+  reach
+- Duplicate-song detection
+- VIP requests, custom request and Song + Message pricing, pending and
+  queue caps, the QR request page and printable formats, the Display
+  Screen, queue reordering, notifications, request history, and Find
+  Your DJ discovery
+
+## 16. 🔒 Future Pro candidates — not yet approved
+
+**Candidates only. Nothing here has been approved as a Pro entitlement.
+Do not gate any of it, and do not build it as a Pro feature, without an
+explicit decision recorded here first.**
+
+- Per-event analytics
+- Advanced request rules
+- Do-not-play lists
+- Explicit-content controls
+- Custom DJ branding
+
+## 17. 💷 Pro billing option — future
+
+Not a Pro feature, and must not be described as one: this is a way to
+pay for the same Pro plan, not something extra a subscriber receives.
+
+- [ ] Annual Pro billing. Roughly two months free was discussed in the
+      original product notes. **The exact annual price is not approved**,
+      and no annual Stripe Price exists.
+
+## 18. 🎁 Physical QR display block
+
+**Current decision: a launch promotion, not an entitlement.** The first
+50 DJs to go Pro get a free QR display block and cover shipping only.
+Eligibility is enforced by `checkAndMarkQrBoxEligible()` against
+`QR_BOX_LIMIT`, and `/plans` labels it "Launch offer" so it cannot be
+read as a fourth Pro feature.
+
+Making it a standing Pro perk has been considered and **not decided**.
+It would need its own decision, and the unit economics, manufacturer and
+shipping questions answered first.
