@@ -1,3 +1,7 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
+import { transition } from "@/src/lib/motion";
 import { cn } from "@/src/lib/cn";
 
 /*
@@ -68,6 +72,8 @@ export function Proportion({
   whole: number;
   percent: number | null;
 }) {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <div className="mt-3 first:mt-0">
       <div className="flex items-baseline justify-between gap-3">
@@ -80,14 +86,19 @@ export function Proportion({
         </p>
       </div>
 
-      {/* The bar repeats the count next to it, so it is decoration. */}
+      {/* The bar repeats the count next to it, so it is decoration.
+          Same scaleX gesture as the ranked lists: the track is fixed
+          height and full width, so a range change eases the fill from
+          its old proportion to the new one without touching layout. */}
       <div
         aria-hidden
         className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/5"
       >
-        <div
-          className="h-full rounded-full bg-accent/60"
-          style={{ width: `${whole > 0 ? (part / whole) * 100 : 0}%` }}
+        <motion.div
+          className="h-full w-full origin-left rounded-full bg-accent/60"
+          initial={shouldReduceMotion ? false : { scaleX: 0 }}
+          animate={{ scaleX: whole > 0 ? part / whole : 0 }}
+          transition={shouldReduceMotion ? { duration: 0 } : transition.state}
         />
       </div>
     </div>
