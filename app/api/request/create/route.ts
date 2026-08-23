@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveEffectiveEvent } from "@/src/lib/activeEvent";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
 import {
@@ -30,6 +31,14 @@ type CreateRequestBody = {
   requestType?: "song_request" | "song_message";
   message?: string;
   isVip?: boolean;
+  /** The event the request page was displaying, or null for the DJ's
+   *  normal prices. Never used as a price: only compared against the
+   *  server's own answer so a guest cannot be shown one context and
+   *  charged another. */
+  eventId?: string | null;
+  /** Set by clients that know how to send eventId. Older clients omit
+   *  it and keep the previous behaviour rather than being rejected. */
+  eventContextKnown?: boolean;
 };
 
 /*
@@ -98,7 +107,7 @@ export async function POST(request: NextRequest) {
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
       .select(
-        "id, request_status, last_active_at, auto_close_at, max_pending_requests"
+        "id, request_status, last_active_at, auto_close_at, max_pending_requests, plan, stripe_subscription_status"
       )
       .eq("slug", djSlug)
       .maybeSingle();
@@ -224,15 +233,45 @@ export async function POST(request: NextRequest) {
 
     /*
      * Resolved server-side rather than trusting an eventId from the
-     * client — same reasoning as the price re-derivation in the
-     * checkout route.
+     * client, and now through the shared resolver so a DJ without a
+     * current Pro subscription cannot have a leftover active event keep
+     * setting prices.
      */
-    const { data: activeEvent } = await supabaseAdmin
-      .from("dj_events")
-      .select("id")
-      .eq("dj_profile_id", djProfile.id)
-      .eq("is_active", true)
-      .maybeSingle();
+    const activeEvent = await resolveEffectiveEvent(supabaseAdmin, djProfile);
+
+    /*
+     * The guest is charged the pricing context they were shown.
+     *
+     * The request page sends back the id of the event it displayed (or
+     * null for "your normal prices"). If the DJ has ended that event,
+     * started a different one, or lost their Events entitlement while
+     * the guest was choosing a song, the two disagree — and the old
+     * behaviour was to silently stamp whatever is active now, so a
+     * guest shown £5 could be charged £8.
+     *
+     * The client's value is never used as a price. It is only compared
+     * against the server's own answer, and a mismatch stops the request
+     * so the page can reload and show the guest what it costs now. That
+     * also covers the brief moment during an event switch when nothing
+     * is active: the page said "Event A", the server says "none", and
+     * the guest is asked to look again rather than quietly charged the
+     * DJ's default.
+     */
+    const clientEventId =
+      typeof body.eventId === "string" && body.eventId.trim()
+        ? body.eventId.trim()
+        : null;
+
+    if (body.eventContextKnown === true && clientEventId !== (activeEvent?.id ?? null)) {
+      return NextResponse.json(
+        {
+          error:
+            "This DJ's pricing just changed. Take a look at the new price before you send this.",
+          code: "event_changed",
+        },
+        { status: 409 }
+      );
+    }
 
     const { data, error } = await supabaseAdmin
       .from("song_requests")

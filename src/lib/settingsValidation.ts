@@ -41,6 +41,10 @@ export const LIMITS = {
   maxPending: { min: 1, max: 20 },
   maxQueue: { min: 1, max: 20 },
   djName: { max: 40 },
+  /* Event names are longer than DJ names in practice ("Smith Wedding,
+   * The Old Barn") but are still a label, not a description. Lives here
+   * with the rest so Events cannot drift into a second rule set. */
+  eventName: { max: 60 },
   bio: { max: 500 },
   genres: { maxCount: 8, maxLength: 30 },
 } as const;

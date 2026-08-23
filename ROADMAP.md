@@ -795,3 +795,40 @@ semantics.
       rows were written and no apply was run. The temporary route has
       been deleted; the shared module and CLI script remain as drift
       auditing tooling.
+
+---
+
+## 14. 🎉 Events Mode: what 5E left for later
+
+5E made the event model correct rather than large. What it deliberately
+did not do, and what would have to be true first.
+
+- [ ] **Gig-day semantics.** An event is the right boundary for "which
+      night is this" — it survives midnight, where a browser-local
+      calendar day does not, and both `song_requests.event_id` and
+      `tips.event_id` are already stamped at creation. Migrating
+      Dashboard Tonight, Earnings Today and the Analytics ranges onto it
+      would need two things that are not true yet: real adoption (the
+      table has zero rows, so every figure would fall back to today's
+      behaviour and the new path would ship untested), and a durable
+      event start timestamp. `created_at` is now a fair proxy because
+      "Run again" creates a new row per gig rather than reactivating an
+      old one, but it is still the row's creation, not the moment the
+      music started. Decide that before migrating anything financial.
+- [ ] Three concepts of "a night" still coexist: `session_started_at`
+      (drives the post-gig recap), the browser-local calendar day
+      (Tonight, Earnings Today, Analytics) and the active event
+      (pricing). None is wrong alone; there is simply no single answer
+      to "which gig is this". Events is the candidate to become that
+      answer.
+- [ ] Roadmap-only, explicitly out of scope for 5E: scheduled event
+      times, venue and location, event types, do-not-play lists,
+      explicit filtering, genre rules, wedding schedules, event QR
+      branding, event capacity overrides, and a standalone `/dj/events`
+      page.
+- [ ] An event left active for a long time is surfaced as a prompt on
+      the dashboard after 24 hours rather than expiring on a timer,
+      because a price changing underneath a DJ mid-set is worse than the
+      problem it solves. If a lapsed Pro subscription is renewed months
+      later, the old event becomes effective again and the prompt is
+      what catches it. A firmer rule can replace this if it ever bites.

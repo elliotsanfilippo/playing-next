@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveEffectiveEvent } from "@/src/lib/activeEvent";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/src/lib/rateLimit";
@@ -146,12 +147,9 @@ export async function POST(request: NextRequest) {
     const djEarnings = amount;
     const totalAmount = amount + SERVICE_FEE;
 
-    const { data: activeEvent } = await supabase
-      .from("dj_events")
-      .select("id")
-      .eq("dj_profile_id", djProfile.id)
-      .eq("is_active", true)
-      .maybeSingle();
+    /* Same shared resolver as request creation, so a lapsed Pro
+       subscription stops tagging tips with an event too. */
+    const activeEvent = await resolveEffectiveEvent(supabase, djProfile);
 
     const { data: tip, error: insertError } = await supabase
       .from("tips")

@@ -79,6 +79,10 @@ export default function DJDashboardPage() {
   const [chargebacks, setChargebacks] = useState<ChargebackDispute[]>([]);
   const [events, setEvents] = useState<DjEvent[]>([]);
   const [eventsIsPro, setEventsIsPro] = useState(false);
+  /* Unknown is not "no events". A failed load used to leave this false
+     and the list empty, so a Pro DJ with a live event was shown the Free
+     upsell row while that event was still setting guest prices. */
+  const [eventsError, setEventsError] = useState(false);
   const [generatedQr, setGeneratedQr] = useState<{
     link: string;
     url: string;
@@ -248,12 +252,14 @@ export default function DJDashboardPage() {
         "Events load error:",
         await response.json().catch(() => ({}))
       );
+      setEventsError(true);
       return;
     }
 
     const data = await response.json();
     setEvents(data.events ?? []);
     setEventsIsPro(Boolean(data.isPro));
+    setEventsError(false);
   };
 
   const fetchRequests = async () => {
@@ -1413,6 +1419,7 @@ export default function DJDashboardPage() {
         <NotificationsStrip
           events={events}
           eventsIsPro={eventsIsPro}
+          eventsError={eventsError}
           onEventsChanged={fetchEvents}
           showQrBox={Boolean(
             djProfile?.qr_box_eligible &&

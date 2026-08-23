@@ -53,6 +53,10 @@ export default function RequestPage() {
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [isLoadingDJ, setIsLoadingDJ] = useState(true);
   const [djNotFound, setDjNotFound] = useState(false);
+  /* Set by the profile effect below. Lets the submit path re-read the
+     DJ's current pricing when the server says it has changed. */
+  const refreshDJRef = useRef<(() => Promise<void>) | null>(null);
+
   const [activeEvent, setActiveEvent] = useState<{
     id: string;
     name: string;
@@ -266,6 +270,11 @@ export default function RequestPage() {
     const PROFILE_SELECT =
       "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, " +
       "request_price, shoutout_price, profile_image_url, " +
+      /* Events is a Pro feature, so entitlement decides whether an
+         active event is in force. Without these two columns this page
+         would keep showing a lapsed DJ's event prices while the server
+         charged their defaults. */
+      "plan, stripe_subscription_status, " +
       "dj_events(id, name, request_price, shoutout_price, is_active)";
 
     type EmbeddedEvent = {
@@ -295,9 +304,15 @@ export default function RequestPage() {
       const profile = { ...row };
       delete profile.dj_events;
 
-      const event =
-        (events ?? []).find((candidate) => candidate.is_active !== false) ??
-        null;
+      /* Same rule as resolveEffectiveEvent on the server: an active row
+         is only in force while the DJ is entitled to Events. */
+      const entitled =
+        row.plan === "pro" && row.stripe_subscription_status === "active";
+
+      const event = entitled
+        ? ((events ?? []).find((candidate) => candidate.is_active !== false) ??
+          null)
+        : null;
 
       return { profile, event };
     };
@@ -340,6 +355,11 @@ export default function RequestPage() {
       const { profile, event } = await readProfile();
       applyProfile(profile, event);
     };
+
+    /* The poll owns the only copy of this logic, so the submit path
+       borrows it rather than growing a second one that could read the
+       event differently. */
+    refreshDJRef.current = refreshDJ;
 
     const fetchVipStatus = async () => {
       try {
@@ -547,6 +567,15 @@ export default function RequestPage() {
         requestType,
         message: requestType === "song_message" ? message.trim() : undefined,
         isVip,
+        /*
+         * The pricing context this page is currently showing. The server
+         * never uses it as a price — it compares it against its own
+         * answer and refuses if they differ, so a DJ switching or ending
+         * an event while a guest is choosing a song can no longer show
+         * one price and charge another.
+         */
+        eventId: activeEvent?.id ?? null,
+        eventContextKnown: true,
       }),
     });
 
@@ -554,6 +583,16 @@ export default function RequestPage() {
 
     if (!createResponse.ok || !createData.requestId) {
       console.log("Request create error:", createData.error);
+
+      /* The DJ changed their pricing mid-choice. Reload what it costs
+         now and let the guest decide again, rather than sending them
+         into Stripe at a price they never agreed to. */
+      if (createData.code === "event_changed") {
+        await refreshDJRef.current?.();
+        toast.error(createData.error);
+        return;
+      }
+
       toast.error(
         createData.error || "Something went wrong creating your request."
       );

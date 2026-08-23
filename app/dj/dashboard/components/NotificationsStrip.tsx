@@ -7,6 +7,7 @@ import QrBoxBanner from "./QrBoxBanner";
 type Props = {
   events: DjEvent[];
   eventsIsPro: boolean;
+  eventsError: boolean;
   onEventsChanged: () => void;
   showQrBox: boolean;
   onQrBoxDismissed: () => void;
@@ -30,13 +31,19 @@ type Props = {
 export default function NotificationsStrip({
   events,
   eventsIsPro,
+  eventsError,
   onEventsChanged,
   showQrBox,
   onQrBoxDismissed,
 }: Props) {
   return (
     <Card variant="elevated" className="overflow-hidden">
-      <EventsCard events={events} isPro={eventsIsPro} onChanged={onEventsChanged} />
+      <EventsCard
+        events={events}
+        isPro={eventsIsPro}
+        loadFailed={eventsError}
+        onChanged={onEventsChanged}
+      />
 
       {showQrBox && (
         <>

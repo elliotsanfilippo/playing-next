@@ -98,6 +98,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    /*
+     * Deactivate first, then activate.
+     *
+     * The order is forced by the database: a partial unique index
+     * (dj_events_one_active_per_dj_idx) allows one active event per DJ,
+     * so activating before deactivating would collide with the row being
+     * replaced. That leaves a brief moment where nothing is active.
+     *
+     * That window is no longer a pricing risk. A request landing in it
+     * resolves to no event, and the request page sends back the event it
+     * was displaying — so the create route sees the two disagree and
+     * asks the guest to review the price rather than quietly charging
+     * the DJ's default. The window costs a guest one extra look, not a
+     * different price from the one they were shown.
+     */
     await supabaseAdmin
       .from("dj_events")
       .update({ is_active: false, ended_at: new Date().toISOString() })
@@ -108,14 +123,31 @@ export async function POST(request: NextRequest) {
       const { error: activateError } = await supabaseAdmin
         .from("dj_events")
         .update({ is_active: true, ended_at: null })
-        .eq("id", eventId);
+        .eq("id", eventId)
+        /* Ownership again at the write, not only at the check above. */
+        .eq("dj_profile_id", profile.id);
 
       if (activateError) {
         console.error("Event activate error:", activateError);
 
+        /*
+         * 23505 is the unique index refusing a second active event,
+         * which means another activation landed between our deactivate
+         * and this write — two devices, or a double press. That is a
+         * conflict with a real answer ("something else started"), not
+         * the generic failure it used to be reported as.
+         */
+        const isConflict =
+          (activateError as { code?: string }).code === "23505";
+
         return NextResponse.json(
-          { error: "Unable to activate event." },
-          { status: 500 }
+          {
+            error: isConflict
+              ? "Another event was started somewhere else just now. Refresh to see what is running."
+              : "Unable to start this event.",
+            ...(isConflict ? { code: "event_conflict" } : {}),
+          },
+          { status: isConflict ? 409 : 500 }
         );
       }
     }
