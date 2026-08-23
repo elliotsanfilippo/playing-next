@@ -24,20 +24,23 @@ import Button from "@/src/components/ui/Button";
  * once.
  */
 const PRO_ADDS = [
-  { name: "Analytics", what: "what your guests ask for, and how often you say yes" },
-  { name: "Events Mode", what: "name a gig and give it its own prices" },
-  { name: "Auto-close", what: "set requests to stop themselves at the end of the night" },
+  { name: "Analytics", what: "understand what guests request" },
+  { name: "Events Mode", what: "separate pricing for each gig" },
+  { name: "Auto-close", what: "schedule when requests stop" },
 ];
 
-/* Said in one line rather than as a column of ticks whose job is to look
-   shorter than the one next to it. Every item verified against a real
-   gate: none of these is Pro-only. */
+/*
+ * Short labels rather than a sentence. As prose these ran three lines at
+ * 320px and read as filler at the bottom of the page; as chips they are
+ * scanned in about a second. Every item checked against a real gate:
+ * none of them is Pro-only.
+ */
 const SHARED = [
-  "unlimited requests",
-  "the live dashboard and queue",
-  "your QR request page",
-  "push alerts for new requests",
-  "earnings and payouts",
+  "Unlimited requests",
+  "Live dashboard",
+  "QR request page",
+  "Push alerts",
+  "Earnings & payouts",
 ];
 
 const FREE_FEE = FREE_PLATFORM_FEE_BPS / 100;
@@ -241,36 +244,46 @@ export default function PlansPage() {
         {/* ── The upgrade, or the billing link ─────────────────────── */}
         <div className="mt-4 overflow-hidden rounded-card border border-accent/25 bg-accent/[0.05]">
           <div className="p-4 sm:p-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <h2 className="text-sm font-bold tracking-tight text-accent">
-                {entitled ? "You're on Pro" : "Pro"}
-              </h2>
+            {/*
+              Read top to bottom: name, price, what it gets you. The two
+              used to share a row, where the price won and the name
+              became a label beside it. Stacked, each has its own beat
+              and the price is still the first thing the eye lands on.
+            */}
+            <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-accent">
+              {entitled ? "You're on Pro" : "Pro"}
+            </h2>
 
-              {/* The price, up top, where it is read in the first second
-                  rather than a screen and a half down. */}
-              <p className="text-2xl font-bold tabular-nums">
-                £{PRO_MONTHLY_PRICE_GBP.toFixed(2)}
-                <span className="ml-1 text-[13px] font-medium text-zinc-400">
-                  a month
-                </span>
-              </p>
-            </div>
+            <p className="mt-1 text-3xl font-bold tabular-nums">
+              £{PRO_MONTHLY_PRICE_GBP.toFixed(2)}
+              <span className="ml-1.5 text-[13px] font-medium text-zinc-400">
+                / month
+              </span>
+            </p>
 
+            {/*
+              Says what the DJ gets, not what Free lacks. Accurate as
+              written: Playing Next takes {PRO_FEE}% of the request price on
+              Pro, so the DJ keeps all of it. The guest still pays the
+              50p service fee on top, which is ours and is not implied
+              away here.
+            */}
             <p className="mt-1.5 text-[13px] leading-5 text-zinc-300">
-              {PRO_FEE}% platform fee, and three things Free doesn&rsquo;t have.
+              Keep 100% of your request price, plus Pro tools for your gigs.
             </p>
 
             {/* The only list on the page: what actually changes. */}
-            <ul className="mt-4 space-y-2.5">
+            <ul className="mt-4 space-y-2">
               {PRO_ADDS.map((item) => (
                 <li key={item.name} className="flex items-start gap-2.5">
                   <Check
-                    size={15}
+                    size={14}
                     aria-hidden
-                    className="mt-0.5 shrink-0 text-accent"
+                    className="mt-1 shrink-0 text-accent"
                   />
                   <span className="text-[13px] leading-5 text-zinc-200">
-                    <span className="font-semibold text-white">{item.name}</span>{" "}
+                    <span className="font-semibold text-white">{item.name}</span>
+                    <span className="text-zinc-400"> · </span>
                     {item.what}
                   </span>
                 </li>
@@ -296,23 +309,34 @@ export default function PlansPage() {
             {!entitled && (
               <p className="mt-2.5 text-xs leading-5 text-zinc-400">
                 At a typical £{TYPICAL_REQUEST_PRICE_GBP} request, Pro pays for
-                itself at around {PRO_BREAK_EVEN_REQUESTS} requests a month.
-                Your own break-even moves with your prices.
+                itself at about {PRO_BREAK_EVEN_REQUESTS} requests a month.
+                Yours moves with your prices.
               </p>
             )}
           </div>
 
+          {/*
+            A bonus, and shaped like one. It sits below the fold of the
+            Pro block on its own strip, under a small label that names it
+            as a launch offer, so it cannot be mistaken for a fourth core
+            feature. Deliberately quieter than both the price and the
+            button: no accent heading, no icon colour competing with the
+            ticks above.
+          */}
           {qrBoxAvailable && !entitled && (
-            <p className="flex items-start gap-2.5 border-t border-accent/15 bg-accent/[0.04] px-4 py-3 text-xs leading-5 text-zinc-200 sm:px-6">
-              <Gift size={14} aria-hidden className="mt-0.5 shrink-0 text-accent" />
-              <span>
-                <strong className="font-semibold text-accent">
-                  First 50 DJs to go Pro
-                </strong>{" "}
-                get a free QR display block for their booth, you just cover
-                shipping.
-              </span>
-            </p>
+            <div className="border-t border-white/5 bg-black/20 px-4 py-3 sm:px-6">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+                Launch offer
+              </p>
+
+              <p className="mt-1 flex items-start gap-2 text-xs leading-5 text-zinc-300">
+                <Gift size={13} aria-hidden className="mt-0.5 shrink-0 text-zinc-400" />
+                <span>
+                  First 50 DJs to go Pro get a free QR display block for their
+                  booth, you just cover shipping.
+                </span>
+              </p>
+            </div>
           )}
         </div>
 
@@ -335,12 +359,25 @@ export default function PlansPage() {
             Both plans include
           </h2>
 
-          <p className="mt-1.5 text-[13px] leading-5 text-zinc-300">
-            {SHARED.join(", ")}.
-          </p>
+          {/*
+            Chips rather than a sentence. As prose this ran three lines
+            at 320px and read as filler; as short labels it is scanned
+            without being read. No borders and barely any fill, so it
+            stays a list of facts rather than becoming a third card.
+          */}
+          <ul className="mt-2.5 flex flex-wrap gap-1.5">
+            {SHARED.map((item) => (
+              <li
+                key={item}
+                className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-300"
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
 
-          <p className="mt-2.5 text-xs leading-5 text-zinc-400">
-            No card needed to sign up. Cancel Pro any time from billing.
+          <p className="mt-3 text-xs leading-5 text-zinc-400">
+            No card needed for Free. Cancel Pro anytime.
           </p>
         </div>
       </section>
