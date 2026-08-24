@@ -1,5 +1,4 @@
 "use client";
-import { isProEntitled, type PlanProfile } from "@/src/lib/planEntitlement";
 
 import {
   useEffect,
@@ -268,14 +267,33 @@ export default function RequestPage() {
      * inactive event slipping through would be a pricing bug, and one
      * belt is not enough for that.
      */
+    /*
+     * Only columns the public `anon` role is granted.
+     *
+     * This ran as a guest, in the browser, under the anon key, and 5E
+     * added `plan, stripe_subscription_status` to it so the page could
+     * hide a lapsed Pro DJ's event pricing. Those two columns are
+     * deliberately NOT granted to anon — they are commercial account
+     * state — so PostgREST refused the whole query with 42501, the
+     * catch below turned that into "DJ Not Found", and every DJ's
+     * request page died for every guest.
+     *
+     * Granting them would have fixed the symptom by publishing every
+     * DJ's plan and Stripe subscription status to anyone who asked, so
+     * the columns come out instead. Anything this page needs to know
+     * about entitlement has to arrive through a server-side route that
+     * can read those columns safely; until that exists, an active event
+     * is treated as in force for display.
+     *
+     * That is safe rather than merely acceptable: server-side pricing
+     * never trusted this page, and 5E's event-context guard already
+     * refuses to create a request when the event the page displayed
+     * disagrees with the one the server resolves. A lapsed DJ's guest
+     * is asked to review the price, not charged the wrong one.
+     */
     const PROFILE_SELECT =
       "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, " +
       "request_price, shoutout_price, profile_image_url, " +
-      /* Events is a Pro feature, so entitlement decides whether an
-         active event is in force. Without these two columns this page
-         would keep showing a lapsed DJ's event prices while the server
-         charged their defaults. */
-      "plan, stripe_subscription_status, " +
       "dj_events(id, name, request_price, shoutout_price, is_active)";
 
     type EmbeddedEvent = {
@@ -305,14 +323,12 @@ export default function RequestPage() {
       const profile = { ...row };
       delete profile.dj_events;
 
-      /* Same rule as resolveEffectiveEvent on the server: an active row
-         is only in force while the DJ is entitled to Events. */
-      const entitled = isProEntitled(row as PlanProfile);
-
-      const event = entitled
-        ? ((events ?? []).find((candidate) => candidate.is_active !== false) ??
-          null)
-        : null;
+      /* Re-checked here as well as server-side in the query: this row
+         decides the price shown, and one belt is not enough for that.
+         Entitlement is no longer read here — see PROFILE_SELECT. */
+      const event =
+        (events ?? []).find((candidate) => candidate.is_active !== false) ??
+        null;
 
       return { profile, event };
     };
