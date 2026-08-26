@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import Script from "next/script";
-import { Toaster } from "sonner";
 import ConsentBanner from "@/src/components/ConsentBanner";
+import DeferredToaster from "@/src/components/DeferredToaster";
 import "./globals.css";
 
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
@@ -144,13 +144,7 @@ export default function RootLayout({
 
         <ConsentBanner />
 
-        <Toaster
-          position="bottom-right"
-          richColors
-          closeButton
-          duration={3000}
-          theme="dark"
-        />
+        <DeferredToaster />
       </body>
     </html>
   );

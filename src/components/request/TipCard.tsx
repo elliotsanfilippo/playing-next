@@ -12,10 +12,13 @@ import {
   TIP_MESSAGE_MAX_LENGTH,
 } from "@/src/lib/tips";
 import { cn } from "@/src/lib/cn";
-import {
-  MESSAGE_REJECTED_COPY,
-  messageNeedsRewording,
-} from "@/src/lib/messageModeration";
+/*
+ * Imported lazily inside the submit handler below rather than at module
+ * scope. The obscenity matcher and its English dataset are ~12KB on the
+ * wire, and this card sits below the fold on a page a guest opens in a
+ * venue on mobile data. Nobody needs a profanity matcher until they have
+ * actually written something and pressed send.
+ */
 
 type Props = {
   djSlug: string;
@@ -81,6 +84,10 @@ export default function TipCard({ djSlug, isTakingRequests }: Props) {
      * someone's £10 selection because of a word in the message would be
      * a worse outcome than the word.
      */
+    const { messageNeedsRewording, MESSAGE_REJECTED_COPY } = await import(
+      "@/src/lib/messageModeration"
+    );
+
     if (messageNeedsRewording(message.trim() || null)) {
       setMessageError(MESSAGE_REJECTED_COPY);
       return;

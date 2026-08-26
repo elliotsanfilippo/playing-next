@@ -7,9 +7,58 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { toast } from "sonner";
-import { supabase } from "../../../src/lib/supabase";
+/*
+ * ── Why the Supabase client is not imported at module scope ───────
+ *
+ * The browser client is ~58KB on the wire — auth-js, postgrest-js,
+ * realtime-js, storage-js and phoenix — and it is the single largest
+ * third-party cost on this page. None of it is needed to paint the DJ
+ * or to accept the guest's first keystroke: R6 moved the initial DJ data
+ * to a server render, so by the time this page hydrates the guest is
+ * already looking at the right name, availability and prices.
+ *
+ * What the client is still for is everything that happens AFTER that —
+ * the realtime subscription, the 60s reconciliation safety net, and
+ * re-reading pricing when the submit path says the event changed. All of
+ * it can wait for the browser to be idle, and none of it is worth making
+ * a guest in a venue wait 0.66s longer to type.
+ *
+ * The promise is memoised so the reconciliation, the realtime channel
+ * and the submit path all share one client and one download.
+ */
+type BrowserSupabase = Awaited<
+  typeof import("../../../src/lib/supabase")
+>["supabase"];
+
+let supabaseClientPromise: Promise<BrowserSupabase> | null = null;
+
+const getSupabase = (): Promise<BrowserSupabase> => {
+  supabaseClientPromise ??= import("../../../src/lib/supabase").then(
+    (m) => m.supabase
+  );
+  return supabaseClientPromise;
+};
+
+/* Loads in whatever gap the browser has spare, with a backstop so a
+   device that never goes idle still reconciles promptly. Safari has no
+   requestIdleCallback, hence the fallback. */
+const whenIdle = (run: () => void): (() => void) => {
+  const w = window as Window & {
+    requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+    cancelIdleCallback?: (h: number) => void;
+  };
+
+  if (typeof w.requestIdleCallback === "function") {
+    const handle = w.requestIdleCallback(run, { timeout: 1500 });
+    return () => w.cancelIdleCallback?.(handle);
+  }
+
+  const timer = setTimeout(run, 800);
+  return () => clearTimeout(timer);
+};
 import { availabilityState } from "@/src/lib/guestAvailability";
 import {
   addGuestRequestId,
@@ -28,13 +77,39 @@ import RequestHeader, {
 } from "@/src/components/request/RequestHeader";
 
 import SpotifySearchInput from "@/src/components/request/SpotifySearchInput";
-import TrackResults, {
-  type SpotifyTrack,
-} from "@/src/components/request/TrackResults";
-import SelectedSong from "@/src/components/request/SelectedSong";
-import RequestOptions from "@/src/components/request/RequestOptions";
-import CheckoutButton from "@/src/components/request/CheckoutButton";
-import TipCard from "@/src/components/request/TipCard";
+import type { SpotifyTrack } from "@/src/components/request/TrackResults";
+
+/*
+ * ── Why these five are loaded on demand ───────────────────────────
+ *
+ * Between them they pull in Motion (~48KB on the wire) and, through
+ * TipCard, the obscenity matcher. None of it is needed to show a guest
+ * the DJ, the availability, or a search box they can type into — which
+ * is the only thing that matters while they are standing in a venue
+ * waiting for the page to become useful.
+ *
+ * Measured before this: 414KB of critical JS and 5.9s to a first
+ * accepted keystroke at 700kbps.
+ *
+ * ssr is left ON for all of them. They still render into the server
+ * HTML exactly as before, so nothing that used to be in the first paint
+ * disappears from it — this only moves when their JAVASCRIPT arrives.
+ * TipCard in particular is visible on load and must keep server
+ * rendering, or the page would reflow when it appeared.
+ */
+const TrackResults = dynamic(
+  () => import("@/src/components/request/TrackResults")
+);
+const SelectedSong = dynamic(
+  () => import("@/src/components/request/SelectedSong")
+);
+const RequestOptions = dynamic(
+  () => import("@/src/components/request/RequestOptions")
+);
+const CheckoutButton = dynamic(
+  () => import("@/src/components/request/CheckoutButton")
+);
+const TipCard = dynamic(() => import("@/src/components/request/TipCard"));
 import {
   SearchIdle,
   SearchLoading,
@@ -335,6 +410,8 @@ export default function RequestPage({
     };
 
     const readProfile = async () => {
+      const supabase = await getSupabase();
+
       const { data, error } = await supabase
         .from("public_dj_request_bootstrap")
         .select(PROFILE_SELECT)
@@ -465,7 +542,15 @@ export default function RequestPage({
       }
     };
 
-    loadDJ();
+    /*
+     * loadDJ has moved into the idle callback below, alongside the
+     * realtime subscription, because both need the lazily-loaded
+     * Supabase client and should share one download.
+     *
+     * fetchVipStatus stays here and runs immediately: it is a plain
+     * fetch to our own API with no Supabase dependency, and it is the
+     * one piece of state the server bootstrap does not carry.
+     */
     fetchVipStatus();
 
     /*
@@ -508,25 +593,59 @@ export default function RequestPage({
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    const channel = supabase
-      .channel(`request_page_${djSlug}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "dj_profiles",
-          filter: `slug=eq.${djSlug}`,
-        },
-        () => refreshDJ()
-      )
-      .subscribe();
+    /*
+     * Subscribed once the client has actually loaded, which is now an
+     * await rather than a module import. The cancelled flag closes the
+     * race where the guest leaves before the download finishes: without
+     * it, a channel could be created after cleanup had already run and
+     * would never be torn down.
+     */
+    let channel: Awaited<ReturnType<typeof createChannel>> | null = null;
+
+    const createChannel = async () => {
+      const supabase = await getSupabase();
+
+      return supabase
+        .channel(`request_page_${djSlug}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "dj_profiles",
+            filter: `slug=eq.${djSlug}`,
+          },
+          () => refreshDJ()
+        )
+        .subscribe();
+    };
+
+    const cancelIdle = whenIdle(() => {
+      if (!isMounted) return;
+
+      /* The reconciliation read and the realtime subscription share the
+         same client, so this is one download for both. */
+      loadDJ();
+
+      createChannel().then((created) => {
+        if (!isMounted) {
+          /* Cleanup already ran — tear this down rather than leaking it. */
+          getSupabase().then((supabase) => supabase.removeChannel(created));
+          return;
+        }
+        channel = created;
+      });
+    });
 
     return () => {
       isMounted = false;
+      cancelIdle();
       stopTimers();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      supabase.removeChannel(channel);
+      if (channel) {
+        const open = channel;
+        getSupabase().then((supabase) => supabase.removeChannel(open));
+      }
     };
   }, [djSlug]);
 
