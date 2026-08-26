@@ -97,18 +97,39 @@ import type { SpotifyTrack } from "@/src/components/request/TrackResults";
  * TipCard in particular is visible on load and must keep server
  * rendering, or the page would reflow when it appeared.
  */
+/*
+ * ssr:false on these four, and it costs nothing visually: every one of
+ * them is rendered behind a condition that is false on arrival — there
+ * are no results until the guest searches and no selection until they
+ * pick a track — so they contribute no markup to the first paint either
+ * way. Leaving ssr on kept their chunk in the hydration graph, which
+ * measured as Motion still loading in the initial batch and bought the
+ * guest nothing.
+ */
 const TrackResults = dynamic(
-  () => import("@/src/components/request/TrackResults")
+  () => import("@/src/components/request/TrackResults"),
+  { ssr: false }
 );
 const SelectedSong = dynamic(
-  () => import("@/src/components/request/SelectedSong")
+  () => import("@/src/components/request/SelectedSong"),
+  { ssr: false }
 );
 const RequestOptions = dynamic(
-  () => import("@/src/components/request/RequestOptions")
+  () => import("@/src/components/request/RequestOptions"),
+  { ssr: false }
 );
 const CheckoutButton = dynamic(
-  () => import("@/src/components/request/CheckoutButton")
+  () => import("@/src/components/request/CheckoutButton"),
+  { ssr: false }
 );
+
+/*
+ * TipCard keeps ssr on, deliberately. It IS on screen when the page
+ * loads, so rendering it only after hydration would leave a hole in the
+ * page and then push the layout when it arrived. Motion therefore still
+ * reaches the critical path through this one component — an honest
+ * trade of ~48KB against not reflowing the page under the guest.
+ */
 const TipCard = dynamic(() => import("@/src/components/request/TipCard"));
 import {
   SearchIdle,
