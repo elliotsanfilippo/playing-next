@@ -18,11 +18,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {
-  fetchPublicDjBootstrap,
-  PUBLIC_BOOTSTRAP_FIELDS,
-} from "../src/lib/publicDjBootstrap.ts";
-
 const env = Object.fromEntries(
   readFileSync(".env.local", "utf8")
     .split("\n")
@@ -39,6 +34,13 @@ const env = Object.fromEntries(
 for (const [key, value] of Object.entries(env)) {
   if (!process.env[key]) process.env[key] = value as string;
 }
+
+/* Imported after the environment is populated: the module builds its
+   Supabase client at import time, so a static import would run before
+   these variables exist. */
+const { fetchPublicDjBootstrap, PUBLIC_BOOTSTRAP_FIELDS } = await import(
+  "../src/lib/publicDjBootstrap.ts"
+);
 
 const TARGET = process.env.TARGET ?? "https://playingnextapp.com";
 const SLUG = process.env.TEST_SLUG ?? "elliotsanfilippo26";
