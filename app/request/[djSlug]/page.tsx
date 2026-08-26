@@ -1,44 +1,96 @@
 import RequestPageClient from "./RequestPageClient";
+import { fetchPublicDjBootstrap } from "@/src/lib/publicDjBootstrap";
 
 /*
- * ── Why this file is a server component that renders nothing ──────
+ * ── Why this route is dynamic again ──────────────────────────────
  *
- * The guest request screen is entirely client-rendered: it reads its
- * slug with useParams(), fetches the DJ with the public anon Supabase
- * query, and reads the ?tipped= return from window.location.search.
- * The server therefore contributes no DJ data to the HTML at all — the
- * shell it produces is the same app skeleton for every DJ.
+ * R5 made this shell CDN-cacheable, which was correct while the server
+ * rendered no DJ data: the HTML was the same skeleton for everybody.
+ * That is no longer true. This page now renders a specific DJ's name,
+ * availability and prices, and those go stale — a DJ pausing requests or
+ * changing a price would otherwise keep serving the old answer from the
+ * edge until the cache expired, and a guest could be quoted a price that
+ * checkout then disagrees with.
  *
- * Despite that, the route was being rendered on demand for every single
- * scan (x-vercel-cache: MISS, private/no-store) because a dynamic
- * segment with no generateStaticParams is dynamic by default. Guests
- * were paying a full serverless invocation, and sometimes a cold start,
- * to receive a shell that never varies.
+ * R5's measured benefit on the metric that mattered was zero (weak-mobile
+ * time-to-search moved 6261ms to within noise of itself), because the
+ * bottleneck was never the server. What it did buy was cold-start
+ * removal, and with functions pinned to lhr1 next to the database that
+ * is a far cheaper problem than a wrong price. Correctness wins.
  *
- * Route segment config has to live on a server component; exporting it
- * from the "use client" page was silently ignored (the build still
- * marked the route dynamic). So the client screen moved to
- * RequestPageClient.tsx unchanged, and this shell carries the config.
- *
- * Nothing about the data boundary moves with it. The DJ profile is
- * still fetched in the browser under the anon role against the same
- * 12-column public allowlist, so a cached shell cannot leak anything a
- * guest could not already read, and a DJ changing their name, photo or
- * pricing takes effect on the next guest fetch without a rebuild.
+ * The London region from Performance Pass 1 still applies and is what
+ * makes this affordable: the bootstrap query below runs in the same city
+ * as Postgres.
  */
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
-export function generateStaticParams() {
+export default async function RequestPage({
+  params,
+}: {
+  params: Promise<{ djSlug: string }>;
+}) {
+  const { djSlug } = await params;
+
+  const result = await fetchPublicDjBootstrap(djSlug);
+
   /*
-   * Intentionally empty. There is no build-time list of DJs to
-   * prerender and there should not be — a DJ who signs up after a
-   * deploy must work immediately. Returning nothing, with
-   * dynamicParams left at its default of true, means every slug is
-   * generated on first request and then served from the CDN.
+   * The three outcomes stay separate all the way to the browser.
+   *
+   * A failed bootstrap hands the client bootstrapFailed rather than a
+   * null DJ, because null means "this DJ does not exist" and that is a
+   * different, much more damaging thing to tell a guest standing in a
+   * venue. During the 2026-09-03 outage the two were the same value and
+   * every working DJ's page said "DJ Not Found".
    */
-  return [];
-}
+  if (result.status === "error") {
+    return <RequestPageClient bootstrap={null} bootstrapFailed />;
+  }
 
-export default function RequestPage() {
-  return <RequestPageClient />;
+  if (result.status === "not_found") {
+    return <RequestPageClient bootstrap={null} />;
+  }
+
+  const { dj } = result;
+
+  /*
+   * Mapped explicitly onto the shape the client already speaks. Written
+   * out field by field rather than spread: this is the last point before
+   * the data is serialized into HTML, so it is the last place a stray
+   * column could escape, and there is deliberately no mechanism here for
+   * one to do so.
+   *
+   * `bio` is absent on purpose. The view exposes it and the client's
+   * reconciliation fetch reads it, but it sits behind a disclosure below
+   * the fold and has no business in the first paint. hasBio is enough to
+   * render the disclosure affordance correctly.
+   */
+  return (
+    <RequestPageClient
+      bootstrap={{
+        id: dj.id,
+        dj_name: dj.djName,
+        request_status: dj.requestStatus,
+        last_active_at: dj.lastActiveAt,
+        auto_close_at: dj.autoCloseAt,
+        genres: dj.genres,
+        bio: dj.hasBio ? "" : null,
+        profile_image_url: dj.profileImageUrl,
+        request_price: dj.effectiveRequestPrice,
+        shoutout_price: dj.effectiveShoutoutPrice,
+      }}
+      bootstrapEvent={
+        dj.effectiveEvent
+          ? {
+              id: dj.effectiveEvent.id,
+              name: dj.effectiveEvent.name,
+              /* The view already resolved the override into the
+                 effective prices above; carrying the raw numbers again
+                 would just be a second chance to disagree. */
+              request_price: null,
+              shoutout_price: null,
+            }
+          : null
+      }
+    />
+  );
 }

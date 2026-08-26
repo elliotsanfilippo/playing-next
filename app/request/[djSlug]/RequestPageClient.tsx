@@ -46,13 +46,46 @@ import Card from "@/src/components/ui/Card";
 import { buttonVariants } from "@/src/components/ui/Button";
 
 
-export default function RequestPage() {
+type BootstrapEvent = {
+  id: string;
+  name: string;
+  request_price: number | null;
+  shoutout_price: number | null;
+};
+
+export default function RequestPage({
+  bootstrap,
+  bootstrapEvent = null,
+  bootstrapFailed = false,
+}: {
+  /* Seeded by the server component. Null only when the DJ genuinely does
+     not exist; a failed load arrives as bootstrapFailed instead, so the
+     two are never confused again. */
+  bootstrap: DJProfile | null;
+  /* Already entitlement-resolved by the view: null for a Free DJ and
+     null for a lapsed Pro DJ, with no way to tell which from here. */
+  bootstrapEvent?: BootstrapEvent | null;
+  bootstrapFailed?: boolean;
+}) {
   const params = useParams();
   const djSlug = params.djSlug as string;
 
-  const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
-  const [isLoadingDJ, setIsLoadingDJ] = useState(true);
-  const [djNotFound, setDjNotFound] = useState(false);
+  /*
+   * Seeded from the server render. The first client render therefore
+   * produces exactly the markup the server sent — same DJ, same prices,
+   * same availability — which is what keeps hydration quiet. The live
+   * reconciliation below runs after mount and only changes anything if
+   * the DJ actually changed something in the meantime.
+   */
+  const [djProfile, setDjProfile] = useState<DJProfile | null>(bootstrap);
+  const [isLoadingDJ, setIsLoadingDJ] = useState(false);
+  const [djNotFound, setDjNotFound] = useState(
+    bootstrap === null && !bootstrapFailed
+  );
+  /* Distinct from djNotFound on purpose: a failure to load is not
+     evidence that the DJ does not exist, and must not be rendered as
+     though it were. */
+  const [loadFailed, setLoadFailed] = useState(bootstrapFailed);
   /* Set by the profile effect below. Lets the submit path re-read the
      DJ's current pricing when the server says it has changed. */
   const refreshDJRef = useRef<(() => Promise<void>) | null>(null);
@@ -62,7 +95,7 @@ export default function RequestPage() {
     name: string;
     request_price: number | null;
     shoutout_price: number | null;
-  } | null>(null);
+  } | null>(bootstrapEvent);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
@@ -268,33 +301,30 @@ export default function RequestPage() {
      * belt is not enough for that.
      */
     /*
-     * Only columns the public `anon` role is granted.
+     * Reads the public bootstrap view, not dj_profiles.
      *
-     * This ran as a guest, in the browser, under the anon key, and 5E
-     * added `plan, stripe_subscription_status` to it so the page could
-     * hide a lapsed Pro DJ's event pricing. Those two columns are
-     * deliberately NOT granted to anon — they are commercial account
-     * state — so PostgREST refused the whole query with 42501, the
-     * catch below turned that into "DJ Not Found", and every DJ's
-     * request page died for every guest.
+     * 5E added `plan, stripe_subscription_status` to a base-table query
+     * that ran here, in a guest's browser, under the anon key. Those
+     * columns are deliberately not granted to anon — they are commercial
+     * account state — so PostgREST refused the whole query with 42501,
+     * the catch turned that into "DJ Not Found", and every DJ's request
+     * page died for every guest.
      *
-     * Granting them would have fixed the symptom by publishing every
-     * DJ's plan and Stripe subscription status to anyone who asked, so
-     * the columns come out instead. Anything this page needs to know
-     * about entitlement has to arrive through a server-side route that
-     * can read those columns safely; until that exists, an active event
-     * is treated as in force for display.
+     * The view answers the question those columns were added for without
+     * publishing them: entitlement is evaluated inside Postgres and only
+     * the result comes out, as an effective event and effective prices.
+     * A Free DJ and a lapsed Pro DJ are indistinguishable from here,
+     * which is the point.
      *
-     * That is safe rather than merely acceptable: server-side pricing
-     * never trusted this page, and 5E's event-context guard already
-     * refuses to create a request when the event the page displayed
-     * disagrees with the one the server resolves. A lapsed DJ's guest
-     * is asked to review the price, not charged the wrong one.
+     * It is also the same shape the server rendered from, so this
+     * reconciliation cannot disagree with the first paint about which
+     * columns exist — the two callers differ only in whether they ask
+     * for `bio`, which the server leaves out of the first paint.
      */
     const PROFILE_SELECT =
       "id, dj_name, request_status, last_active_at, auto_close_at, genres, bio, " +
-      "request_price, shoutout_price, profile_image_url, " +
-      "dj_events(id, name, request_price, shoutout_price, is_active)";
+      "profile_image_url, effective_request_price, effective_shoutout_price, " +
+      "effective_event_id, effective_event_name";
 
     type EmbeddedEvent = {
       id: string;
@@ -306,31 +336,50 @@ export default function RequestPage() {
 
     const readProfile = async () => {
       const { data, error } = await supabase
-        .from("dj_profiles")
+        .from("public_dj_request_bootstrap")
         .select(PROFILE_SELECT)
         .eq("slug", djSlug)
-        .eq("dj_events.is_active", true)
         .maybeSingle();
 
-      if (error || !data) return { profile: null, event: null };
+      /*
+       * A failed reconciliation leaves the server's data on screen. It
+       * does not blank the page, does not show a loading state over
+       * content the guest is already reading, and above all does not
+       * decide the DJ has ceased to exist because one fetch failed.
+       */
+      if (error) return { profile: null, event: null, failed: true };
 
-      /* `unknown` first: the generated types model an embedded select
-         as a possible error shape, which does not overlap the row. */
-      const row = data as unknown as Record<string, unknown> & {
-        dj_events?: EmbeddedEvent[] | null;
+      if (!data) return { profile: null, event: null, failed: false };
+
+      const row = data as unknown as Record<string, unknown>;
+
+      /* Mapped back onto the shape the rest of this page already speaks,
+         so nothing downstream had to change: the view hands over
+         effective prices, which is what the guest is quoted. */
+      const profile: Record<string, unknown> = {
+        id: row.id,
+        dj_name: row.dj_name,
+        request_status: row.request_status,
+        last_active_at: row.last_active_at,
+        auto_close_at: row.auto_close_at,
+        genres: row.genres,
+        bio: row.bio,
+        profile_image_url: row.profile_image_url ?? null,
+        request_price: row.effective_request_price,
+        shoutout_price: row.effective_shoutout_price,
       };
-      const events = row.dj_events;
-      const profile = { ...row };
-      delete profile.dj_events;
 
-      /* Re-checked here as well as server-side in the query: this row
-         decides the price shown, and one belt is not enough for that.
-         Entitlement is no longer read here — see PROFILE_SELECT. */
-      const event =
-        (events ?? []).find((candidate) => candidate.is_active !== false) ??
-        null;
+      const event: EmbeddedEvent | null =
+        typeof row.effective_event_id === "string" && row.effective_event_id
+          ? {
+              id: row.effective_event_id,
+              name: String(row.effective_event_name ?? ""),
+              request_price: null,
+              shoutout_price: null,
+            }
+          : null;
 
-      return { profile, event };
+      return { profile, event, failed: false };
     };
 
     const applyProfile = (
@@ -349,26 +398,49 @@ export default function RequestPage() {
       setActiveEvent(event);
     };
 
+    /*
+     * On mount this is a reconciliation, not a first load: the server
+     * already rendered this DJ. It exists to catch anything that changed
+     * between the server render and the guest's screen lighting up — a
+     * pause, a price edit, an event starting.
+     *
+     * It therefore never shows a loading state (there is content on
+     * screen to protect) and never blanks what the server rendered.
+     */
     const loadDJ = async () => {
-      setIsLoadingDJ(true);
-
-      const { profile, event } = await readProfile();
+      const { profile, event, failed } = await readProfile();
 
       if (!isMounted) return;
 
+      /*
+       * Three outcomes kept apart, which is the whole point of this fix.
+       *
+       * failed  - keep whatever the server rendered and say nothing. A
+       *           fetch that did not come back is not information about
+       *           the DJ. If the server render also failed we are
+       *           already showing the retry state.
+       * absent  - a genuine 200-with-no-row. Only then is the DJ missing,
+       *           and only if the server did not already find them (it
+       *           may have raced a slug change).
+       * present - reconcile.
+       */
+      if (failed) return;
+
       if (!profile) {
-        setDjNotFound(true);
-        setIsLoadingDJ(false);
+        if (!bootstrap) setDjNotFound(true);
         return;
       }
 
       applyProfile(profile, event);
       setDjNotFound(false);
-      setIsLoadingDJ(false);
+      setLoadFailed(false);
     };
 
     const refreshDJ = async () => {
-      const { profile, event } = await readProfile();
+      const { profile, event, failed } = await readProfile();
+      /* Same rule as above: a failed refresh leaves the last known good
+         state alone rather than replacing it with nothing. */
+      if (failed || !profile) return;
       applyProfile(profile, event);
     };
 
@@ -659,6 +731,41 @@ export default function RequestPage() {
           <Card variant="elevated" className="p-8 text-center">
             <p className="text-sm text-zinc-400">Playing Next</p>
             <h1 className="mt-3 text-h2">Loading DJ...</h1>
+          </Card>
+        </section>
+      </main>
+    );
+  }
+
+  /*
+   * Ordered before the not-found branch deliberately. A bootstrap or
+   * network failure must never be able to fall through into "DJ Not
+   * Found" — that is the exact wording that told every guest their
+   * working DJ did not exist during the 2026-09-03 outage.
+   */
+  if (loadFailed) {
+    return (
+      <main className="min-h-screen bg-canvas p-6 text-white">
+        <section className="mx-auto flex min-h-screen max-w-xl items-center justify-center">
+          <Card variant="elevated" className="p-8 text-center">
+            <h1 className="text-h2">Can&apos;t load this page</h1>
+
+            <p className="mt-4 text-zinc-400">
+              Something went wrong at our end, not yours. The DJ is
+              probably fine — try again in a moment.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className={buttonVariants({ className: "mt-6" })}
+            >
+              Try again
+            </button>
+
+            <p className="mt-4 text-xs text-zinc-500">
+              If this keeps happening, ask the DJ to check their link.
+            </p>
           </Card>
         </section>
       </main>
