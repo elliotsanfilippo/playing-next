@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
@@ -735,10 +736,12 @@ function DJSettingsPageContent() {
             value={
               profileImageUrl ? (
                 <span className="inline-flex items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={profileImageUrl}
                     alt=""
+                    width={28}
+                    height={28}
+                    sizes="28px"
                     className="h-7 w-7 rounded-full object-cover"
                   />
                   <span>Change</span>

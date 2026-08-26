@@ -124,7 +124,17 @@
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /*
+    The system monospace stack rather than a downloaded face. Geist Mono
+    was being fetched on every route — 28.8KB, more than half the font
+    payload, including on the guest request page — to style exactly one
+    element: the truncated request link in DJ settings. The monospace
+    intent there is worth keeping (it marks the URL as a literal string
+    to copy), but not worth a webfont on a page a guest loads in a venue
+    on mobile data. Every platform ships a good monospace face already.
+  */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
 }
 
 :root {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Search } from "lucide-react";
 import Badge from "@/src/components/ui/Badge";
 
@@ -108,9 +109,12 @@ export default function SearchStation({
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           {dj.profile_image_url ? (
-                            <img
+                            <Image
                               src={dj.profile_image_url}
                               alt={dj.dj_name}
+                              width={48}
+                              height={48}
+                              sizes="48px"
                               className="h-12 w-12 shrink-0 rounded-2xl object-cover"
                             />
                           ) : (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   Suspense,
   useEffect,
@@ -293,13 +294,12 @@ function ConfirmationPageContent() {
             request; the DJ is context for it. */}
         <div className="flex items-center gap-3 rounded-card border border-white/10 bg-surface-raised px-3.5 py-3 sm:px-5">
           {dj?.profile_image_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element -- Supabase
-               storage URL at 36px; nothing for next/image to optimize. */
-            <img
+            <Image
               src={dj.profile_image_url}
               alt=""
               width={36}
               height={36}
+              sizes="36px"
               className="h-9 w-9 shrink-0 rounded-full border border-white/10 object-cover"
             />
           ) : (

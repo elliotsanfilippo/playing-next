@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { DJProfile } from "@/src/types/dashboard";
 import {
@@ -265,9 +266,12 @@ export default function DashboardHeader({
           <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10">
             {djProfile?.profile_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={djProfile.profile_image_url}
                 alt=""
+                width={40}
+                height={40}
+                sizes="40px"
                 className="h-full w-full object-cover"
               />
             ) : (

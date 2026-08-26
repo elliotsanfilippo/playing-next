@@ -1,13 +1,7 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element --
- * The DJ's avatar is a Supabase storage URL rendered at 56px. Routing
- * every DJ's avatar through the image optimizer buys nothing at that
- * size; the reflow risk the rule guards against is handled by the
- * explicit width/height below.
- */
-
 import { useState } from "react";
+import Image from "next/image";
 import { ChevronDown, ListMusic } from "lucide-react";
 import { cn } from "@/src/lib/cn";
 import type { AvailabilityState } from "@/src/lib/guestAvailability";
@@ -88,11 +82,15 @@ export default function RequestHeader({
           the whole page reflowed once the image arrived.
         */}
         {djProfile.profile_image_url ? (
-          <img
+          <Image
             src={djProfile.profile_image_url}
             alt=""
-            width={56}
-            height={56}
+            width={64}
+            height={64}
+            /* 56px mobile, 64px from sm — `sizes` lets the optimizer pick
+               the right file for the device's pixel ratio instead of
+               shipping the DJ's full-resolution upload. */
+            sizes="64px"
             className="h-14 w-14 shrink-0 rounded-full border border-white/10 object-cover sm:h-16 sm:w-16"
           />
         ) : (
