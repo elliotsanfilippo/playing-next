@@ -949,3 +949,57 @@ read as a fourth Pro feature.
 Making it a standing Pro perk has been considered and **not decided**.
 It would need its own decision, and the unit economics, manufacturer and
 shipping questions answered first.
+
+## 19. ⚡ Guest request page performance — closed 2026-08-27
+
+The venue benchmark this was measured against throughout, and the numbers
+to compare any future regression to. All figures are Production, Chrome,
+700kbps / 300ms RTT, cache disabled, warm function.
+
+| | Before | After |
+| --- | --- | --- |
+| DJ identity visible | 6428ms | **~1.5s** |
+| Availability visible | 6428ms | **~1.5s** |
+| First keystroke accepted | 5908–6831ms | **4441–4667ms** |
+| Initial critical JS | 414 KB | **259.4 KB** |
+| CLS | 0.056 | **0** |
+
+What got it there, in order of contribution:
+
+1. **Functions moved to `lhr1`.** Supabase is in London and every dynamic
+   route was executing in `iad1`, crossing the Atlantic twice per request.
+2. **The DJ is server-rendered** through `public_dj_request_bootstrap`,
+   so identity, availability and prices no longer wait on hydration.
+3. **Avatars go through the image optimizer** — 338 KB to 7 KB at DPR 3.
+4. **GTM moved to `afterInteractive`**, off the first-render path.
+5. **Supabase, Motion, `obscenity` and Sonner are all deferred** past the
+   moment the search box becomes interactive.
+
+Two costs were accepted deliberately and should not be "fixed" without
+re-reading why:
+
+- **The route is dynamic, not CDN-cached.** It renders live prices and
+  availability, and a stale price a guest is quoted but not charged is
+  worse than a cache miss. Caching it measured as no improvement to the
+  metric that mattered anyway.
+- **TipCard's space is reserved at 62px** so its code can load late
+  without shifting the page. That number is measured, not chosen — if the
+  collapsed card's height ever changes, the reservation must change too.
+
+### Deliberately not done
+
+- **The state lift / island refactor.** Audited and rejected: ~13 KB and
+  ~0.15s for moving roughly fifteen pieces of request and payment state
+  on the page that caused the September outage. The worst ratio on the
+  board.
+- **Sentry.** It is ~98 KB of the remaining critical path, on every route
+  — a static legal page pays it too — and removing it from the critical
+  path would be worth roughly 1.1s. It is left alone on purpose: lazy
+  initialisation would blind us to errors thrown before it loads, which
+  is exactly where hydration failures live. Optional future work, not a
+  blocker. Note `enableLogs: true` is enabled while no `Sentry.logger`
+  call exists anywhere in the codebase.
+
+Below about 3s is not reachable at this connection speed regardless:
+Next's own runtime is ~158 KB, which is ~1.8s of transfer before any of
+our code loads.
