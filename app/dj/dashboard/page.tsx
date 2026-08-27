@@ -92,6 +92,25 @@ export default function DJDashboardPage() {
   const [showQr, setShowQr] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  /*
+   * ── Why "no data" and "couldn't load" are separate states ────────
+   *
+   * fetchRequests used to answer a failed load with console.log and a
+   * bare return. The DJ was then shown the honest-looking result of an
+   * empty array: no requests needing them, an empty queue, nothing
+   * played, GBP 0 tonight. Mid-set, on venue wifi, that is the most
+   * dangerous screen this product can draw — it says the night is quiet
+   * when the truth is that we have no idea.
+   *
+   * hasLoadedOnce distinguishes the two failures that look identical on
+   * screen but are not. Before any successful load, a failure means we
+   * have nothing and must say so. After one, we still have the last
+   * known good data and should keep showing it, marked stale, rather
+   * than blanking a working dashboard because one refresh timed out.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [isStale, setIsStale] = useState(false);
+  const hasLoadedOnce = useRef(false);
   const [realtimeDown, setRealtimeDown] = useState(false);
 
   /*
@@ -320,8 +339,21 @@ export default function DJDashboardPage() {
 
     if (error) {
       console.log(error);
+
+      /* Keep whatever is on screen if it was ever real, and mark it
+         stale. Only a dashboard that has never loaded is empty. */
+      if (hasLoadedOnce.current) {
+        setIsStale(true);
+      } else {
+        setLoadFailed(true);
+      }
+
       return;
     }
+
+    hasLoadedOnce.current = true;
+    setLoadFailed(false);
+    setIsStale(false);
 
     const freshRequests = data || [];
     const currentPendingIds = new Set(
@@ -520,12 +552,49 @@ export default function DJDashboardPage() {
     }
   };
 
+  /*
+   * ── Which transitions a dashboard action is allowed to make ──────
+   *
+   * Ownership was already enforced — RLS restricts every one of these
+   * writes to the DJ's own requests — but ownership only answers "whose
+   * request is this", never "is this a legal move". The write underneath
+   * was .eq("id", requestId) and nothing else, so a tab left open in a
+   * booth could drive a request that had since been declined, expired or
+   * played straight back into any status it liked, and the last write
+   * won silently.
+   *
+   * Each action now declares the statuses it is allowed to move from,
+   * and the update carries that expectation into the database. A stale
+   * action matches zero rows instead of overwriting newer truth, and the
+   * DJ is shown what actually happened rather than a success toast for a
+   * move that did not make sense.
+   */
+  const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+    /* Only a pending request can be declined. Once it is accepted the
+       money has moved and declining is no longer the right instrument —
+       the Stripe cancel would fail first anyway. */
+    declined: ["pending"],
+    /* Cueing goes through set_playing_next() rather than here, because
+       it also has to demote whatever was cued before. */
+    playing_next: ["accepted"],
+    /* A DJ can mark the cued track played, or reach past it and mark
+       something in the queue played directly. */
+    played: ["accepted", "playing_next"],
+  };
+
   const updateRequestStatus = async (
     requestId: string,
     status: string,
     declineReason?: string | null
   ) => {
-    const { error } = await supabase
+    const allowedFrom = ALLOWED_TRANSITIONS[status];
+
+    if (!allowedFrom) {
+      console.log("Refusing unmapped transition:", status);
+      return;
+    }
+
+    const { data: updated, error } = await supabase
       .from("song_requests")
       .update({
         request_status: status,
@@ -533,21 +602,55 @@ export default function DJDashboardPage() {
           ? { decline_reason: declineReason }
           : {}),
       })
-      .eq("id", requestId);
+      .eq("id", requestId)
+      .in("request_status", allowedFrom)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       console.log("Update request status error:", error);
       toast.error(error.message);
+      await fetchRequests();
       return;
     }
 
-    if (
-      status === "accepted" ||
-      status === "playing_next" ||
-      status === "played" ||
-      status === "declined"
-    ) {
+    if (!updated) {
+      /*
+       * Zero rows matched, so this request is no longer in a state where
+       * the action makes sense — another device moved it, or it expired
+       * while the button sat on screen. Refetching is the whole remedy:
+       * the DJ sees the real state rather than a stale row.
+       */
+      toast.error("That request just changed somewhere else. Refreshed.");
+      await fetchRequests();
+      return;
+    }
+
+    if (status === "playing_next" || status === "played" || status === "declined") {
       await reorderQueue();
+    }
+
+    await fetchRequests();
+  };
+
+  /*
+   * Cueing is its own operation because it is a swap, not a write: the
+   * request being cued goes to playing_next and whatever held the slot
+   * goes back to accepted, at the queue position it already had. Both
+   * happen inside set_playing_next() so a second device cannot land
+   * between them, and a partial unique index refuses a second cued
+   * request even if one somehow tried.
+   */
+  const setPlayingNext = async (requestId: string) => {
+    const { error } = await supabase.rpc("set_playing_next", {
+      p_request_id: requestId,
+    });
+
+    if (error) {
+      console.log("Set playing next error:", error);
+      toast.error(
+        "Couldn't cue that track. It may have just changed — refreshed."
+      );
     }
 
     await fetchRequests();
@@ -1233,8 +1336,54 @@ export default function DJDashboardPage() {
     await fetchDJProfile();
   };
 
+  /*
+   * ── When we are not sure we are looking at server truth ──────────
+   *
+   * Two different ways to end up here: the realtime socket has been down
+   * past its grace period, or a refetch failed while older data stays on
+   * screen. Both mean the same thing operationally — this list may have
+   * moved on without us.
+   *
+   * Deliberately NOT set during the 8s realtime grace. A socket that
+   * flaps for two seconds mid-set is normal and the data is almost
+   * certainly still current; disabling a DJ's Accept button every time
+   * the venue wifi hiccups would be its own failure.
+   */
+  const connectionUnknown = realtimeDown || isStale;
+
   if (loadingDashboard) {
     return <DashboardSkeleton />;
+  }
+
+  /*
+   * Never loaded, and the load failed. This is the one case where the
+   * dashboard genuinely has nothing, and it says so rather than drawing
+   * an empty queue and a GBP 0 total that a DJ mid-set would read as a
+   * quiet night instead of as "we cannot reach the server".
+   */
+  if (loadFailed) {
+    return (
+      <main className="min-h-screen bg-canvas p-6 text-white">
+        <section className="mx-auto flex min-h-screen max-w-xl items-center justify-center">
+          <div className="w-full rounded-card border border-white/10 bg-surface-raised p-8 text-center">
+            <h1 className="text-h2">Can&apos;t load your dashboard</h1>
+
+            <p className="mt-4 text-sm leading-6 text-zinc-400">
+              Your requests and queue are safe. This is a connection
+              problem, not anything lost.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-6 inline-flex h-11 items-center justify-center rounded-control bg-accent px-5 text-sm font-semibold text-black"
+            >
+              Try again
+            </button>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   if (djProfile && !djProfile.onboarding_complete && !onboardingComplete) {
@@ -1332,7 +1481,7 @@ export default function DJDashboardPage() {
           onResolved={fetchChargebacks}
         />
 
-        {realtimeDown && (
+        {connectionUnknown && (
           <div
             role="status"
             className="flex items-start gap-2.5 rounded-card border border-status-pending-surface/25 bg-status-pending-surface/[0.07] px-4 py-3"
@@ -1376,6 +1525,7 @@ export default function DJDashboardPage() {
               horizontal overflow onto the page at 375px. */}
           <div id="pending-requests" className="min-w-0 scroll-mt-24">
             <PendingRequests
+              connectionUnknown={connectionUnknown}
               pendingRequests={pendingRequests}
               acceptRequest={acceptRequest}
               declineRequest={declineRequest}
@@ -1399,6 +1549,7 @@ export default function DJDashboardPage() {
 
             <div id="accepted-queue" className="flex min-h-0 flex-1 flex-col scroll-mt-24">
               <AcceptedQueue
+                setPlayingNext={setPlayingNext}
                 acceptedRequests={acceptedRequests}
                 currentPlayingNext={currentPlayingNext}
                 moveAcceptedRequest={moveAcceptedRequest}

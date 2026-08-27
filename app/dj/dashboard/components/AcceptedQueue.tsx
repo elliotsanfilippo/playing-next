@@ -31,6 +31,7 @@ type Props = {
     requestId: string,
     status: string
   ) => Promise<void>;
+  setPlayingNext: (id: string) => Promise<void>;
   /** So the empty copy doesn't imply nothing has come in when requests
    *  are in fact sitting in Needs You. */
   pendingCount: number;
@@ -68,6 +69,7 @@ export default function AcceptedQueue({
   currentPlayingNext,
   moveAcceptedRequest,
   updateRequestStatus,
+  setPlayingNext,
   pendingCount,
 }: Props) {
   const shouldReduceMotion = useReducedMotion();
@@ -226,7 +228,7 @@ export default function AcceptedQueue({
     run(request.id, () => moveAcceptedRequest(request.id, direction));
 
   const playNext = (request: SongRequest) =>
-    run(request.id, () => updateRequestStatus(request.id, "playing_next"));
+    run(request.id, () => setPlayingNext(request.id));
 
   const sheetRequest = acceptedRequests.find((r) => r.id === sheetId);
 

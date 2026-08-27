@@ -20,6 +20,15 @@ import RequestCard from "@/src/components/product/RequestCard";
 type Props = {
   pendingRequests: SongRequest[];
   acceptRequest: (request: SongRequest) => Promise<void>;
+  /*
+   * True when live updates have been down past their grace period, or a
+   * refetch failed and this list may have moved on without us. Accept is
+   * the one action here that takes a guest's money, so it does not
+   * proceed from data we are not sure of. Decline stays available: it
+   * releases an authorisation rather than capturing one, and the server
+   * refuses it outright if the request has already been accepted.
+   */
+  connectionUnknown?: boolean;
   declineRequest: (
     request: SongRequest,
     declineReason?: string | null
@@ -84,6 +93,7 @@ const flashVariants: Variants = {
 export default function PendingRequests({
   pendingRequests,
   acceptRequest,
+  connectionUnknown = false,
   declineRequest,
   isTakingRequests,
   autoClosed,
@@ -435,7 +445,7 @@ export default function PendingRequests({
                           <Button
                             variant="accent"
                             className="h-12 flex-[1.4] sm:h-11"
-                            disabled={Boolean(action)}
+                            disabled={Boolean(action) || connectionUnknown}
                             onClick={() => runAccept(request)}
                           >
                             {accepting ? (
