@@ -590,58 +590,53 @@ export default function DJDashboardPage() {
     toast.success("History cleared");
   };
 
+  /*
+   * Accept is one server call now.
+   *
+   * It used to be two steps with the browser owning the second: capture
+   * here, then a separate supabase.update() writing "accepted". That
+   * split is what made a captured payment unrecoverable — if the write
+   * failed, the money had moved and the row had not, and retrying hit
+   * Stripe's already-captured error and stuck there permanently.
+   *
+   * /api/stripe/capture now authenticates, checks ownership, requires
+   * the request to still be pending, checks the queue cap, reconciles
+   * against the PaymentIntent's real state, transitions the row and
+   * assigns its queue position. There is deliberately no client write
+   * left behind; this refetches and renders whatever the server says.
+   */
   const acceptRequest = async (request: SongRequest) => {
-    if (request.stripe_payment_intent_id) {
-      const response = await fetch("/api/stripe/capture", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          paymentIntentId: request.stripe_payment_intent_id,
-          requestId: request.id,
-          accessToken: (await supabase.auth.getSession()).data.session
-            ?.access_token,
-        }),
-      });
+    const response = await fetch("/api/stripe/capture", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paymentIntentId: request.stripe_payment_intent_id,
+        requestId: request.id,
+        accessToken: (await supabase.auth.getSession()).data.session
+          ?.access_token,
+      }),
+    });
 
-      const result = await response.json();
+    const result = await response.json().catch(() => null);
 
-      if (!response.ok) {
-        toast.error(result.message || result.error);
-        return;
-      }
-    }
-
-    /*
-     * This update's error was not being read, so a failure here still
-     * fell through to reorderQueue(), fetchRequests() and a success
-     * toast. The capture above has already taken the guest's money at
-     * that point, so the DJ was told the request was accepted while the
-     * row stayed pending and the guest stayed charged. Nothing about
-     * the capture call itself changes; we just stop ignoring what the
-     * write tells us.
-     */
-    const { error: acceptError } = await supabase
-      .from("song_requests")
-      .update({
-        request_status: "accepted",
-        accepted_at: new Date().toISOString(),
-      })
-      .eq("id", request.id);
-
-    if (acceptError) {
-      console.log("Accept request error:", acceptError);
+    if (!response.ok) {
       toast.error(
-        "The payment went through but we couldn't update this request. Refreshing — try accepting again."
+        result?.message || result?.error || "Couldn't accept this request."
       );
+      /* Whatever went wrong, the server knows the real state and this
+         does not — so show the server's version rather than leaving a
+         stale row on screen next to an error about it. */
       await fetchRequests();
       return;
     }
 
-    await reorderQueue();
     await fetchRequests();
-    toast.success("Request accepted");
+
+    /* A retry landing on an already-accepted request is a success, not a
+       surprise: the first attempt worked and its response was lost. */
+    toast.success(
+      result?.alreadyAccepted ? "Already accepted" : "Request accepted"
+    );
   };
 
   const declineRequest = async (
