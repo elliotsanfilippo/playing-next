@@ -647,6 +647,21 @@ export default function DJDashboardPage() {
     });
 
     if (error) {
+      /*
+       * PGRST202 means the function is not in the schema yet — the code
+       * shipped ahead of its migration. Falling back to the guarded
+       * update keeps cueing working in that window rather than leaving a
+       * dead button in a booth. It is strictly better than what this
+       * replaced (it still requires the request to be accepted), but it
+       * cannot demote the previously cued track, so the invariant only
+       * becomes real once the migration runs.
+       */
+      if (error.code === "PGRST202") {
+        console.log("set_playing_next missing; using guarded fallback");
+        await updateRequestStatus(requestId, "playing_next");
+        return;
+      }
+
       console.log("Set playing next error:", error);
       toast.error(
         "Couldn't cue that track. It may have just changed — refreshed."
