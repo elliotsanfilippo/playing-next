@@ -10,6 +10,93 @@ import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { toast } from "sonner";
+import { availabilityState } from "@/src/lib/guestAvailability";
+import {
+  addGuestRequestId,
+  getGuestRequestIdsServerSnapshot,
+  getGuestRequestIdsSnapshot,
+  subscribeGuestRequestIds,
+} from "@/src/lib/guestRequestIds";
+import { useRequestStatus } from "@/src/lib/useRequestStatus";
+import {
+  getGuestNotificationsEnabled,
+  showBrowserNotification,
+} from "@/src/lib/notifications";
+import { requestStatusNotificationCopy } from "@/src/lib/requestStatus";
+import RequestHeader, {
+  type DJProfile,
+} from "@/src/components/request/RequestHeader";
+
+import SpotifySearchInput from "@/src/components/request/SpotifySearchInput";
+import type { SpotifyTrack } from "@/src/components/request/TrackResults";
+
+/*
+ * ── Why these five are loaded on demand ───────────────────────────
+ *
+ * Between them they pull in Motion (~48KB on the wire) and, through
+ * TipCard, the obscenity matcher. None of it is needed to show a guest
+ * the DJ, the availability, or a search box they can type into — which
+ * is the only thing that matters while they are standing in a venue
+ * waiting for the page to become useful.
+ *
+ * Measured before this work: 385KB of critical JS and 5.9s to a first
+ * accepted keystroke at 700kbps.
+ *
+ * ssr:false on these four, and it costs nothing visually: every one of
+ * them is rendered behind a condition that is false on arrival — there
+ * are no results until the guest searches and no selection until they
+ * pick a track — so they contribute no markup to the first paint either
+ * way. Leaving ssr on kept their chunk in the hydration graph, which
+ * measured as Motion still loading in the initial batch and bought the
+ * guest nothing.
+ */
+const TrackResults = dynamic(
+  () => import("@/src/components/request/TrackResults"),
+  { ssr: false }
+);
+const SelectedSong = dynamic(
+  () => import("@/src/components/request/SelectedSong"),
+  { ssr: false }
+);
+const RequestOptions = dynamic(
+  () => import("@/src/components/request/RequestOptions"),
+  { ssr: false }
+);
+const CheckoutButton = dynamic(
+  () => import("@/src/components/request/CheckoutButton"),
+  { ssr: false }
+);
+
+/*
+ * TipCard is the last thing holding Motion on the critical path, and it
+ * is on screen at load — measured at exactly 62px tall in its collapsed
+ * state at 360, 390 and 768 wide, so its height does not depend on the
+ * viewport.
+ *
+ * That fixed height is what makes deferring it safe. The wrapper below
+ * reserves 62px in the server HTML, so the space the card will occupy is
+ * already held open before its JavaScript exists. The card fades into a
+ * gap that was always there rather than pushing the page down when it
+ * arrives, and CLS stays at zero.
+ *
+ * The card itself is untouched — same copy, same amounts, same
+ * moderation, same Stripe call, same event linkage. Only the moment its
+ * code downloads has changed.
+ */
+const TipCard = dynamic(() => import("@/src/components/request/TipCard"), {
+  ssr: false,
+  loading: () => <div aria-hidden className="h-[62px]" />,
+});
+import {
+  SearchIdle,
+  SearchLoading,
+  SearchNoResults,
+  SearchError,
+} from "@/src/components/request/SearchStates";
+import UnavailableNotice from "@/src/components/request/UnavailableNotice";
+import Card from "@/src/components/ui/Card";
+import { buttonVariants } from "@/src/components/ui/Button";
+
 /*
  * ── Why the Supabase client is not imported at module scope ───────
  *
@@ -59,87 +146,6 @@ const whenIdle = (run: () => void): (() => void) => {
   const timer = setTimeout(run, 800);
   return () => clearTimeout(timer);
 };
-import { availabilityState } from "@/src/lib/guestAvailability";
-import {
-  addGuestRequestId,
-  getGuestRequestIdsServerSnapshot,
-  getGuestRequestIdsSnapshot,
-  subscribeGuestRequestIds,
-} from "@/src/lib/guestRequestIds";
-import { useRequestStatus } from "@/src/lib/useRequestStatus";
-import {
-  getGuestNotificationsEnabled,
-  showBrowserNotification,
-} from "@/src/lib/notifications";
-import { requestStatusNotificationCopy } from "@/src/lib/requestStatus";
-import RequestHeader, {
-  type DJProfile,
-} from "@/src/components/request/RequestHeader";
-
-import SpotifySearchInput from "@/src/components/request/SpotifySearchInput";
-import type { SpotifyTrack } from "@/src/components/request/TrackResults";
-
-/*
- * ── Why these five are loaded on demand ───────────────────────────
- *
- * Between them they pull in Motion (~48KB on the wire) and, through
- * TipCard, the obscenity matcher. None of it is needed to show a guest
- * the DJ, the availability, or a search box they can type into — which
- * is the only thing that matters while they are standing in a venue
- * waiting for the page to become useful.
- *
- * Measured before this: 414KB of critical JS and 5.9s to a first
- * accepted keystroke at 700kbps.
- *
- * ssr is left ON for all of them. They still render into the server
- * HTML exactly as before, so nothing that used to be in the first paint
- * disappears from it — this only moves when their JAVASCRIPT arrives.
- * TipCard in particular is visible on load and must keep server
- * rendering, or the page would reflow when it appeared.
- */
-/*
- * ssr:false on these four, and it costs nothing visually: every one of
- * them is rendered behind a condition that is false on arrival — there
- * are no results until the guest searches and no selection until they
- * pick a track — so they contribute no markup to the first paint either
- * way. Leaving ssr on kept their chunk in the hydration graph, which
- * measured as Motion still loading in the initial batch and bought the
- * guest nothing.
- */
-const TrackResults = dynamic(
-  () => import("@/src/components/request/TrackResults"),
-  { ssr: false }
-);
-const SelectedSong = dynamic(
-  () => import("@/src/components/request/SelectedSong"),
-  { ssr: false }
-);
-const RequestOptions = dynamic(
-  () => import("@/src/components/request/RequestOptions"),
-  { ssr: false }
-);
-const CheckoutButton = dynamic(
-  () => import("@/src/components/request/CheckoutButton"),
-  { ssr: false }
-);
-
-/*
- * TipCard keeps ssr on, deliberately. It IS on screen when the page
- * loads, so rendering it only after hydration would leave a hole in the
- * page and then push the layout when it arrived. Motion therefore still
- * reaches the critical path through this one component — an honest
- * trade of ~48KB against not reflowing the page under the guest.
- */
-const TipCard = dynamic(() => import("@/src/components/request/TipCard"));
-import {
-  SearchIdle,
-  SearchLoading,
-  SearchNoResults,
-  SearchError,
-} from "@/src/components/request/SearchStates";
-import UnavailableNotice from "@/src/components/request/UnavailableNotice";
-import Card from "@/src/components/ui/Card";
-import { buttonVariants } from "@/src/components/ui/Button";
 
 
 type BootstrapEvent = {
@@ -1081,7 +1087,10 @@ export default function RequestPage({
           </>
         )}
 
-        <div className="mt-4">
+        {/* min-height, not a fixed height: the card expands when a guest
+            opens it, and this must reserve the collapsed footprint
+            without capping the open one. */}
+        <div className="mt-4 min-h-[62px]">
           <TipCard djSlug={djSlug} isTakingRequests={isTakingRequests} />
         </div>
       </section>
