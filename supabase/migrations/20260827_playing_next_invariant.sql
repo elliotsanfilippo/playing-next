@@ -127,5 +127,22 @@ comment on function public.set_playing_next(uuid) is
   'cued request to accepted at its existing queue position. One '
   'transaction, so two devices cannot race into two cued requests.';
 
+-- ------------------------------------------------------------
+-- EXECUTE grants
+--
+-- Supabase's default privileges grant EXECUTE on new functions in this
+-- schema to anon and authenticated, and "revoke all from public" does
+-- NOT remove those: PUBLIC is a different grantee from either role. The
+-- revokes below are therefore explicit about anon, or it keeps a grant
+-- nobody intended it to have.
+--
+-- Unlike is_pro_entitled in the bootstrap migration, revoking anon here
+-- is safe and correct: this function is SECURITY DEFINER and is called
+-- directly by the DJ's browser, never from inside a view, so no other
+-- statement depends on a guest being able to execute it. A guest calling
+-- it could do nothing anyway — it derives its DJ from auth.uid() — but
+-- the grant should still match the intent.
+-- ------------------------------------------------------------
 revoke all on function public.set_playing_next(uuid) from public;
+revoke execute on function public.set_playing_next(uuid) from anon;
 grant execute on function public.set_playing_next(uuid) to authenticated;

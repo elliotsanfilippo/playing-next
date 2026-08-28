@@ -100,10 +100,33 @@ comment on function public.is_pro_entitled(text, text) is
   'src/lib/planEntitlement.ts; scripts/entitlement-parity.test.ts '
   'asserts the two agree. Update both together.';
 
--- Tests run as service_role. anon never calls this directly: the view
--- executes it as the view owner, so anon needs no privilege on it.
+-- ------------------------------------------------------------
+-- EXECUTE grants, and why anon genuinely needs one
+--
+-- Read this before "tidying up" these grants. Revoking EXECUTE from
+-- anon here takes the guest request page down, and it has already done
+-- so once, on 2026-08-28.
+--
+-- The reasoning that caused it was: the bootstrap view is
+-- security_invoker = false, so it runs as its owner, so the caller needs
+-- no privileges of its own. That is true of the TABLES the view reads.
+-- It is not true of the FUNCTIONS it calls. A plain LANGUAGE SQL
+-- function invoked inside a view still executes with the CALLER's
+-- privileges, so anon selecting from public_dj_request_bootstrap must be
+-- able to execute this function or the whole query fails with 42501.
+--
+-- Granting it exposes nothing: this function takes a plan and a status
+-- as arguments and returns a boolean. It reads no rows and no columns,
+-- so a caller can only ever learn the answer for values it already
+-- supplied. plan and stripe_subscription_status remain unreadable.
+--
+-- If this ever does need to be locked down, the way to do it is to make
+-- the function SECURITY DEFINER so the caller's privileges stop
+-- mattering — not to revoke the grant and leave the view broken.
+-- ------------------------------------------------------------
 revoke all on function public.is_pro_entitled(text, text) from public;
-grant execute on function public.is_pro_entitled(text, text) to service_role;
+grant execute on function public.is_pro_entitled(text, text)
+  to anon, authenticated, service_role;
 
 -- ------------------------------------------------------------
 -- The public bootstrap view
