@@ -162,7 +162,7 @@ export default function ContactsView({
                 type="button"
                 onClick={() => setView(v)}
                 aria-pressed={view === v}
-                className={`rounded-[0.7rem] px-3.5 py-1.5 text-xs font-semibold capitalize transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                className={`min-h-[44px] rounded-[0.7rem] px-4 text-xs font-semibold capitalize transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                   view === v
                     ? "bg-white/10 text-white"
                     : "text-text-muted hover:text-white"
@@ -185,13 +185,21 @@ export default function ContactsView({
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search people..."
                 aria-label="Search contacts"
-                className="h-10 w-full rounded-control border border-white/10 bg-black/30 pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-accent/40"
+                /* Names and slugs, not sentences: iOS would otherwise
+                   capitalise the first letter and autocorrect
+                   "/sgsoundsuk" into something else entirely. */
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="search"
+                enterKeyHint="search"
+                className="h-12 w-full rounded-control border border-white/10 bg-black/30 pl-9 pr-3 text-base text-white outline-none placeholder:text-zinc-600 focus:border-accent/40 md:h-10 md:text-sm"
               />
             </div>
             <Button
               variant="secondary"
               size="sm"
-              className="shrink-0"
+              className="min-h-[44px] shrink-0"
               onClick={() => setAdding((v) => !v)}
             >
               <Plus size={15} className="mr-1.5" />
@@ -216,12 +224,14 @@ export default function ContactsView({
               }}
               placeholder="Their name"
               aria-label="Prospect name"
-              className="h-10 w-full rounded-control border border-white/10 bg-black/30 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-accent/40"
+              autoCapitalize="words"
+              autoCorrect="off"
+              className="h-12 w-full rounded-control border border-white/10 bg-black/30 px-3 text-base text-white outline-none placeholder:text-zinc-600 focus:border-accent/40 md:h-10 md:text-sm"
             />
             <Button
               variant="accent"
               size="sm"
-              className="shrink-0"
+              className="min-h-[44px] shrink-0"
               disabled={!name.trim()}
               onClick={async () => {
                 await onAddProspect(name);

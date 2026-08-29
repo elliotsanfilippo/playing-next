@@ -60,6 +60,15 @@ export const viewport: Viewport = {
    * the DJ experience that does not belong in this piece of work.
    */
   viewportFit: "cover",
+  /*
+   * Chromium honours this by shrinking the layout viewport when the
+   * on-screen keyboard opens. iOS ignores it, which is why the drawer
+   * also sizes itself from visualViewport - see src/lib/useVisualViewport.
+   * Deliberately no maximum-scale or user-scalable=no: the zoom-on-focus
+   * problem is fixed by giving form controls a 16px font, not by taking
+   * pinch-zoom away from the whole Admin.
+   */
+  interactiveWidget: "resizes-content",
 };
 
 export default function AdminLayout({

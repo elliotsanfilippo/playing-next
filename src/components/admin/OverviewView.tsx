@@ -2,6 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Flag, Check, Clock, ArrowRight } from "lucide-react";
+import Badge from "@/src/components/ui/Badge";
+import { LIFECYCLE_LABELS } from "@/src/lib/djLifecycle";
+import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
+import { stageTone } from "@/src/components/admin/stageTone";
+import { relativeDays } from "@/src/lib/djIdentity";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { buildExternalFunnel } from "@/src/lib/crmFunnel";
@@ -15,6 +20,8 @@ import {
 import { displayIdentity, joinedLabel } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import type { DjStat, PipelineRow, Report } from "@/src/components/admin/crmTypes";
+
+const MOBILE_PREVIEW = 5;
 
 const tierTone: Record<QueueTier, string> = {
   overdue:
@@ -51,6 +58,7 @@ export default function OverviewView({
   onGoToReports: () => void;
 }) {
   const [tier, setTier] = useState<QueueTier | "all">("all");
+  const [showAll, setShowAll] = useState(false);
   /* Captured once per mount rather than read during render: a clock read
      in the render body gives a different answer on every re-render, so
      "this week" could silently change while nothing else did. */
@@ -74,6 +82,10 @@ export default function OverviewView({
   const queue = useMemo(() => buildQueue(rows), [rows]);
   const counts = useMemo(() => countByTier(queue), [queue]);
   const visible = tier === "all" ? queue : queue.filter((q) => q.tier === tier);
+  /* On a phone the whole queue is a very long page, and the point of the
+     screen is the top of it. Desktop keeps the full list. */
+  const shown = showAll ? visible : visible.slice(0, MOBILE_PREVIEW);
+  const hiddenCount = visible.length - shown.length;
 
   const pending = reports.filter((r) => r.resolution === "pending");
 
@@ -89,8 +101,8 @@ export default function OverviewView({
   const maxCount = Math.max(...funnel.steps.map((s) => s.count), 1);
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-[2.2fr_1fr_1fr]">
+    <div className="flex flex-col gap-6">
+      <div className="order-2 grid gap-4 md:order-1 md:grid-cols-[2.2fr_1fr]">
         <Card
           variant="elevated"
           className="border-status-pending-surface/25 bg-status-pending-surface/[0.05] p-5"
@@ -108,20 +120,6 @@ export default function OverviewView({
         </Card>
 
         <Card className="p-5">
-          <p className="text-xs text-text-muted">Needs you</p>
-          <p className="mt-2 text-2xl font-bold">{queue.length}</p>
-          <p className="mt-1 text-xs text-text-muted">
-            {counts.overdue > 0 ? (
-              <span className="text-status-declined">
-                {counts.overdue} overdue
-              </span>
-            ) : (
-              "nothing overdue"
-            )}
-          </p>
-        </Card>
-
-        <Card className="p-5">
           <p className="text-xs text-text-muted">New this week</p>
           <p className="mt-2 text-2xl font-bold">{newThisWeek.length}</p>
           <p className="mt-1 text-xs text-text-muted">
@@ -131,9 +129,9 @@ export default function OverviewView({
         </Card>
       </div>
 
-      <Card variant="elevated" className="p-5">
+      <Card variant="elevated" className="order-3 p-5 md:order-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-h3">External funnel</h2>
+          <h2 className="text-h3">Growth snapshot</h2>
           <p className="font-mono text-xs text-text-muted">
             {funnel.total} external accounts · {funnel.internalExcluded} internal
             excluded
@@ -193,15 +191,22 @@ export default function OverviewView({
         )}
       </Card>
 
-      <Card variant="elevated" className="overflow-hidden">
+      <Card variant="elevated" className="order-1 overflow-hidden md:order-3">
         <div className="space-y-3 border-b border-white/5 p-5">
-          <h2 className="text-h3">Needs you</h2>
+          <h2 className="text-h3">
+            Needs your attention{" "}
+            <span className="text-text-muted">· {queue.length}</span>
+          </h2>
+          <p className="text-sm text-text-muted">
+            Follow-ups that are due, gigs coming up, DJs waiting on a reply
+            from you, and people who signed up and stalled.
+          </p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setTier("all")}
               aria-pressed={tier === "all"}
-              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+              className={`min-h-[44px] rounded-full border px-4 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                 tier === "all"
                   ? "border-accent/40 bg-accent/10 text-accent"
                   : "border-white/10 bg-white/5 text-text-muted hover:text-white"
@@ -216,7 +221,11 @@ export default function OverviewView({
                 onClick={() => setTier(t)}
                 aria-pressed={tier === t}
                 disabled={counts[t] === 0}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-35 ${
+                /* A tier with nothing in it is noise on a phone: three
+                   dead chips took a whole row. Hidden below md and shown
+                   again the moment it has something in it, so an overdue
+                   follow-up appearing tomorrow surfaces on its own. */
+                className={`${counts[t] === 0 ? "hidden md:inline-block" : ""} min-h-[44px] rounded-full border px-4 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-35 ${
                   tier === t
                     ? "border-accent/40 bg-accent/10 text-accent"
                     : "border-white/10 bg-white/5 text-text-muted hover:text-white"
@@ -251,77 +260,125 @@ export default function OverviewView({
                 : "Nothing in this group."}
             </p>
           ) : (
-            visible.map((item) => {
+            shown.map((item) => {
               const id = displayIdentity(
                 item.row.dj?.dj_name ?? item.row.name,
                 item.row.dj?.slug
               );
+              const contact = item.row.contact;
+              const blocker = contact?.activation_blocker
+                ? BLOCKER_LABELS[contact.activation_blocker as ActivationBlocker]
+                : null;
+              const nextAction = contact?.next_action?.trim() || null;
+
               return (
                 <div
                   key={item.row.key}
-                  className={`flex flex-col gap-3 border-l-2 p-4 sm:flex-row sm:items-center ${tierTone[item.tier]}`}
+                  className={`border-l-2 p-4 ${tierTone[item.tier]}`}
                 >
-                  <span
-                    className={`shrink-0 font-mono text-xs sm:w-20 ${stampTone[item.tier]}`}
-                  >
-                    {item.stamp}
-                  </span>
-
                   <button
                     type="button"
                     onClick={() => onOpen(item.row.key)}
-                    className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                    className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                   >
-                    <span
-                      className={`block truncate font-semibold text-white ${id.isSlug ? "font-mono text-sm" : ""}`}
-                    >
-                      {id.primary}
+                    <span className="flex items-start justify-between gap-3">
+                      <span
+                        className={`min-w-0 flex-1 truncate font-semibold text-white ${id.isSlug ? "font-mono text-sm" : ""}`}
+                      >
+                        {id.primary}
+                      </span>
+                      <Badge tone={stageTone(item.row.stage)} className="shrink-0">
+                        {LIFECYCLE_LABELS[item.row.stage]}
+                      </Badge>
                     </span>
-                    <span className="block truncate text-sm text-text-muted">
-                      {item.reason}
+
+                    {/* What happened, and what to do about it, kept apart.
+                        They were one sentence before, which read as a
+                        single ambiguous instruction. */}
+                    {blocker && (
+                      <span className="mt-2 block text-sm text-status-pending">
+                        {blocker}
+                      </span>
+                    )}
+
+                    {nextAction ? (
+                      <span className="mt-1.5 block text-sm text-zinc-200">
+                        <span className="text-text-muted">Next: </span>
+                        {nextAction}
+                      </span>
+                    ) : (
+                      <span className="mt-1.5 block text-sm text-text-muted">
+                        {item.reason}
+                      </span>
+                    )}
+
+                    <span
+                      className={`mt-2 block font-mono text-xs ${stampTone[item.tier]}`}
+                    >
+                      {item.stamp}
+                      {contact?.last_contact_at &&
+                        ` · last contact ${relativeDays(contact.last_contact_at).toLowerCase()}`}
                     </span>
                   </button>
 
-                  <span className="flex shrink-0 gap-2">
+                  {/* Words, not bare glyphs. A tick and a clock had only
+                      title tooltips, which do not exist on touch. */}
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
+                      className="min-h-[44px]"
                       onClick={() => onMarkDone(item.row)}
                       disabled={!item.row.contact}
-                      title={
-                        item.row.contact
-                          ? "Mark done"
-                          : "Add CRM context first"
-                      }
                     >
-                      <Check size={14} />
+                      <Check size={14} className="mr-1.5" />
+                      Done
                     </Button>
                     <Button
                       variant="secondary"
                       size="sm"
+                      className="min-h-[44px]"
                       onClick={() => onSnooze(item.row, 7)}
                       disabled={!item.row.contact}
-                      title="Snooze a week"
                     >
-                      <Clock size={14} />
+                      <Clock size={14} className="mr-1.5" />
+                      Snooze
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="min-h-[44px]"
                       onClick={() => onOpen(item.row.key)}
                     >
                       Open
                     </Button>
-                  </span>
+                  </div>
+
+                  {!item.row.contact && (
+                    <p className="mt-2 text-xs text-text-muted">
+                      Done and Snooze need CRM context. Open to add it.
+                    </p>
+                  )}
                 </div>
               );
             })
+          )}
+
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="flex min-h-[44px] w-full items-center justify-center gap-2 p-4 text-sm font-semibold text-accent transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+            >
+              View all {visible.length}
+              <ArrowRight size={15} />
+            </button>
           )}
         </div>
       </Card>
 
       {newThisWeek.length > 0 && (
-        <Card variant="elevated" className="overflow-hidden">
+        <Card variant="elevated" className="order-4 overflow-hidden">
           <div className="border-b border-white/5 p-5">
             <h2 className="text-h3">Signed up this week</h2>
           </div>

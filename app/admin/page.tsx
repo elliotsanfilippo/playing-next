@@ -109,6 +109,24 @@ export default function AdminPage() {
   }, [loadData]);
 
   /*
+   * Primary destinations open at the top.
+   *
+   * Switching section is React state, not navigation - the URL never
+   * changes and there is no router event - so the window keeps whatever
+   * scroll position the previous section had. Tapping Contacts from a
+   * scrolled Overview landed you 1,200px down a stranger's card. Where
+   * it appeared to work it was only the browser clamping to a shorter
+   * document, which is luck rather than behaviour.
+   *
+   * Keyed on `destination` alone. Closing the drawer does not change
+   * the destination, so the drawer's own scroll restoration is
+   * untouched, and there is no timeout anywhere.
+   */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [destination]);
+
+  /*
    * The pipeline is a union of accounts and prospects. A prospect has no
    * dj_profiles row at all, which is the case the database could not
    * represent before crm_contacts existed.
@@ -351,7 +369,12 @@ export default function AdminPage() {
 
           <span className="flex-1" />
 
-          <Button variant="ghost" size="sm" onClick={signOut}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-[44px]"
+            onClick={signOut}
+          >
             <LogOut size={15} className="mr-1.5" />
             Sign out
           </Button>
@@ -388,8 +411,16 @@ export default function AdminPage() {
         )}
       </div>
 
-      {/* Thumb-reachable on mobile, matching how the DJ dashboard puts
-          its controls within reach rather than at the top of the page. */}
+      {/*
+        Thumb-reachable on mobile, matching how the DJ dashboard puts its
+        controls within reach rather than at the top of the page.
+
+        Removed from the tree entirely while a drawer is open. It sits
+        below the drawer in z-order, but on the installed iPhone app it
+        still competed with the keyboard, and a section switcher is
+        meaningless while you are editing one contact anyway.
+      */}
+      {!openRow && (
       <nav
         className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-surface-base/95 backdrop-blur md:hidden"
         /* Clears the home indicator. Falls back to 0 in the browser,
@@ -418,6 +449,7 @@ export default function AdminPage() {
           </button>
         ))}
       </nav>
+      )}
 
       {openRow && (
         <DjDetailDrawer

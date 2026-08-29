@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { X, Trash2, Link2, Plus, Check, Clock, AlertTriangle } from "lucide-react";
 import Button from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
 import { useModalA11y } from "@/src/lib/useModalA11y";
+import {
+  useVisualViewport,
+  useKeepFocusVisible,
+} from "@/src/lib/useVisualViewport";
 import { adminFetch, adminJson } from "@/src/lib/adminFetch";
 import { LIFECYCLE_LABELS } from "@/src/lib/djLifecycle";
 import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
@@ -25,8 +29,18 @@ import type {
   UnlinkedDj,
 } from "@/src/components/admin/crmTypes";
 
+/*
+ * text-base, not text-sm. iOS Safari zooms the page whenever a form
+ * control smaller than 16px receives focus, and then leaves it zoomed
+ * after the keyboard closes - which is exactly the "slightly zoomed in"
+ * symptom reported from the installed app. Fixing the font size is the
+ * correct fix; suppressing it with maximum-scale would take pinch-zoom
+ * away from the whole Admin.
+ *
+ * h-12 keeps every control at or above the 44px touch minimum.
+ */
 const field =
-  "h-11 w-full rounded-control border border-white/10 bg-black/30 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-accent/40 focus-visible:ring-2 focus-visible:ring-accent/30";
+  "h-12 w-full rounded-control border border-white/10 bg-black/30 px-3 text-base text-white outline-none placeholder:text-zinc-600 focus:border-accent/40 focus-visible:ring-2 focus-visible:ring-accent/30 md:h-11 md:text-sm";
 const sectionLabel =
   "font-mono text-[0.62rem] font-semibold uppercase tracking-[0.13em]";
 
@@ -57,6 +71,9 @@ export default function DjDetailDrawer({
   onLinked?: (contactId: string, djProfileId: string) => Promise<void>;
 }) {
   const { containerRef, dialogProps } = useModalA11y({ open: true, onClose });
+  const viewport = useVisualViewport();
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  useKeepFocusVisible(scrollerRef, viewport.keyboardOpen);
 
   const contact = row.contact;
   const dj = row.dj;
@@ -301,7 +318,20 @@ export default function DjDetailDrawer({
     : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    /*
+       Sized from the visual viewport rather than the layout one. iOS
+       does not shrink the layout viewport for the keyboard, so a sheet
+       sized to 100% keeps its footer underneath it with no extra scroll
+       range to reach it. Every value here is read from the browser, so
+       there is no per-device pixel guess.
+    */
+    <div
+      className="fixed inset-x-0 z-50 flex justify-end"
+      style={{
+        top: viewport.height ? `${viewport.offsetTop}px` : 0,
+        height: viewport.height ? `${viewport.height}px` : "100dvh",
+      }}
+    >
       <button
         type="button"
         aria-label="Close"
@@ -343,13 +373,16 @@ export default function DjDetailDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close panel"
-            className="shrink-0 rounded-control p-2 text-text-muted transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-text-muted transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             <X size={18} />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto scroll-subtle [overscroll-behavior:contain]">
+        <div
+          ref={scrollerRef}
+          className="flex-1 overflow-y-auto scroll-subtle [overscroll-behavior:contain]"
+        >
           <div className="grid gap-6 p-5 md:grid-cols-2">
             <div className="space-y-6">
               <section>
@@ -476,7 +509,7 @@ export default function DjDetailDrawer({
                                   type="button"
                                   onClick={() => setChosen(c)}
                                   aria-pressed={isChosen}
-                                  className={`flex w-full items-center justify-between gap-3 rounded-control border p-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                                  className={`flex min-h-[44px] w-full items-center justify-between gap-3 rounded-control border p-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                                     isChosen
                                       ? "border-accent/40 bg-accent/10"
                                       : "border-white/5 bg-white/[0.02] hover:border-white/15"
@@ -575,6 +608,7 @@ export default function DjDetailDrawer({
                       <Button
                         variant="secondary"
                         size="sm"
+                        className="min-h-[44px]"
                         onClick={markDone}
                         disabled={saving}
                       >
@@ -584,6 +618,7 @@ export default function DjDetailDrawer({
                       <Button
                         variant="secondary"
                         size="sm"
+                        className="min-h-[44px]"
                         onClick={() => snooze(1, "tomorrow")}
                         disabled={saving}
                       >
@@ -593,6 +628,7 @@ export default function DjDetailDrawer({
                       <Button
                         variant="secondary"
                         size="sm"
+                        className="min-h-[44px]"
                         onClick={() => snooze(7, "next week")}
                         disabled={saving}
                       >
@@ -764,7 +800,7 @@ export default function DjDetailDrawer({
                         size="sm"
                         onClick={addNote}
                         disabled={!newNote.trim()}
-                        className="shrink-0"
+                        className="min-h-[44px] min-w-[44px] shrink-0"
                         aria-label="Add note"
                       >
                         <Plus size={15} />
@@ -798,7 +834,7 @@ export default function DjDetailDrawer({
                               type="button"
                               onClick={() => deleteNote(note.id)}
                               aria-label="Delete note"
-                              className="shrink-0 rounded p-1.5 text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -881,7 +917,7 @@ export default function DjDetailDrawer({
                 <button
                   type="button"
                   onClick={() => setConfirmingDelete(true)}
-                  className="ml-auto flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-xs text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="ml-auto flex min-h-[44px] items-center gap-1.5 rounded-control px-3 text-xs text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <Trash2 size={13} />
                   Remove CRM context
