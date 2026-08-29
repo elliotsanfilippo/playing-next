@@ -56,10 +56,24 @@ create table if not exists public.crm_contacts (
   contact_handle text,
 
   /*
-   * Where this person came from. Free text with suggested values in the
-   * UI rather than an enum, so that when UTM capture lands (ROADMAP §6)
-   * it can write into this same column without a migration or a second
-   * concept of "source".
+   * Where Elliot believes this person came from: direct outreach,
+   * Instagram, referral, organic, other. Free text with suggested values
+   * in the UI rather than an enum, because the list will grow.
+   *
+   * MANUAL ONLY. Automated attribution must never write here.
+   *
+   * Measured first-touch attribution (UTM, gclid, fbclid) is captured at
+   * signup, which is before a CRM contact necessarily exists, so its home
+   * is dj_profiles rather than this table - see ROADMAP section 6. Adding
+   * a measured column here would put it in the wrong place and create
+   * exactly the conflict it was meant to avoid: an automated writer
+   * overwriting a human judgement, with no way to tell afterwards which
+   * one the value came from.
+   *
+   * The two are meant to disagree sometimes. "Instagram" as a measured
+   * last click and "referral from Cammy" as the actual reason someone
+   * signed up are both true and both worth keeping, so the CRM shows them
+   * side by side and never merges them.
    */
   acquisition_source text,
 
@@ -175,24 +189,52 @@ create trigger crm_contacts_touch_updated_at
 -- ============================================================
 -- Security
 --
--- RLS is enabled with NO policies at all. That is deliberate and is the
--- whole access model: with RLS on and no policy, anon and authenticated
--- can read nothing and write nothing, whatever grants they may hold now
--- or acquire later from default privileges. The service role bypasses
--- RLS, which is how /api/admin/* reads these tables behind
--- getAdminUser().
+-- RLS is enabled with NO policies at all, and that absence is the access
+-- model rather than an omission. With RLS on and no policy, anon and
+-- authenticated can read nothing and write nothing, whatever grants they
+-- hold now or later acquire from Supabase's default privileges.
+-- service_role holds BYPASSRLS and reads these tables through
+-- /api/admin/* behind getAdminUser().
 --
--- The revokes below are belt and braces on top of that, and they name
--- anon and authenticated explicitly rather than relying on PUBLIC.
+-- This matches the pattern already proven in this project:
+-- 20260819_not_played_reports.sql is "enable row level security" and
+-- nothing else, and the admin reports panel reads it via the service
+-- role today. That working page is the evidence that a service_role
+-- policy is not required here.
+--
+-- Three things were in the first draft of this migration and have been
+-- removed after review. Recording why, so they do not come back:
+--
+--   FORCE ROW LEVEL SECURITY. It makes RLS apply to the table OWNER, and
+--   PostgreSQL is explicit that roles with BYPASSRLS still bypass row
+--   security regardless. service_role has BYPASSRLS, so FORCE would not
+--   have subjected it to anything. It bought no protection, and it
+--   carried a real risk: if the owning role did not hold BYPASSRLS, FORCE
+--   plus a service_role-only policy would have locked the Supabase SQL
+--   editor out of these tables entirely.
+--
+--   A "for all to service_role" policy. Redundant, because BYPASSRLS
+--   means it is never consulted, and actively misleading: it reads as
+--   though the policy is what grants admin access, so a later change
+--   removing it would look consequential and do nothing.
+--
+--   Neither was load-bearing. A security control that implies protection
+--   it does not provide is worse than no control, because it invites
+--   confidence in the wrong place.
+--
+-- The explicit per-role revokes below DO stay. On 2026-08-28 "revoke all
+-- from public" was assumed to cover anon for a function and did not:
+-- Supabase's default privileges grant new objects in this schema to anon
+-- and authenticated directly, and PUBLIC is a different grantee from
+-- either role. That assumption took the guest request page down.
+--
+-- The result is two independent fail-closed mechanisms. If an admin route
+-- ever used the ordinary authenticated client by mistake instead of the
+-- service-role one, the revoke denies it at the grant with 42501, and
+-- even without the revoke RLS-with-no-policy would return zero rows.
 -- ============================================================
 alter table public.crm_contacts enable row level security;
 alter table public.crm_notes enable row level security;
-
-/* Force, not just enable: without this the table owner would still
-   bypass RLS on these tables, and there is no legitimate owner-context
-   read of CRM data. */
-alter table public.crm_contacts force row level security;
-alter table public.crm_notes force row level security;
 
 revoke all on public.crm_contacts from public;
 revoke all on public.crm_contacts from anon;
@@ -202,34 +244,27 @@ revoke all on public.crm_notes from public;
 revoke all on public.crm_notes from anon;
 revoke all on public.crm_notes from authenticated;
 
+/* Belt and braces rather than load-bearing: a trigger function runs
+   regardless of the invoking role's EXECUTE privilege, so this does not
+   gate anything. It is here so the function's privileges match the
+   tables' and nobody has to work out whether it matters. */
 revoke all on function public.crm_touch_updated_at() from public;
 revoke all on function public.crm_touch_updated_at() from anon;
 revoke all on function public.crm_touch_updated_at() from authenticated;
 
 /*
- * service_role is granted explicitly. It bypasses RLS, but it still needs
- * table privileges, and default privileges are not something to depend on
- * for a table whose whole point is that the wrong role must never read it.
+ * Granted explicitly rather than left to default privileges. BYPASSRLS
+ * bypasses row security, not table GRANTs, so service_role genuinely
+ * needs these - and for a table whose whole point is that the wrong role
+ * must never read it, the privileges should be stated rather than
+ * inherited from a default that could change.
  */
 grant select, insert, update, delete on public.crm_contacts to service_role;
 grant select, insert, update, delete on public.crm_notes to service_role;
 
 /*
- * FORCE RLS applies to the owner too, so the service role needs a policy
- * of its own rather than relying on the bypass. Scoped to service_role
- * specifically: anon and authenticated match nothing here and therefore
- * still see nothing.
+ * No sequence grants are needed anywhere in this migration. Both tables
+ * key on uuid with gen_random_uuid(), matching dj_profiles,
+ * song_requests, tips and not_played_reports, so there is no identity or
+ * serial sequence to own, grant or overlook.
  */
-create policy crm_contacts_service_role_all
-  on public.crm_contacts
-  for all
-  to service_role
-  using (true)
-  with check (true);
-
-create policy crm_notes_service_role_all
-  on public.crm_notes
-  for all
-  to service_role
-  using (true)
-  with check (true);
