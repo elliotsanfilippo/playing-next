@@ -14,111 +14,141 @@ Salesforce, no integration.
 
 ## 1. Growth status
 
-*Figures read from Production on 2026-08-28. Update the date when refreshed.*
+*Database figures read from Production on 2026-08-28. Outreach statuses
+supplied by Elliot from planning that predates these records.*
 
 | | |
 |---|---|
-| DJ profiles | **16** |
-| Of which Elliot's own | 2 (`ELSAN`, `dj-elliot-test`) |
+| **Total prospects in the pipeline** | **23** |
+| Historically signed up | 8 |
+| DJ profiles in the database | 16 (2 are Elliot's own) |
 | **External signups** | **14** |
-| Completed onboarding | 6 of 16 |
-| Connected to Stripe | 8 of 16 |
-| **DJs who have ever received a request** | **2 — both Elliot's own** |
-| **External DJs who have taken a paid request** | **0** |
-| Pro subscribers | 1 (`dj-elliot-test`, Elliot's) |
+| Onboarding complete (external) | **4** |
+| **Payments ready (external)** | **4** |
+| **Activated external DJs** | **0** |
+| Pro subscribers | 1 (Elliot's own test account) |
 
-**Current acquisition stage:** pre-activation. Signups exist; usage does
-not.
+**Current acquisition stage:** pre-activation. Outreach has produced
+signups; signups have not produced use.
 
-**Immediate growth objective:** get **one external DJ to take one real paid
-request at a real gig.** Not more signups. Until that happens there is no
-funnel to widen, and paid acquisition would be buying more of a step that
-already fails.
+**Immediate growth objective:** get **one external DJ to accept one real
+paid request at a real gig.** Not more signups. Four DJs are already
+technically complete and have never taken a request, so the next win is
+activation, not acquisition.
 
-**The headline finding.** 10 of 16 profiles never even set a DJ name — they
-are still "New DJ". Signup is not the constraint. Whatever happens between
-signing up and standing in a booth is the constraint, and nobody has
-crossed it yet.
+**The headline finding.** Of 16 profiles, 10 never set a DJ name. Of the 14
+external signups, **zero** have received a single request. Signup is not the
+constraint; whatever happens between signing up and standing in a booth is.
 
 ---
 
 ## 2. DJ acquisition funnel
 
-| Stage | Meaning |
-|---|---|
-| Prospect | Identified, not yet contacted |
-| Contacted | Outreach sent, no reply |
-| Interested | Replied positively |
-| Signing up | Sent to the product, account not yet created |
-| Signed up | Account exists |
-| Onboarding incomplete | Account exists, `onboarding_complete` false |
-| **Activated** | See below — needs your decision |
-| Used at first gig | Took requests during a real set |
-| Repeat user | Used at more than one gig |
-| Pro | On a paid subscription |
-| Not interested / lost | Declined or went cold |
+Outreach status and product stage are tracked **separately**. A person can
+be historically "Signed up" and currently "Onboarded, payments ready, not
+activated" — that distinction is the whole point of this file.
 
-### Activation definition — needs your approval
+### Outreach stages
+Prospect → Contacted → Interested → Signing up → Signed up →
+Not interested / lost
 
-Signup alone is clearly the wrong measure: 14 external DJs are signed up
-and none has used the product.
+### Product stages
+Account created → Onboarding incomplete → Onboarded → Payments ready →
+**Activated** → Repeat gig/user → Pro
 
-**Proposed:** a DJ is *Activated* when they have
+### Activation — adopted definition
 
-1. completed onboarding (`onboarding_complete`), **and**
-2. connected Stripe (`stripe_connected`), **and**
-3. **accepted at least one real paid request** (a `song_requests` row
-   reaching `accepted`, `playing_next` or `played` with a captured payment)
+> **An Activated DJ is an external DJ who has successfully accepted their
+> first paid request.**
 
-The third condition is the one that matters. The first two are readiness;
-only the third is use. All three are already measurable from existing
-columns with no new tracking.
+Later stages are tracked separately: **Activated → Repeat gig/user → Pro**.
 
-**Flagged for your approval, not adopted.** A looser definition (onboarding
-plus Stripe, without a request) would count 6 DJs today instead of 0, which
-would feel better and mean less.
+Explicitly **not** activation:
+- account creation alone
+- onboarding completion alone
+- Stripe connection alone
+
+By this definition there are currently **zero activated external DJs**.
+Four are one gig away from it.
 
 ---
 
-## 3. Existing DJ outreach
+## 3. DJ outreach and product reconciliation
 
-**No outreach history was recoverable.** I searched the repo, all project
-documentation, git history and both memory sets. Prospect lists, outreach
-messages and contact records were never written down anywhere I can read.
-That planning happened outside this project's records.
+Historical outreach status is Elliot's; product stage is read from the
+database. Database evidence can advance someone beyond their historical
+status, never downgrade it. **Contact dates and acquisition sources are
+deliberately blank — none were provided and none will be invented.**
 
-What follows is reconstructed **from the database only** — it is signup
-evidence, not contact history. Every row therefore starts as
-**Needs follow-up**: the last known status is a database fact, not a
-conversation, and any assumption about where a DJ actually stands would be
-invented.
+### Priority 1 — payments ready, never activated
 
-Sensitive data deliberately excluded: no emails, no auth identifiers.
-Names and slugs are already public on the request pages.
+Technically complete. Nothing is stopping them but a gig.
 
-| DJ | Stage | Last known status | Last active | Source | Next action | Notes |
+| DJ | Historical | Product stage | Payments ready | Requests | Activation | Next action |
 |---|---|---|---|---|---|---|
-| Tommy Reckless | Signed up | Onboarded, Stripe connected, 0 requests | never | Unknown | Needs follow-up | Fully set up and never used it. Best activation candidate |
-| DJ Sweenz | Signed up | Onboarded, Stripe connected, 0 requests | 314h | Unknown | Needs follow-up | Same shape |
-| Cammy Birse | Signed up | Onboarded, Stripe connected, 0 requests | 377h | Unknown | Needs follow-up | Same shape |
-| SGsounds | Signed up | Onboarded, Stripe connected, 0 requests | 90h | Unknown | Needs follow-up | Most recently active of the ready group |
-| djbenphillipsmusic | Onboarding incomplete | Stripe connected, no name set | 287h | Unknown | Needs follow-up | Connected Stripe but never finished |
-| roxanemetzjyha | Onboarding incomplete | Stripe connected, no name set | 95h | Unknown | Needs follow-up | Same |
-| DJ Sizzla | Onboarding incomplete | Named, no Stripe | 260h | Unknown | Needs follow-up | Set a name, stopped |
-| bookings | Onboarding incomplete | No name, no Stripe | 420h | Unknown | Needs follow-up | Oldest stalled signup |
-| smithgraeme91 | Onboarding incomplete | No name, no Stripe | 401h | Unknown | Needs follow-up | |
-| minuet-faxes2m | Onboarding incomplete | No name, no Stripe | 340h | Unknown | Needs follow-up | |
-| values-81-idiom | Onboarding incomplete | No name, no Stripe | 245h | Unknown | Needs follow-up | |
-| elliot | Onboarding incomplete | No name, no Stripe | 215h | Unknown | Needs follow-up | Possibly a duplicate of Elliot's own |
-| philbrewerton868 | Onboarding incomplete | No name, no Stripe | 122h | Unknown | Needs follow-up | |
-| jojo-metayer | Onboarding incomplete | No name, no Stripe | never | Unknown | Needs follow-up | Newest signup, never returned |
+| **Tommy Cleary** (`tommycleary03`) | Signed up | Onboarded | Yes | 0 | Not activated | Ask when their next gig is and offer to be on hand for it |
+| **Sweenz** (`titisweeney97`) | Signed up | Onboarded | Yes | 0 | Not activated | Same. Last active 314h ago, so re-open the conversation first |
+| **Cammy Birse** (`cameron-birse`) | Signed up | Onboarded | Yes | 0 | Not activated | Same. 378h since last active |
+| **Steve / SG Sounds** (`sgsoundsuk`) | Signed up | Onboarded | Yes | 0 | Not activated | Most recently active of this group at 90h. Best first call |
 
-**Please correct this table.** Source, real stage and next action are yours
-to fill in; I have no way to know them.
+### Priority 2 — signed up, onboarding incomplete
 
-**The pattern worth acting on:** four DJs are completely set up — onboarded,
-Stripe connected — and have never taken a request. They are the shortest
-path to the first external activation.
+| DJ | Historical | Product stage | Payments ready | Requests | Activation | Next action |
+|---|---|---|---|---|---|---|
+| **Ben Phillips** (`djbenphillipsmusic`) | Signed up | Onboarding incomplete | **Stripe connected** | 0 | Not activated | Furthest along of this group: connected Stripe then stopped. Find out what blocked the last step |
+| **Sizzla** (`sizzladeejay`) | Signed up | Onboarding incomplete | No | 0 | Not activated | Set a DJ name, no Stripe. Ask what stopped them |
+| **Sol / Graeme Smith** (`smithgraeme91`) | Signed up | Onboarding incomplete | No | 0 | Not activated | No name set, 401h idle. Re-engage |
+| **Tarz** | Signed up | **No confident profile match** | Unknown | Unknown | Unknown | Confirm which account is theirs, or whether they ever completed signup |
+
+### Priority 3 — signing up
+
+| DJ | Historical | Product stage | Next action |
+|---|---|---|---|
+| **Ryan James** | Signing up, needs chasing | No confident profile match | Chase. Confirm whether an account was ever created |
+
+### Priority 4 — thinking about signing up
+
+| DJ | Historical | Next action |
+|---|---|---|
+| **Toby** | Thinking about it | Follow up |
+| **Adam Turner** | Thinking about it | Follow up |
+
+### Priority 5 — warm follow-up
+
+| DJ | Historical | Next action |
+|---|---|---|
+| **Michael Mukasa** | Liked the message | Follow up on a warm signal |
+| **Megz** | Liked the message | Follow up on a warm signal |
+
+### Priority 6 — cold, no status
+
+Shaun Pearcey · Bradley Jennings · Shiv Varma · DJ Flex · Jon Blower ·
+Adam Hassan · Justin Bradford · Badja · James Kyberd · Ellis Tilson
+
+No status recorded and no confident profile match for any of them.
+Next action: first or renewed contact.
+
+### Unmatched database profiles — flagged, not guessed
+
+Seven profiles exist that cannot be confidently matched to any name above.
+One of them may be **Tarz** or **Ryan James**; the slugs give no basis to
+decide, so they are left unassigned.
+
+| Slug | Product stage | Note |
+|---|---|---|
+| `roxanemetzjyha` | Onboarding incomplete, **Stripe connected** | Furthest along of the unmatched. Worth identifying |
+| `djbenphillipsmusic` | *(matched to Ben Phillips above)* | — |
+| `bookings` | No name, no Stripe | Oldest stalled signup, 420h |
+| `smithgraeme91` | *(matched to Sol above)* | — |
+| `minuet-faxes2m` | No name, no Stripe | Auto-generated slug |
+| `values-81-idiom` | No name, no Stripe | Auto-generated slug |
+| `philbrewerton868` | No name, no Stripe | No matching name in the outreach list |
+| `jojo-metayer` | No name, no Stripe | Newest signup, never returned |
+| `elliot` | No name, no Stripe | Possibly a duplicate of Elliot's own account |
+
+**Confident matches made:** Tommy Cleary, Sweenz, Cammy Birse, Steve / SG
+Sounds, Ben Phillips, Sizzla, Sol / Graeme Smith — 7 of the 8 historically
+signed up. Each was matched on the slug containing the person's name.
 
 ---
 
@@ -142,23 +172,28 @@ lands indistinguishable from any other.
 
 ## 5. Funnel metrics
 
-Placeholders. **Do not fabricate numbers that are not measurable.**
+Now that a prospect list exists, several of these become real. Numbers are
+counted from §3 and the database. **Nothing here is fabricated; blanks stay
+blank.**
 
-| Metric | Measurable today? | Current |
+| Metric | Measurable? | Current |
 |---|---|---|
-| Prospects contacted | No — not recorded | — |
-| Response rate | No | — |
-| Interested rate | No | — |
-| Signup rate | No (no source data) | — |
-| Onboarding completion | **Yes** | 6 / 16 |
-| Activation rate | **Yes** | **0 / 14 external** |
+| Total prospects | **Yes** | **23** |
+| Prospects contacted | Partial | At least 13 have a recorded status |
+| Response rate | Partial | 2 warm (liked), 2 thinking, 1 signing up |
+| Interested rate | Partial | 5 of 23 showed interest short of signing up |
+| Signup rate | **Yes** | **8 of 23** historically signed up |
+| Onboarding completion | **Yes** | **4 of 14** external profiles |
+| Payments ready | **Yes** | **4 of 14** external profiles |
+| **Activation rate** | **Yes** | **0 of 14 external** |
 | First-gig rate | **Yes** | 0 external |
 | Repeat-gig rate | Yes, once any exist | 0 |
-| Free to Pro conversion | Yes | 0 external |
-| Acquisition source | **No** | Needs a column |
+| Free to Pro conversion | **Yes** | 0 external |
+| Acquisition source | **No** | No source recorded, and no column to hold one |
 
-Four of ten are measurable now. The rest need either the outreach record in
-§3 or the attribution work in ROADMAP §6.
+The funnel collapses at one step. Contact to signup works. **Signup to
+first use has a 0% pass rate**, and that is the only number worth moving
+right now.
 
 ---
 
@@ -205,6 +240,13 @@ important question.
 ## 8. Growth decisions and learnings
 
 Dated, so we stop revisiting settled questions.
+
+**2026-08-28 — the funnel breaks at first use, not at acquisition.**
+Reconciling Elliot's outreach list against the database: 23 prospects, 8
+signed up, 4 fully payments-ready, **0 who have ever taken a request**.
+Outreach is working. Four DJs finished every technical step and then never
+used the product at a gig, which points at something between "account
+ready" and "night in a booth" rather than at the top of the funnel.
 
 **2026-08-28 — the constraint is activation, not acquisition.** 14 external
 signups, 6 onboarded, 8 Stripe-connected, **0 who have ever taken a
