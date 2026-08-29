@@ -24,12 +24,14 @@ a small DJ beta as a sole trader.
   DJs have activated.** An activated DJ is one who has accepted a first
   paid request; account creation, onboarding and Stripe connection are
   explicitly not activation. The only two accounts that have ever received
-  a request are Elliot's own. Full pipeline in
-  [GROWTH_CRM.md](GROWTH_CRM.md).
+  a request are Elliot's own. **The live pipeline is the Admin CRM at
+  `/admin`**; [GROWTH_CRM.md](GROWTH_CRM.md) is the history and the growth
+  strategy behind it.
 - **The current constraint is activation, not acquisition.** Contact to
   signup works. Signup to first use is 0 of 14.
-- **Current phase**: Phase 6A, Dashboard and live gig operations. Tiers 1
-  and 2 are done and verified live; Tier 3 is next.
+- **Current phase**: none. Phase 6A (Dashboard and live gig operations)
+  and Phase 6B (Admin redesign and CRM) are both complete and verified
+  against production.
 
 The product is feature-complete for the beta. The open work is legal and
 compliance, QA that needs a real DJ login, growth instrumentation, and
@@ -78,7 +80,35 @@ These are settled. Changing one is a deliberate decision, not a detail.
 
 ---
 
-## 3. Current phase — 6A, Dashboard and live gig operations
+## 3. Recently completed — 6A Dashboard, 6B Admin and CRM
+
+### Phase 6B — Admin redesign and CRM. COMPLETE, 2026-08-29.
+
+The Admin was a table of DJs with no notion of where any of them were.
+It is now three destinations built around what needs doing.
+
+- `crm_contacts` and `crm_notes`, RLS on with no policies and explicit
+  per-role revokes. Verified in production: `anon` and `authenticated`
+  both receive 42501 on all eight verb/table combinations, including a
+  real logged-in DJ session, and every `/api/admin/*` route returns 403
+  without the allowlist.
+- Lifecycle stage derived by `src/lib/djLifecycle.ts` and stored nowhere.
+- Overview, Contacts (List and a read-only lifecycle Pipeline), Reports.
+- The external funnel presents only genuinely nested sets: 13 signed up,
+  4 finished onboarding, 0 activated, 0 repeat, with the two DJs who
+  connected payments without finishing onboarding reported separately
+  rather than hidden inside a line they do not belong on.
+- Needs You ranks by tiers, and blockers carry an actionability policy so
+  recording outreach cannot make a person disappear.
+- Prospect to DJ linking is explicit and never fuzzy; the UNIQUE
+  constraint surfaces as a readable conflict.
+- The 23-person pipeline was migrated: 23 contacts, 7 linked, Tarz
+  deliberately unlinked, 4 relationship notes preserved.
+
+Open items are relationship decisions rather than engineering: Tarz's
+link, and the identity of `/roxanemetzjyha`.
+
+### Phase 6A — Dashboard and live gig operations
 
 The question: can a DJ run an entire busy gig from the Dashboard without
 babysitting the app, losing track of requests, or making accidental
