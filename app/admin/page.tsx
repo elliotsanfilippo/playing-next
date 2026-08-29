@@ -403,7 +403,7 @@ export default function AdminPage() {
             type="button"
             onClick={() => setDestination(d.key)}
             aria-current={destination === d.key ? "page" : undefined}
-            className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${
+            className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 py-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${
               destination === d.key ? "text-accent" : "text-text-muted"
             }`}
           >
