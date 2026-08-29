@@ -47,12 +47,16 @@ export default function DjDetailDrawer({
   row,
   onClose,
   onChanged,
+  onLinked,
 }: {
   row: PipelineRow;
   onClose: () => void;
   onChanged: () => void;
+  /* Lets the parent move the open drawer onto the merged row rather
+     than letting it unmount when the prospect's key disappears. */
+  onLinked?: (contactId: string, djProfileId: string) => Promise<void>;
 }) {
-  const { dialogProps } = useModalA11y({ open: true, onClose });
+  const { containerRef, dialogProps } = useModalA11y({ open: true, onClose });
 
   const contact = row.contact;
   const dj = row.dj;
@@ -216,7 +220,20 @@ export default function DjDetailDrawer({
       toast.success(`Linked to ${chosen.dj_name}.`);
       setLinking(false);
       setChosen(null);
-      onChanged();
+
+      if (onLinked) {
+        await onLinked(contact.id, chosen.id);
+        /*
+         * The "Link them" button this click came from has just been
+         * removed from the DOM along with the whole linking panel, so
+         * without moving focus deliberately it would fall back to
+         * <body> and the next Tab would start from the top of the
+         * dialog. The container carries tabIndex={-1} for exactly this.
+         */
+        containerRef.current?.focus();
+      } else {
+        onChanged();
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to link this contact."

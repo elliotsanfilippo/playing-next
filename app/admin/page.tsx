@@ -185,6 +185,30 @@ export default function AdminPage() {
     );
   };
 
+  /*
+   * Called the instant a prospect is linked to an account.
+   *
+   * The contact stops being its own row and merges into the DJ's, so its
+   * key changes from contact:<id> to dj:<profile>. Without this the open
+   * drawer pointed at a row that no longer existed and simply vanished,
+   * which is what the linking verification caught.
+   *
+   * The local merge is applied before the refetch rather than after, so
+   * the drawer re-renders straight into the linked state instead of
+   * flashing "Add CRM context" for the length of a round trip. loadData
+   * still runs immediately afterwards and is the authority; this only
+   * covers the gap.
+   */
+  const relinkOpenRow = async (contactId: string, djProfileId: string) => {
+    setContacts((current) =>
+      current.map((c) =>
+        c.id === contactId ? { ...c, dj_profile_id: djProfileId } : c
+      )
+    );
+    setOpenRowKey(`dj:${djProfileId}`);
+    await loadData();
+  };
+
   const addProspect = async (name: string) => {
     if (!name.trim()) return;
     try {
@@ -384,6 +408,7 @@ export default function AdminPage() {
           row={openRow}
           onClose={() => setOpenRowKey(null)}
           onChanged={loadData}
+          onLinked={relinkOpenRow}
         />
       )}
     </main>
