@@ -1,14 +1,41 @@
 # Playing Next — Growth & CRM
 
-The source of truth for early DJ acquisition and beta growth: the
-pipeline, the channels, the experiments and what we have learned.
+> ## This file is no longer the live pipeline
+>
+> **On 2026-08-29 the 23-person pipeline below was migrated into the Admin
+> CRM, which is now the operational source of truth.** Contact status,
+> blockers, follow-ups, next actions and notes are maintained at
+> `/admin`, where they join automatically to `dj_profiles` and
+> `song_requests` instead of being reconciled by hand.
+>
+> **Do not update the pipeline tables in this file.** Two hand-synchronised
+> copies of the same pipeline is exactly the drift the migration removed:
+> the Admin derives onboarding, payments, activation and repeat use from
+> the database live, and a markdown copy would be stale the moment a DJ
+> took a request.
+>
+> **Nothing here has been deleted, and nothing should be.** This remains
+> the historical record of how the beta pipeline was built and the growth
+> strategy behind it. The reasoning, the definitions, the channel
+> experiments and the learnings are still current and still belong here.
+> Sections 1 to 3 are a snapshot as at 2026-08-29 and are frozen at that
+> date by design.
+>
+> | | |
+> |---|---|
+> | Migrated | 23 contacts |
+> | Linked to a real DJ profile | 7 |
+> | Left deliberately unlinked | 16, including Tarz |
+> | Live pipeline now at | `/admin` → Contacts |
 
 [ROADMAP.md](ROADMAP.md) §6 holds the Growth workstream and its technical
-dependencies. This file holds the operational detail. Cross-reference
-rather than duplicating.
+dependencies. This file holds the strategy, the channel work and the
+history; the Admin CRM holds the live pipeline.
 
-**Not a CRM system.** A markdown file, deliberately. No HubSpot, no
-Salesforce, no integration.
+**Why it was a markdown file.** Deliberately, while the pipeline was 23
+people and the product could not yet describe a person who had not signed
+up. No HubSpot, no Salesforce. That constraint ended when `crm_contacts`
+shipped and could represent a prospect with no account.
 
 ---
 
@@ -98,6 +125,12 @@ honest value is **Unknown — awaiting response**.
 ---
 
 ## 3. DJ outreach and product reconciliation
+
+> **Frozen 2026-08-29 — migrated to the Admin CRM.** Every person below is
+> now a `crm_contacts` row. Product stage is derived live at `/admin` and
+> the values printed here will age; read them as the state at migration,
+> not as current. The seven confident profile links were applied; Tarz was
+> left unlinked on purpose.
 
 Historical outreach status is Elliot's; product stage is read from the
 database. Database evidence can advance someone beyond their historical

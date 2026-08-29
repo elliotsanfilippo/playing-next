@@ -237,9 +237,15 @@ Requires professional confirmation:
 
 ## 6. Growth and Go-To-Market
 
-A first-class workstream, not a product afterthought. Operational pipeline,
-experiments and learnings live in [GROWTH_CRM.md](GROWTH_CRM.md); this
-section holds the strategy and the technical dependencies.
+A first-class workstream, not a product afterthought.
+
+**The live pipeline is the Admin CRM at `/admin`,** as of 2026-08-29.
+Contacts, outreach status, activation blockers, follow-ups and notes are
+maintained there and join automatically to `dj_profiles` and
+`song_requests`; lifecycle stage is derived by `src/lib/djLifecycle.ts`
+and is never stored. [GROWTH_CRM.md](GROWTH_CRM.md) is now the historical
+record and the growth strategy, not a second live pipeline to keep in
+sync. This section holds strategy and technical dependencies.
 
 **Behavioural analytics exists. Acquisition and conversion attribution does
 not.** These are not the same thing and the distinction matters: we can see
@@ -431,7 +437,7 @@ Do not silently turn a roadmap idea into a Pro entitlement.
 | Three definitions of "a night" | `session_started_at` drives the recap, the browser-local calendar day drives Tonight and Earnings, the active event drives pricing |
 | Migrations vs Production | Applied by hand in the Supabase SQL editor; no migration tooling or DB credentials available to the repo |
 | **Dashboard CLS 0.5494** | Found during Tier 3a verification, **pre-existing and not introduced by it**. One layout shift at 766ms on the authenticated dashboard: the `DashboardSkeleton` to real-content swap, with `DIV.flex.min-w-0` jumping from top 393 to top 0. Measured at 390x1340 with 5 pending. Good is under 0.1. The guest page measures 0, so this is specific to the skeleton architecture here. Fixing it means either reserving the real layout's dimensions in the skeleton or holding the swap until content is ready. Not attempted |
-| Growth pipeline is a markdown file | `GROWTH_CRM.md` is maintained by hand and cannot join itself to `dj_profiles`. Fine at 23 prospects, not beyond. The Admin/CRM redesign phase owns this |
+| ~~Growth pipeline is a markdown file~~ | **Resolved 2026-08-29.** The 23-person pipeline migrated into `crm_contacts`; 7 linked to real profiles, 16 left unlinked. The Admin CRM joins to `dj_profiles` and `song_requests` automatically, so no hand reconciliation remains. `GROWTH_CRM.md` is now historical |
 
 ---
 
