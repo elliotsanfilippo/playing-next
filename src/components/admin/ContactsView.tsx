@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Search, Plus, AlertTriangle } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
@@ -10,7 +10,34 @@ import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
 import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import { stageTone } from "@/src/components/admin/stageTone";
+import { buildQueue, sortForContacts } from "@/src/lib/crmQueue";
 import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
+
+/*
+ * The Pipeline view is a desktop view. A six-column board on a 390px
+ * screen is a horizontal scroll inside a vertical scroll, which is the
+ * treatment the design explicitly rejected as unusable one-handed, so
+ * narrow screens get the List and the toggle is not offered at all.
+ *
+ * useSyncExternalStore rather than an effect: the value is read from an
+ * external system, it must not cause a second render on mount, and it
+ * gives a stable server snapshot so hydration cannot mismatch.
+ */
+const DESKTOP = "(min-width: 768px)";
+
+function subscribe(callback: () => void) {
+  const query = window.matchMedia(DESKTOP);
+  query.addEventListener("change", callback);
+  return () => query.removeEventListener("change", callback);
+}
+
+function useIsDesktop() {
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(DESKTOP).matches,
+    () => true
+  );
+}
 
 type View = "list" | "pipeline";
 
@@ -87,20 +114,28 @@ export default function ContactsView({
   onAddProspect: (name: string) => Promise<void>;
 }) {
   const [view, setView] = useState<View>("list");
+  const isDesktop = useIsDesktop();
+  /* Pipeline is never rendered narrow, whatever the toggle last held. */
+  const effectiveView: View = isDesktop ? view : "list";
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
 
+  const ordered = useMemo(
+    () => sortForContacts(rows, buildQueue(rows)),
+    [rows]
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
+    if (!q) return ordered;
+    return ordered.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         (r.dj?.slug ?? "").toLowerCase().includes(q) ||
         (r.contact?.contact_handle ?? "").toLowerCase().includes(q)
     );
-  }, [rows, search]);
+  }, [ordered, search]);
 
   const byStage = useMemo(() => {
     const map = new Map<LifecycleStage, PipelineRow[]>();
@@ -117,7 +152,7 @@ export default function ContactsView({
       <div className="space-y-4 border-b border-white/5 p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div
-            className="flex gap-1 rounded-control border border-white/10 bg-black/20 p-1"
+            className="hidden gap-1 rounded-control border border-white/10 bg-black/20 p-1 md:flex"
             role="group"
             aria-label="Contacts view"
           >
@@ -206,7 +241,7 @@ export default function ContactsView({
             ? "Nobody in the pipeline yet. Add a prospect to start."
             : "Nobody matches that search."}
         </p>
-      ) : view === "list" ? (
+      ) : effectiveView === "list" ? (
         <>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">

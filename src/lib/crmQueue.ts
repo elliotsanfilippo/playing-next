@@ -1,3 +1,4 @@
+import { blockerPolicy } from "@/src/lib/crmTaxonomy";
 import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
 
 /*
@@ -16,8 +17,8 @@ import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
 export const QUEUE_TIERS = [
   "overdue",
   "today",
+  "attention",
   "upcoming",
-  "ready",
   "stalled",
 ] as const;
 
@@ -26,8 +27,8 @@ export type QueueTier = (typeof QUEUE_TIERS)[number];
 export const TIER_LABELS: Record<QueueTier, string> = {
   overdue: "Overdue",
   today: "Today",
+  attention: "Awaiting reply",
   upcoming: "Upcoming",
-  ready: "Ready to activate",
   stalled: "Onboarding stalled",
 };
 
@@ -115,7 +116,7 @@ export function buildQueue(rows: PipelineRow[]): QueueItem[] {
         items.push({
           row,
           tier: "upcoming",
-          reason: contact?.next_action || "Gig coming up",
+          reason: contact?.next_action?.trim() || "Gig coming up",
           stamp: shortDate(contact!.next_gig_date!),
           rank: away,
         });
@@ -135,13 +136,63 @@ export function buildQueue(rows: PipelineRow[]): QueueItem[] {
       continue;
     }
 
-    if (row.stage === "ready_to_activate" && !contact?.activation_blocker) {
+    /*
+     * Does an unresolved relationship still need you? Decided by the
+     * blocker's policy, not by whether the field happens to be set.
+     *
+     * This deliberately does not test lifecycle stage. Ben Phillips is
+     * onboarding-incomplete rather than ready-to-activate, and he is
+     * still someone we are waiting on a reply from; gating on
+     * ready_to_activate would drop him exactly the way the previous rule
+     * dropped everyone else.
+     */
+    const hasBlocker = !!contact?.activation_blocker;
+    const policy = blockerPolicy(contact?.activation_blocker);
+    const hasNextAction = !!contact?.next_action?.trim();
+    const isReady = row.stage === "ready_to_activate";
+
+    /*
+     * With a blocker recorded, its policy decides. Without one, only a
+     * ready-to-activate DJ surfaces - the original rule, kept.
+     *
+     * The distinction matters: "no blocker recorded" is the default for
+     * all 23 imported contacts, so treating an absent blocker as "always
+     * needs you" would have put fifteen cold prospects nobody has ever
+     * spoken to into a queue titled Awaiting reply. A cold prospect
+     * enters the queue by being given a follow-up date, which is a
+     * decision, not by existing.
+     */
+    const needsAttention = hasBlocker
+      ? policy === "always"
+        ? true
+        : policy === "when_due"
+          ? hasNextAction
+          : false
+      : isReady;
+
+    if (needsAttention) {
+      const waitingDays = contact?.last_contact_at
+        ? daysBetween(today, new Date(contact.last_contact_at).getTime())
+        : null;
+
       items.push({
         row,
-        tier: "ready",
-        reason: "Ready to activate, no blocker recorded",
-        stamp: "No blocker",
-        rank: 0,
+        tier: "attention",
+        reason:
+          contact?.next_action?.trim() ||
+          (contact?.activation_blocker
+            ? "Waiting on a reply"
+            : "Ready to activate, no blocker recorded"),
+        stamp:
+          waitingDays !== null
+            ? waitingDays === 0
+              ? "Contacted today"
+              : `${waitingDays}d waiting`
+            : contact?.activation_blocker
+              ? "No reply yet"
+              : "No blocker",
+        /* Ready-to-activate first, then longest-waiting first. */
+        rank: (isReady ? -10_000 : 0) - (waitingDays ?? 0),
       });
       continue;
     }
@@ -163,7 +214,9 @@ export function buildQueue(rows: PipelineRow[]): QueueItem[] {
       items.push({
         row,
         tier: "stalled",
-        reason: "Signed up and never finished setup. Never contacted.",
+        reason:
+          contact?.next_action?.trim() ||
+          "Signed up and never finished setup. Never contacted.",
         stamp: `${age}d ago`,
         rank: -age,
       });
@@ -183,4 +236,81 @@ export function countByTier(items: QueueItem[]): Record<QueueTier, number> {
   ) as Record<QueueTier, number>;
   for (const item of items) counts[item.tier] += 1;
   return counts;
+}
+
+/*
+ * ── Default order for the Contacts list ───────────────────────────
+ *
+ * Importing the real pipeline put sixteen cold prospects above every
+ * account: the list opened on Ellis Tilson and Badja, people with no
+ * account and no contact ever, while Cammy Birse sat at row 26 of 32.
+ * Newest-first is the wrong axis when most of what is new is also the
+ * coldest thing in the file.
+ *
+ * The order is therefore by how much of your attention a row has a
+ * claim on:
+ *
+ *   1  anything in the Needs You queue, in queue order
+ *   2  DJs with accounts, most advanced stage first
+ *   3  prospects you have actually spoken to, most recent first
+ *   4  cold prospects, newest first
+ *
+ * Search and the Pipeline view are unaffected; this is only the default
+ * resting order of the list.
+ */
+const STAGE_RANK: Record<string, number> = {
+  pro: 0,
+  repeat: 1,
+  activated: 2,
+  ready_to_activate: 3,
+  onboarded: 4,
+  payments_ready: 5,
+  onboarding_incomplete: 6,
+  signed_up: 7,
+  prospect: 8,
+};
+
+export function sortForContacts(
+  rows: PipelineRow[],
+  queue: QueueItem[]
+): PipelineRow[] {
+  const queuePosition = new Map(queue.map((item, index) => [item.row.key, index]));
+
+  const band = (row: PipelineRow): number => {
+    if (queuePosition.has(row.key)) return 0;
+    if (row.dj) return 1;
+    if (row.contact?.last_contact_at) return 2;
+    return 3;
+  };
+
+  return [...rows].sort((a, b) => {
+    const bandDiff = band(a) - band(b);
+    if (bandDiff !== 0) return bandDiff;
+
+    if (band(a) === 0) {
+      return queuePosition.get(a.key)! - queuePosition.get(b.key)!;
+    }
+
+    if (band(a) === 1) {
+      const stage =
+        (STAGE_RANK[a.stage] ?? 9) - (STAGE_RANK[b.stage] ?? 9);
+      if (stage !== 0) return stage;
+      return (
+        new Date(b.dj!.created_at).getTime() -
+        new Date(a.dj!.created_at).getTime()
+      );
+    }
+
+    if (band(a) === 2) {
+      return (
+        new Date(b.contact!.last_contact_at!).getTime() -
+        new Date(a.contact!.last_contact_at!).getTime()
+      );
+    }
+
+    return (
+      new Date(b.contact?.created_at ?? 0).getTime() -
+      new Date(a.contact?.created_at ?? 0).getTime()
+    );
+  });
 }

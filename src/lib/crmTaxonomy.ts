@@ -83,3 +83,44 @@ export function isOutreachStatus(value: unknown): value is OutreachStatus {
 export function isActivationBlocker(value: unknown): value is ActivationBlocker {
   return ACTIVATION_BLOCKERS.includes(value as ActivationBlocker);
 }
+
+/*
+ * ── Whether a recorded blocker still needs you ────────────────────
+ *
+ * The queue used to treat any non-null activation_blocker as "handled",
+ * which is how importing the real pipeline made the four most important
+ * DJs vanish from Needs You the moment their outreach was recorded.
+ * "Unknown, awaiting reply" is not a resolved state; it is the state of
+ * waiting on someone, which is precisely when you need reminding.
+ *
+ * So a blocker carries a policy rather than a presence:
+ *
+ *   always      the ball is in our court, or nobody has tried yet.
+ *               Surfaces until the blocker changes.
+ *
+ *   when_due    the ball is in their court and there is nothing to do
+ *               unless you have written down what to do next, or set a
+ *               date. Cammy is the case this exists for: venue refused,
+ *               but the next action is asking about his other sets, so
+ *               he stays visible - while a venue refusal with nothing
+ *               recorded against it does not nag forever.
+ *
+ *   only_date   the relationship is closed. It comes back only if you
+ *               deliberately schedule a follow-up.
+ */
+export type BlockerPolicy = "always" | "when_due" | "only_date";
+
+export const BLOCKER_POLICY: Record<ActivationBlocker, BlockerPolicy> = {
+  unknown_awaiting_response: "always",
+  ready_not_attempted: "always",
+  product_or_setup: "always",
+  no_suitable_gig: "when_due",
+  believes_permission_required: "when_due",
+  venue_refused: "when_due",
+  dj_not_interested: "only_date",
+};
+
+export function blockerPolicy(value: string | null | undefined): BlockerPolicy {
+  if (!value) return "always";
+  return isActivationBlocker(value) ? BLOCKER_POLICY[value] : "always";
+}

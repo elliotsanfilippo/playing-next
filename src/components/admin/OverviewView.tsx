@@ -21,7 +21,7 @@ const tierTone: Record<QueueTier, string> = {
     "border-status-declined-surface/25 bg-status-declined-surface/[0.07]",
   today: "border-status-pending-surface/25 bg-status-pending-surface/[0.07]",
   upcoming: "border-white/5 bg-white/[0.02]",
-  ready: "border-white/5 bg-white/[0.02]",
+  attention: "border-status-playing-surface/25 bg-status-playing-surface/[0.06]",
   stalled: "border-white/5 bg-white/[0.02]",
 };
 
@@ -29,7 +29,7 @@ const stampTone: Record<QueueTier, string> = {
   overdue: "text-status-declined",
   today: "text-status-pending",
   upcoming: "text-text-muted",
-  ready: "text-text-muted",
+  attention: "text-status-playing",
   stalled: "text-text-muted",
 };
 
