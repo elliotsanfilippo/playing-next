@@ -123,7 +123,15 @@ export default function AdminPage() {
    * untouched, and there is no timeout anywhere.
    */
   useEffect(() => {
-    window.scrollTo(0, 0);
+    /*
+     * "instant" on purpose. globals.css sets html { scroll-behavior:
+     * smooth } for the marketing page's in-page anchors, which made a
+     * section switch animate the whole way up from wherever you were -
+     * on a phone that reads as the page flying past you rather than a
+     * new screen appearing. A destination change should feel like
+     * arriving somewhere, not travelling there.
+     */
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [destination]);
 
   /*
