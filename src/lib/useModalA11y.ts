@@ -99,25 +99,39 @@ export function useModalA11y({ open, onClose }: Options) {
     document.addEventListener("keydown", onKeyDown, true);
 
     /*
-     * Belt and braces alongside the Tab handling above: while the dialog
-     * is open the rest of the page is inert, so a click, a screen reader's
-     * virtual cursor or a browser quirk cannot reach it either. Siblings
-     * are used rather than a global selector so the dialog's own subtree
-     * is untouched.
+     * Belt and braces alongside the Tab handling: while the dialog is
+     * open everything outside it is inert, so a click, a screen reader's
+     * virtual cursor or a browser quirk cannot reach it either.
+     *
+     * This walks the ancestor path from the dialog up to <body> and marks
+     * the siblings at every level. The first attempt only marked
+     * body-level children, which did nothing at all here: the dialog and
+     * the Dashboard are rendered inside the same React root, so the
+     * Dashboard was never a sibling of anything that got marked and Pause
+     * was still focusable with the dialog open. Verified on the live
+     * dashboard before and after.
      */
-    const siblings: HTMLElement[] = [];
-    const dialogRoot = container?.closest("body > *") ?? null;
+    const marked: HTMLElement[] = [];
 
-    Array.from(document.body.children).forEach((child) => {
-      if (child === dialogRoot || !(child instanceof HTMLElement)) return;
-      if (child.hasAttribute("inert")) return;
-      child.setAttribute("inert", "");
-      siblings.push(child);
-    });
+    let node: HTMLElement | null = container;
+
+    while (node && node !== document.body) {
+      const parent: HTMLElement | null = node.parentElement;
+      if (!parent) break;
+
+      Array.from(parent.children).forEach((sibling) => {
+        if (sibling === node || !(sibling instanceof HTMLElement)) return;
+        if (sibling.hasAttribute("inert")) return;
+        sibling.setAttribute("inert", "");
+        marked.push(sibling);
+      });
+
+      node = parent;
+    }
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
-      siblings.forEach((el) => el.removeAttribute("inert"));
+      marked.forEach((el) => el.removeAttribute("inert"));
       returnFocusRef.current?.focus();
     };
   }, [open, onClose]);
