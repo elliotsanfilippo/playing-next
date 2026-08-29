@@ -71,6 +71,22 @@
   --color-surface-overlay: #1b1d21;
   --color-surface-inset: rgb(255 255 255 / 0.03);
 
+  /*
+    Muted operational text that still has to be readable in a dark booth.
+
+    zinc-500 and zinc-600 were doing this job and both fail WCAG AA on
+    our surfaces: measured on the live dashboard, zinc-500 lands at
+    3.76-4.15:1 and zinc-600 at 2.35-2.59:1 against canvas, card and
+    raised backgrounds. The PLAYING NEXT eyebrow was 2.60:1, which is
+    the label above the one thing a DJ most needs to find mid-set.
+
+    #8b8b93 is the least bright value that clears 4.5:1 on all three
+    (5.37-5.93:1). Chosen deliberately over zinc-400, which passes at
+    7.09-7.82:1 but reads as ordinary body text and would flatten the
+    hierarchy the dark theme depends on. Muted should still look muted.
+  */
+  --color-text-muted: #8b8b93;
+
   --radius-control: 1rem;
   --radius-card: 1.75rem;
   --radius-card-lg: 2rem;

@@ -10,7 +10,7 @@ const titleClasses: Record<Size, string> = {
 };
 
 const artistClasses: Record<Size, string> = {
-  compact: "text-xs text-zinc-500",
+  compact: "text-xs text-text-muted",
   default: "text-sm text-zinc-400",
   feature: "mt-3 text-lg text-zinc-400 sm:text-xl",
 };
@@ -78,7 +78,7 @@ export default function SongIdentity({
           its own line, which made a secondary attribute the widest and
           loudest thing in a queue row. */}
       {hasShoutout && (
-        <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-zinc-500">
+        <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-text-muted">
           <Mic2 size={11} className="shrink-0" aria-hidden /> Shoutout
         </p>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useModalA11y } from "@/src/lib/useModalA11y";
 import QRCode from "qrcode";
 import { X, Share2 } from "lucide-react";
 import Button from "@/src/components/ui/Button";
@@ -263,8 +264,21 @@ export default function PostGigRecapModal({
     }
   };
 
+  /* Dialog semantics, focus trap, Escape and focus restore. Escape is
+     ignored while a dismiss is already in flight so it cannot fire
+     handleDismiss twice. */
+  const { dialogProps } = useModalA11y({
+    open: true,
+    onClose: () => {
+      if (!dismissing) handleDismiss();
+    },
+  });
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div
+      {...dialogProps("post-gig-recap-title")}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+    >
       <div className="relative w-full max-w-sm rounded-card-lg border border-white/10 bg-zinc-950 p-5 shadow-2xl">
         <button
           type="button"
@@ -275,6 +289,10 @@ export default function PostGigRecapModal({
         >
           <X size={16} />
         </button>
+
+        <h2 id="post-gig-recap-title" className="sr-only">
+          Your gig recap
+        </h2>
 
         <p className="mb-4 pr-10 text-sm text-zinc-400">
           Nice set! Here&apos;s your night in numbers. Share it if

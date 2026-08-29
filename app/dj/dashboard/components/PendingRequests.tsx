@@ -341,20 +341,36 @@ export default function PendingRequests({
             stays two short lines for the same reason — filling the
             space with more words would be worse, not better.
           */
-          <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-zinc-600">
+          /*
+            Compact on mobile, composed on desktop.
+
+            This state cost 255px at 390px wide, pushing Playing Next and
+            the Queue down the page at exactly the moment nothing here
+            needed attention. On a phone in a booth that is the wrong
+            trade: an empty section should get out of the way of the
+            working ones.
+
+            Below sm it is a single centred row, icon beside text. From sm
+            up the original stacked, optically centred treatment returns,
+            where it still stops an empty card reading as a gap beside a
+            populated queue.
+          */
+          <div className="flex flex-1 flex-row items-center justify-center gap-3 px-5 py-4 text-left sm:flex-col sm:px-6 sm:py-10 sm:text-center">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-text-muted sm:mx-auto sm:mb-3 sm:h-11 sm:w-11">
               <Music2 size={18} />
             </div>
 
-            <p className="text-sm font-semibold text-zinc-300">
-              {isTakingRequests ? "You're caught up" : "Nothing waiting"}
-            </p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zinc-300">
+                {isTakingRequests ? "You're caught up" : "Nothing waiting"}
+              </p>
 
-            <p className="mt-1 text-[13px] text-zinc-600">
-              {isTakingRequests
-                ? "Nothing needs a decision right now."
-                : "Requests are paused, so nothing new will arrive."}
-            </p>
+              <p className="mt-0.5 text-[13px] text-text-muted sm:mt-1">
+                {isTakingRequests
+                  ? "Nothing needs a decision right now."
+                  : "Requests are paused, so nothing new will arrive."}
+              </p>
+            </div>
           </div>
         ) : (
           /*
@@ -431,7 +447,17 @@ export default function PendingRequests({
                     }
                     actions={
                       choosing ? null : (
-                        <div className="flex w-full gap-2.5">
+                        /*
+                          gap-4 rather than gap-2.5. Measured at 390px
+                          these sat 10px apart: the two most opposite
+                          actions on the dashboard, both full-height, with
+                          Decline on the left where a right thumb lands
+                          reaching across one-handed. Accepting takes a
+                          guest's money and declining releases it, so a
+                          mis-tap is asymmetric and worth the extra 6px.
+                          Order and emphasis are unchanged.
+                        */
+                        <div className="flex w-full gap-4">
                           <Button
                             variant="secondary"
                             className="h-12 flex-1 sm:h-11"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useModalA11y } from "@/src/lib/useModalA11y";
 import QRCode from "qrcode";
 import { X, Download } from "lucide-react";
 import Button from "@/src/components/ui/Button";
@@ -349,8 +350,15 @@ export default function QRFormatsModal({
     }
   };
 
+  /* Dialog semantics, focus trap, Escape and focus restore. See
+     src/lib/useModalA11y.ts for why this is not optional here. */
+  const { dialogProps } = useModalA11y({ open: true, onClose });
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div
+      {...dialogProps("qr-formats-title")}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+    >
       <div className="relative w-full max-w-md rounded-card-lg border border-white/10 bg-zinc-950 p-5 shadow-2xl">
         <button
           type="button"
@@ -361,7 +369,9 @@ export default function QRFormatsModal({
           <X size={16} />
         </button>
 
-        <h2 className="pr-10 text-h3">Print &amp; wallpaper formats</h2>
+        <h2 id="qr-formats-title" className="pr-10 text-h3">
+          Print &amp; wallpaper formats
+        </h2>
         <p className="mt-1 text-sm text-zinc-400">
           {FORMAT_META[format].description}
         </p>

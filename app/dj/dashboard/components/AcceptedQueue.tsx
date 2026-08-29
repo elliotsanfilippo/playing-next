@@ -236,6 +236,27 @@ export default function AcceptedQueue({
     /* lg:h-full + flex column so the card can fill an equalised grid
        row on desktop. Below lg it sizes to its own content. */
     <Card className="flex flex-col lg:h-full">
+      {/*
+        Queue changes were otherwise silent to a screen reader. Reordering
+        is the most repeated action in a booth and produced no
+        announcement at all, so a DJ working by keyboard had no
+        confirmation a move had landed.
+
+        Deliberately derived from the queue's shape rather than fired per
+        action: it states what the queue is now, so a burst of moves
+        settles into one announcement instead of narrating every render.
+        polite waits for a pause rather than interrupting.
+      */}
+      <p aria-live="polite" aria-atomic="true" className="sr-only">
+        {acceptedRequests.length === 0
+          ? "Queue is empty."
+          : `Queue: ${acceptedRequests.length} ${
+              acceptedRequests.length === 1 ? "track" : "tracks"
+            }. Next up ${acceptedRequests[0].song_title} by ${
+              acceptedRequests[0].artist
+            }.`}
+      </p>
+
       <div className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3.5 sm:px-5">
         <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-zinc-300">
           Queue

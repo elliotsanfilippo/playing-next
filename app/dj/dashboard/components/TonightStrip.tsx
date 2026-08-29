@@ -99,7 +99,7 @@ export default function TonightStrip({
         negative margin, so nothing below it shifts by a pixel.
       */}
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
           Tonight
         </p>
 
@@ -189,7 +189,7 @@ export default function TonightStrip({
               <span className="flex items-center gap-1 text-sm font-semibold text-pink-300">
                 <Heart size={13} className="shrink-0" />
                 <span className="tabular-nums">£{tipsToday.toFixed(2)}</span>
-                <span className="text-zinc-500">tips</span>
+                <span className="text-text-muted">tips</span>
               </span>
             )}
           </p>
@@ -214,7 +214,7 @@ export default function TonightStrip({
               <span className="text-base font-bold tabular-nums text-white group-hover:text-accent">
                 {count.value}
               </span>
-              <span className="text-zinc-500">{count.label}</span>
+              <span className="text-text-muted">{count.label}</span>
             </a>
           ))}
         </div>

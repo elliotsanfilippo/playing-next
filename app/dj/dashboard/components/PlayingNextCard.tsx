@@ -48,7 +48,7 @@ export default function PlayingNextCard({
         aria-label="Playing next"
         className="rounded-card border border-dashed border-white/10 px-4 py-5 sm:px-5"
       >
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
           Playing next
         </p>
 
@@ -69,7 +69,7 @@ export default function PlayingNextCard({
           Nothing playing next yet
         </p>
 
-        <p className="mt-1 text-[13px] leading-5 text-zinc-500">
+        <p className="mt-1 text-[13px] leading-5 text-text-muted">
           {queueCount > 0
             ? "Choose one from your queue and it'll be ready here when you need it."
             : "Accept a request first, then choose which one plays next."}
@@ -144,7 +144,7 @@ export default function PlayingNextCard({
 
         {message && (
           <div className="mt-3.5 rounded-control border border-white/10 bg-black/20 px-3.5 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
               Shoutout
             </p>
             {/* Clamped, like the pending card. Unbounded, one chatty

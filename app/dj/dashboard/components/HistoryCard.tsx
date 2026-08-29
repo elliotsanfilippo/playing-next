@@ -44,7 +44,7 @@ export default function HistoryCard({
       <div className="border-b border-white/5 p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+            <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
               ACTIVITY
             </p>
 
@@ -106,7 +106,14 @@ export default function HistoryCard({
               </Button>
 
               {playedRequests.length > 0 && (
-                <Button variant="danger" onClick={() => setConfirming(true)}>
+                <Button
+                  variant="danger"
+                  /* "Clear" alone is ambiguous read out of context by a
+                     screen reader, and this is the control that hides a
+                     night's activity list. */
+                  aria-label="Clear played history"
+                  onClick={() => setConfirming(true)}
+                >
                   Clear
                 </Button>
               )}

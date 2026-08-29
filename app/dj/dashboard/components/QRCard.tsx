@@ -214,7 +214,7 @@ export default function QRCard({
                 <span className="block text-sm font-semibold text-accent">
                   Print your QR code
                 </span>
-                <span className="block truncate text-xs text-zinc-500">
+                <span className="block truncate text-xs text-text-muted">
                   Table cards, posters and wallpaper
                 </span>
               </span>
