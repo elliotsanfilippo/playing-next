@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAdminUser } from "@/src/lib/adminAuth";
+import {
+  lifecycleStats,
+  resolveLifecycleStage,
+  type LifecycleRequest,
+} from "@/src/lib/djLifecycle";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,6 +41,13 @@ type DjProfileRow = {
   plan: string | null;
   request_status: string;
   created_at: string;
+  /* The three inputs resolveLifecycleStage needs beyond the requests
+     themselves. Read here rather than derived in the browser so the
+     Admin list, the funnel counts and the segments cannot disagree
+     about where a DJ is. */
+  onboarding_complete: boolean | null;
+  stripe_connected: boolean | null;
+  stripe_subscription_status: string | null;
 };
 
 type SongRequestRow = {
@@ -44,6 +56,12 @@ type SongRequestRow = {
   request_status: string;
   dj_earnings: number | null;
   reported_not_played_at: string | null;
+  /* stripe_fee is written only on the capture path, so a non-null value
+     is proof money actually moved. That is what makes "activated"
+     honest, and it is why the funnel says 0 activated DJs rather than
+     counting the 14 signups. */
+  stripe_fee: number | null;
+  accepted_at: string | null;
 };
 
 type ChargebackRow = {
@@ -79,11 +97,11 @@ export async function GET(request: NextRequest) {
       await Promise.all([
         supabaseAdmin
           .from("dj_profiles")
-          .select("id, dj_name, slug, plan, request_status, created_at")
+          .select("id, dj_name, slug, plan, request_status, created_at, onboarding_complete, stripe_connected, stripe_subscription_status")
           .order("created_at", { ascending: false }),
         supabaseAdmin
           .from("song_requests")
-          .select("id, dj_profile_id, request_status, dj_earnings, reported_not_played_at"),
+          .select("id, dj_profile_id, request_status, dj_earnings, reported_not_played_at, stripe_fee, accepted_at"),
         supabaseAdmin
           .from("chargeback_disputes")
           .select("dj_profile_id, disputed_amount, deduction_status")
@@ -190,7 +208,38 @@ export async function GET(request: NextRequest) {
         (r) => r.dj_earnings === null
       ).length;
 
+      /*
+       * Where this DJ actually is, decided by the one module that
+       * decides it. Validated against live production data on
+       * 2026-08-28: 16 profiles, each resolving to exactly one stage,
+       * reproducing the hand-built funnel in GROWTH_CRM.md including
+       * zero activated external DJs.
+       */
+      const lifecycleRequests: LifecycleRequest[] = requests.map((r) => ({
+        request_status: r.request_status,
+        stripe_fee: r.stripe_fee,
+        accepted_at: r.accepted_at,
+      }));
+
+      const profileForLifecycle = {
+        id: dj.id,
+        plan: dj.plan,
+        stripe_subscription_status: dj.stripe_subscription_status,
+        onboarding_complete: dj.onboarding_complete,
+        stripe_connected: dj.stripe_connected,
+      };
+
+      const stats = lifecycleStats(profileForLifecycle, lifecycleRequests);
+
       return {
+        lifecycle_stage: resolveLifecycleStage(
+          profileForLifecycle,
+          lifecycleRequests
+        ),
+        paid_accepted_count: stats.paidAcceptedCount,
+        gig_date_count: stats.gigDateCount,
+        onboarding_complete: dj.onboarding_complete === true,
+        stripe_connected: dj.stripe_connected === true,
         id: dj.id,
         dj_name: dj.dj_name,
         slug: dj.slug,
