@@ -23,7 +23,7 @@
 -- These tables hold private commercial notes about named people. They are
 -- admin-only in the strictest sense available: RLS on, no policies for
 -- anon or authenticated, and both roles explicitly revoked. Access is
--- exclusively through /api/admin/* under the service role, behind
+-- exclusively through /api/admin routes under the service role, behind
 -- getAdminUser().
 --
 -- The revokes are explicit and per-role on purpose. On 2026-08-28,
@@ -194,7 +194,7 @@ create trigger crm_contacts_touch_updated_at
 -- authenticated can read nothing and write nothing, whatever grants they
 -- hold now or later acquire from Supabase's default privileges.
 -- service_role holds BYPASSRLS and reads these tables through
--- /api/admin/* behind getAdminUser().
+-- /api/admin routes behind getAdminUser().
 --
 -- This matches the pattern already proven in this project:
 -- 20260819_not_played_reports.sql is "enable row level security" and
