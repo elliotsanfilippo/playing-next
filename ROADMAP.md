@@ -99,14 +99,50 @@ financial decisions?
 - All five two-device and live-gig tests passed on Production; Stripe
   confirmed the correct capture count with no duplicates
 
-**Tier 3 — NEXT. DJ booth usability and accessibility.**
-Needs a real authenticated DJ session, which is also what unblocks the
-mobile QA in section 4. Do them together.
-- One-handed use at 320 / 375 / 390 / 430 / 768 / 1440
-- Accept and Decline reachability, queue reorder, long messages, 20-row queue
-- Accidental taps, sticky controls, scrolling back to Needs You
-- Headings, focus order, 44px targets, live regions, status not colour-only,
-  reduced motion, keyboard alternative for queue reordering
+**Tier 3a — booth safety and legibility. DONE and verified.**
+(`ce18937`, `8818ccc`) Measured on the live authenticated dashboard at a
+true 390x1340 viewport, before and after.
+
+- **Modal keyboard safety.** With the QR formats dialog open, focus never
+  left `<body>`, Escape did nothing, and 19 of 24 focusable elements were
+  still outside it and tabbable. One of them was Pause: a DJ working by
+  keyboard could tab out of a print dialog onto the control that takes
+  them off the air mid-set. Both modals now have dialog semantics, focus
+  moved in on open, a Tab/Shift+Tab wrap, Escape, focus restored to the
+  trigger, and inert on everything outside. **Verified: Pause is inside an
+  inert subtree and cannot take focus while a dialog is open.**
+- **Contrast: 12 WCAG AA failures to 0**, 41 elements checked. New
+  `--color-text-muted` (#8b8b93) measures 5.37-5.93:1 on all three
+  surfaces. Chosen over zinc-400, which passes but reads as body text and
+  would flatten the hierarchy; only the 12 measured failures were changed
+  rather than all 45 zinc-500/600 usages.
+- **Accept/Decline spacing 10px to 16px.** Order and emphasis unchanged,
+  both still 48px, Accept still the wider primary.
+- **Zero-pending state 255px to 149px**, moving the Queue from 645px to
+  539px on a phone.
+- **Queue live region added.** Derived from the queue's shape, so a burst
+  of reorders settles into one announcement rather than narrating renders.
+- **Clear History** now announces as "Clear played history".
+- **Withdrawn as a false positive:** "Mark Played lacks focus-visible"
+  came from counting occurrences per file. The shared `Button` already
+  carries the full focus ring, so nothing needed fixing.
+
+**Tier 3b — pending-card compaction. Decided: not now (Option D).**
+Measured at 390px: a standard card costs 140px, one with a guest message
+226px, putting the Queue at 602px with 1 pending, 1248px with 5 and
+1749px with 8. The zero-pending fix does not help the busy case because
+the cost is the cards themselves.
+
+Every material reduction needs a change that was explicitly reserved:
+buttons inline with the text (a card redesign), collapsing guest messages
+(hides what the guest paid extra for, and what the DJ needs to decide), or
+an internal scroll region (nested scrolling on a phone). **Elliot chose to
+keep the current layout.** The Tonight links already jump straight to
+Needs You and the Queue, so a long list stays navigable.
+
+**Not started: the 8-component accessibility sweep** (EventsCard,
+HistoryCard, QRCard, AutoCloseControl, ChargebackBanner,
+NotificationsStrip, SetupChecklist, QrBoxBanner).
 
 **Outstanding from the 6A audit, not yet scheduled:**
 - `archived`, `refunded` and `disputed` have no Dashboard surface
@@ -126,10 +162,16 @@ Only things that materially affect safely continuing or expanding the
 current beta.
 
 - [ ] **6A Tier 3** — booth usability and accessibility on a real device
-- [ ] **Authenticated QA needing a DJ login** — Payments click-through
-      (onboarding, return, refresh, Manage in Stripe, `onboarding_incomplete`
-      fallback), post-gig recap trigger, paused-requests behaviour, and the
-      real-device keyboard QA in this file's history
+- [ ] **Authenticated QA still outstanding after Tier 3a.** Each needs
+      either a multi-step flow that changes live state or hardware:
+      - Payments click-through (onboarding, return, refresh, Manage in
+        Stripe, the `onboarding_incomplete` fallback)
+      - Post-gig recap trigger
+      - Paused-requests behaviour
+      - Real-device mobile keyboard journey
+      - Breakpoint checks at 320 / 430 / 768 / 1440. 390 is measured and
+        clean; Chrome's minimum window width is 500px, so the others need
+        the DevTools device toolbar set per width
 - [ ] **The activation problem.** 14 external signups, **zero activated**.
       Four DJs are onboarded and payments-ready and have never taken a
       request; five follow-ups went out on 2026-08-28 and their answers are
@@ -388,6 +430,7 @@ Do not silently turn a roadmap idea into a Pro entitlement.
 | Sentry | ~98 KB on every route, ~1.1s of the critical path. `enableLogs: true` with zero `Sentry.logger` calls anywhere |
 | Three definitions of "a night" | `session_started_at` drives the recap, the browser-local calendar day drives Tonight and Earnings, the active event drives pricing |
 | Migrations vs Production | Applied by hand in the Supabase SQL editor; no migration tooling or DB credentials available to the repo |
+| **Dashboard CLS 0.5494** | Found during Tier 3a verification, **pre-existing and not introduced by it**. One layout shift at 766ms on the authenticated dashboard: the `DashboardSkeleton` to real-content swap, with `DIV.flex.min-w-0` jumping from top 393 to top 0. Measured at 390x1340 with 5 pending. Good is under 0.1. The guest page measures 0, so this is specific to the skeleton architecture here. Fixing it means either reserving the real layout's dimensions in the skeleton or holding the swap until content is ready. Not attempted |
 | Growth pipeline is a markdown file | `GROWTH_CRM.md` is maintained by hand and cannot join itself to `dj_profiles`. Fine at 23 prospects, not beyond. The Admin/CRM redesign phase owns this |
 
 ---
@@ -466,6 +509,23 @@ with it.
 - Two test suites guard this: `scripts/public-bootstrap-security.test.ts`
   (7 tests) and `scripts/entitlement-parity.test.ts` (5 tests)
 
+**Dashboard accessibility baseline** (390x1340, authenticated, after
+Tier 3a). Future work must not regress these:
+
+| Check | Value |
+| --- | --- |
+| WCAG AA contrast failures | **0** of 41 elements checked |
+| Interactive targets below 44px | **0** at 0, 1, 5 and 8 pending |
+| Modal: focus moves into dialog | Yes |
+| Modal: Pause reachable while open | **No** (inert) |
+| Modal: Escape closes, focus restored | Yes |
+| Accept/Decline separation | 16px |
+| Horizontal overflow | None, including a 60-char unbroken artist name |
+
+`--color-text-muted` (#8b8b93) is the floor for muted operational text.
+Anything dimmer fails AA on our surfaces: zinc-500 measures 3.76-4.15:1
+and zinc-600 2.35-2.59:1. Do not reintroduce either for dashboard text.
+
 **Financial invariants:** stored snapshots are never recomputed; Dashboard
 Tonight equals Earnings Today on the same local-day basis; Accept captures
 exactly once; Decline never captures; a full queue never captures.
@@ -497,6 +557,11 @@ cannot; fixed by removing it rather than granting it (`1474df1`).
 
 **Security** — public bootstrap view and entitlement in Postgres, `anon`
 `dj_events` revoke, EXECUTE grant corrections (`97f2801`), two test suites.
+
+**Phase 6A Tier 3a** — modal focus and keyboard safety, contrast 12
+failures to 0, Accept/Decline spacing, zero-pending state, queue live
+region, Clear History accessible name (`ce18937`, `8818ccc`). Verified on
+the live authenticated dashboard at 390px.
 
 **Phase 6A Tier 1 and 2** — server-authoritative Accept (`7218a80`),
 transition guards, Playing Next invariant and Dashboard error states
