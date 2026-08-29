@@ -313,7 +313,10 @@ export default function DjDetailDrawer({
         {...dialogProps("crm-drawer-title")}
         className="relative flex h-full w-full max-w-[46rem] flex-col border-l border-white/10 bg-surface-base shadow-2xl shadow-black/60"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-white/5 p-5">
+        <header
+          className="flex items-start justify-between gap-4 border-b border-white/5 p-5"
+          style={{ paddingTop: "max(env(safe-area-inset-top), 1.25rem)" }}
+        >
           <div className="min-w-0">
             <h2
               id="crm-drawer-title"
@@ -889,7 +892,10 @@ export default function DjDetailDrawer({
         </div>
 
         {contact && (
-          <footer className="border-t border-white/5 bg-surface-base/95 p-4 backdrop-blur">
+          <footer
+            className="border-t border-white/5 bg-surface-base/95 p-4 backdrop-blur"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+          >
             <Button
               variant="accent"
               onClick={save}

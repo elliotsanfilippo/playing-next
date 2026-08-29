@@ -276,7 +276,10 @@ export default function AdminPage() {
 
   if (loadFailed) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white">
+      <main
+        className="flex min-h-screen items-center justify-center bg-canvas p-6 text-white"
+        style={{ paddingTop: "max(env(safe-area-inset-top), 1.5rem)" }}
+      >
         <Card variant="elevated" className="max-w-md p-8 text-center">
           <AlertTriangle
             size={28}
@@ -305,8 +308,19 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-canvas pb-24 text-white md:pb-10">
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-canvas/90 backdrop-blur">
+    <main
+      className="min-h-screen bg-canvas text-white"
+      /* The bottom bar is fixed, so the page has to reserve its height
+         plus whatever the home indicator takes. */
+      style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+    >
+      <header
+        className="sticky top-0 z-40 border-b border-white/5 bg-canvas/90 backdrop-blur"
+        /* statusBarStyle is black-translucent, which deliberately runs
+           the page under the status bar. Without this the nav sits
+           behind the clock in a standalone Home Screen app. */
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="mx-auto flex max-w-[75rem] items-center gap-6 px-5 py-3.5">
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-accent">
             Admin
@@ -344,7 +358,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[75rem] px-5 py-6">
+      <div className="mx-auto max-w-[75rem] px-5 py-6 md:pb-10">
         {destination === "overview" && (
           <OverviewView
             rows={rows}
@@ -378,6 +392,9 @@ export default function AdminPage() {
           its controls within reach rather than at the top of the page. */}
       <nav
         className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-surface-base/95 backdrop-blur md:hidden"
+        /* Clears the home indicator. Falls back to 0 in the browser,
+           where the bar's own py-3 is enough. */
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Admin sections"
       >
         {DESTINATIONS.map((d) => (
