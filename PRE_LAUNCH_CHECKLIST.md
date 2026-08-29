@@ -27,6 +27,21 @@ the one-off closer to **£350–£450**.
 
 ---
 
+## Before any of this matters
+
+These registrations are the cost of opening Playing Next to the public.
+**The product is not yet ready to be opened**, and not for technical
+reasons: 14 external DJs have signed up and **none has yet taken a single
+paid request**. Spending on incorporation, trademarks or advice ahead of
+that is spending against an unvalidated funnel.
+
+Sequence suggestion: the ICO fee and a business address are worth doing now
+regardless, since they are cheap, required, and block the Privacy Policy.
+The rest can reasonably wait until a DJ has actually used Playing Next at a
+real gig. See [GROWTH_CRM.md](GROWTH_CRM.md).
+
+---
+
 ## Do regardless of company structure
 
 - [ ] **ICO data protection fee** — required, not optional. Tier 1 (micro):

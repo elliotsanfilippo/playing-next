@@ -19,10 +19,15 @@ a small DJ beta as a sole trader.
 
 - **Production**: `playingnextapp.com` (apex), `www` redirects, Vercel
   functions pinned to `lhr1` beside the London Supabase instance.
-- **Beta**: 16 DJ profiles exist. 6 have completed onboarding. **The only
-  two accounts that have ever received a request are Elliot's own.** No
-  external DJ has yet taken a paid request. See
+- **Beta**: a 23-person outreach pipeline has produced 8 signups and 16 DJ
+  profiles, 4 of which are onboarded and payments-ready. **Zero external
+  DJs have activated.** An activated DJ is one who has accepted a first
+  paid request; account creation, onboarding and Stripe connection are
+  explicitly not activation. The only two accounts that have ever received
+  a request are Elliot's own. Full pipeline in
   [GROWTH_CRM.md](GROWTH_CRM.md).
+- **The current constraint is activation, not acquisition.** Contact to
+  signup works. Signup to first use is 0 of 14.
 - **Current phase**: Phase 6A, Dashboard and live gig operations. Tiers 1
   and 2 are done and verified live; Tier 3 is next.
 
@@ -65,6 +70,11 @@ These are settled. Changing one is a deliberate decision, not a detail.
   service fee applies.
 - **Copy style**: no em or en dashes in user-facing copy. Marketing copy is
   centred; product UI is left-aligned.
+- **Activation means a first paid request.** An activated DJ is an external
+  DJ who has accepted their first paid request. Account creation,
+  onboarding completion and Stripe connection are readiness, not use, and
+  are explicitly not activation. Adopted 2026-08-28; it is what makes the
+  current honest number zero rather than four.
 
 ---
 
@@ -102,6 +112,12 @@ mobile QA in section 4. Do them together.
 - `archived`, `refunded` and `disputed` have no Dashboard surface
 - A demote-then-re-cue can send a guest "up next" twice
 
+**Next phase after 6A Tier 3: Admin / CRM redesign.** Its own dedicated
+phase, not part of 6A. The growth pipeline currently lives in a markdown
+file maintained by hand; `/admin` exists but was built for DJ oversight and
+not-played reports rather than acquisition. Scope to be defined when the
+phase starts.
+
 ---
 
 ## 4. Beta readiness
@@ -114,9 +130,13 @@ current beta.
       (onboarding, return, refresh, Manage in Stripe, `onboarding_incomplete`
       fallback), post-gig recap trigger, paused-requests behaviour, and the
       real-device keyboard QA in this file's history
-- [ ] **The activation problem** — 14 external signups, zero activated. This
-      is a product and onboarding question before it is a growth question.
-      See [GROWTH_CRM.md](GROWTH_CRM.md)
+- [ ] **The activation problem.** 14 external signups, **zero activated**.
+      Four DJs are onboarded and payments-ready and have never taken a
+      request; five follow-ups went out on 2026-08-28 and their answers are
+      the next real input. The first known blocker is **not the product**:
+      one DJ asked a club for permission to use Playing Next and management
+      refused. Treated as a single case, not a pattern, until others report
+      back. See [GROWTH_CRM.md](GROWTH_CRM.md)
 - [ ] **Rate limiting is in-memory per-process**, not shared across
       instances. Fine at beta volume, not beyond it
 
@@ -183,6 +203,21 @@ section holds the strategy and the technical dependencies.
 not.** These are not the same thing and the distinction matters: we can see
 what people do once they arrive, and nothing about where they came from.
 
+**And acquisition is not currently the constraint.** A 23-person pipeline
+has produced 8 signups; none of the 14 external accounts has ever taken a
+request. Widening the top of the funnel before the first-use step works
+would buy more of a step that has never once been crossed. The measurement
+work below is still worth doing first, because it is what makes any future
+spend legible.
+
+**One signal to watch, not yet a pattern.** The only DJ who has actually
+attempted to use Playing Next was refused permission by the club's
+management. If that turns out to be common it affects where activation
+effort belongs (mobile, private and wedding work rather than club
+residencies) and gives the parked venue/promoter B2B workstream a concrete
+reason to exist. One case is not evidence; see
+[GROWTH_CRM.md](GROWTH_CRM.md) §8.
+
 ### Foundation — DONE
 
 - Google Tag Manager (`GTM-TC39K44W`)
@@ -194,7 +229,10 @@ what people do once they arrive, and nothing about where they came from.
 
 ### Beta growth
 
-Operational detail in [GROWTH_CRM.md](GROWTH_CRM.md).
+Operational detail, the 23-person pipeline, blockers and learnings live in
+[GROWTH_CRM.md](GROWTH_CRM.md). Do not duplicate them here.
+- [ ] **Activate the four payments-ready DJs** — the single highest-value
+      growth action available. Five follow-ups sent 2026-08-28
 - [ ] DJ recruitment and outreach
 - [ ] Prospect and follow-up list
 - [ ] Social positioning, Instagram bio and presence
@@ -350,6 +388,7 @@ Do not silently turn a roadmap idea into a Pro entitlement.
 | Sentry | ~98 KB on every route, ~1.1s of the critical path. `enableLogs: true` with zero `Sentry.logger` calls anywhere |
 | Three definitions of "a night" | `session_started_at` drives the recap, the browser-local calendar day drives Tonight and Earnings, the active event drives pricing |
 | Migrations vs Production | Applied by hand in the Supabase SQL editor; no migration tooling or DB credentials available to the repo |
+| Growth pipeline is a markdown file | `GROWTH_CRM.md` is maintained by hand and cannot join itself to `dj_profiles`. Fine at 23 prospects, not beyond. The Admin/CRM redesign phase owns this |
 
 ---
 
@@ -383,16 +422,14 @@ and the request status lifecycle in Guest Terms.
    manual-request-only. Recommendation: time-based deletion plus a
    documented erasure route.
 2. **Company structure.** Sole trader or Ltd. Gates several other items.
-3. **Activation definition** for the funnel. See
-   [GROWTH_CRM.md](GROWTH_CRM.md) §2.
-4. **Ad landing destination.** Signup or marketing page.
-5. **Paid optimisation event.** Which single event spend is judged on.
-6. **Sentry.** `enableLogs` is on with no logger calls. Recommendation:
+3. **Ad landing destination.** Signup or marketing page.
+4. **Paid optimisation event.** Which single event spend is judged on.
+5. **Sentry.** `enableLogs` is on with no logger calls. Recommendation:
    drop it, keep tracing and error capture.
-7. **Annual Pro billing.** Defer until Pro has real subscribers.
-8. **Physical QR block.** Keep as a launch promotion, or promote to an
+6. **Annual Pro billing.** Defer until Pro has real subscribers.
+7. **Physical QR block.** Keep as a launch promotion, or promote to an
    entitlement.
-9. **Guest queue voting.** Post-launch or never.
+8. **Guest queue voting.** Post-launch or never.
 
 ---
 
