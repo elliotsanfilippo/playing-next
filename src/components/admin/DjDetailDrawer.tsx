@@ -856,7 +856,7 @@ export default function DjDetailDrawer({
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="mt-4"
+                    className="mt-4 min-h-[44px]"
                     onClick={createContact}
                     disabled={saving}
                   >
