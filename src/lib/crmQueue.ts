@@ -64,6 +64,17 @@ function shortDate(value: string): string {
   });
 }
 
+/* Midnight of the day a timestamp falls on. Comparing a raw timestamp
+   against today's midnight makes yesterday lunchtime round to zero days,
+   which had the queue saying "Contacted today" about the same 28 Aug
+   contact the Contacts list correctly called "Yesterday". */
+function dayOf(value: string): number | null {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 function followUpDay(contact: CrmContact | null): number | null {
   if (!contact?.next_follow_up_at) return null;
   const d = new Date(contact.next_follow_up_at);
@@ -171,9 +182,11 @@ export function buildQueue(rows: PipelineRow[]): QueueItem[] {
       : isReady;
 
     if (needsAttention) {
-      const waitingDays = contact?.last_contact_at
-        ? daysBetween(today, new Date(contact.last_contact_at).getTime())
+      const contactedOn = contact?.last_contact_at
+        ? dayOf(contact.last_contact_at)
         : null;
+      const waitingDays =
+        contactedOn !== null ? daysBetween(today, contactedOn) : null;
 
       items.push({
         row,
@@ -187,7 +200,9 @@ export function buildQueue(rows: PipelineRow[]): QueueItem[] {
           waitingDays !== null
             ? waitingDays === 0
               ? "Contacted today"
-              : `${waitingDays}d waiting`
+              : waitingDays === 1
+                ? "Waiting 1 day"
+                : `${waitingDays}d waiting`
             : contact?.activation_blocker
               ? "No reply yet"
               : "No blocker",
