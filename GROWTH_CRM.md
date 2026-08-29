@@ -28,8 +28,13 @@ supplied by Elliot from planning that predates these records.*
 | **Activated external DJs** | **0** |
 | Pro subscribers | 1 (Elliot's own test account) |
 
-**Current acquisition stage:** pre-activation. Outreach has produced
-signups; signups have not produced use.
+**Current acquisition stage:** pre-activation, with five follow-ups in
+flight. Outreach has produced signups; signups have not yet produced use.
+
+**Contacted 2026-08-28:** Steve / SG Sounds, Tommy Cleary, Sweenz and
+Cammy Birse about using Playing Next at an upcoming set, and Ben Phillips
+followed up on his incomplete onboarding. **Four of five blockers are
+genuinely unknown until they reply.**
 
 **Immediate growth objective:** get **one external DJ to accept one real
 paid request at a real gig.** Not more signups. Four DJs are already
@@ -71,6 +76,25 @@ Explicitly **not** activation:
 By this definition there are currently **zero activated external DJs**.
 Four are one gig away from it.
 
+### Activation blocker / reason
+
+Every payments-ready DJ who has not activated carries a blocker. Recording
+which one is how we learn whether the gap is the product, the pitch, or
+something outside our control entirely.
+
+| Blocker | Meaning |
+|---|---|
+| **Ready, not yet attempted** | Set up, has not tried to use it at a gig |
+| **Venue / management refused** | Tried to use it; the venue would not allow it |
+| **No suitable gig yet** | Willing, but nothing booked that fits |
+| **Product / setup blocker** | Something in the product stopped them |
+| **DJ choice / not interested** | Decided against using it |
+| **Activated** | Accepted a first paid request |
+| **Unknown — awaiting response** | Contacted, no answer yet |
+
+A blocker is only recorded once a DJ has actually told us. Until then the
+honest value is **Unknown — awaiting response**.
+
 ---
 
 ## 3. DJ outreach and product reconciliation
@@ -82,20 +106,25 @@ deliberately blank — none were provided and none will be invented.**
 
 ### Priority 1 — payments ready, never activated
 
-Technically complete. Nothing is stopping them but a gig.
+Technically complete. **All four contacted 2026-08-28.**
 
-| DJ | Historical | Product stage | Payments ready | Requests | Activation | Next action |
-|---|---|---|---|---|---|---|
-| **Tommy Cleary** (`tommycleary03`) | Signed up | Onboarded | Yes | 0 | Not activated | Ask when their next gig is and offer to be on hand for it |
-| **Sweenz** (`titisweeney97`) | Signed up | Onboarded | Yes | 0 | Not activated | Same. Last active 314h ago, so re-open the conversation first |
-| **Cammy Birse** (`cameron-birse`) | Signed up | Onboarded | Yes | 0 | Not activated | Same. 378h since last active |
-| **Steve / SG Sounds** (`sgsoundsuk`) | Signed up | Onboarded | Yes | 0 | Not activated | Most recently active of this group at 90h. Best first call |
+| DJ | Historical | Product stage | Payments ready | Requests | Activation blocker | Last contact | Next action |
+|---|---|---|---|---|---|---|---|
+| **Steve / SG Sounds** (`sgsoundsuk`) | Signed up | Onboarded | Yes | 0 | **Unknown — awaiting response** | 2026-08-28 | Asked about using it at his next set. Await reply |
+| **Tommy Cleary** (`tommycleary03`) | Signed up | Onboarded | Yes | 0 | **Unknown — awaiting response** | 2026-08-28 | Asked about using it at his next set. Await reply |
+| **Sweenz** (`titisweeney97`) | Signed up | Onboarded | Yes | 0 | **Unknown — awaiting response** | 2026-08-28 | Asked about using it at his next set. Await reply |
+| **Cammy Birse** (`cameron-birse`) | Signed up | Onboarded | Yes | 0 | **Venue / management refused** | 2026-08-28 | **Tried to use it. The club's management would not allow it.** Now asked whether he has other sets where he could |
+
+**Cammy is not an unused signup.** He attempted to use Playing Next at a
+club set and was blocked by that venue's management, not by the product,
+the setup, or a lack of interest. He is the only DJ so far who has actually
+tried, which makes him the most informative person in this file.
 
 ### Priority 2 — signed up, onboarding incomplete
 
 | DJ | Historical | Product stage | Payments ready | Requests | Activation | Next action |
 |---|---|---|---|---|---|---|
-| **Ben Phillips** (`djbenphillipsmusic`) | Signed up | Onboarding incomplete | **Stripe connected** | 0 | Not activated | Furthest along of this group: connected Stripe then stopped. Find out what blocked the last step |
+| **Ben Phillips** (`djbenphillipsmusic`) | Signed up | Onboarding incomplete | **Stripe connected** | 0 | **Unknown — awaiting response**. Contacted 2026-08-28 | Connected Stripe then stopped, the furthest anyone has got before quitting. Followed up; await reply |
 | **Sizzla** (`sizzladeejay`) | Signed up | Onboarding incomplete | No | 0 | Not activated | Set a DJ name, no Stripe. Ask what stopped them |
 | **Sol / Graeme Smith** (`smithgraeme91`) | Signed up | Onboarding incomplete | No | 0 | Not activated | No name set, 401h idle. Re-engage |
 | **Tarz** | Signed up | **No confident profile match** | Unknown | Unknown | Unknown | Confirm which account is theirs, or whether they ever completed signup |
@@ -240,6 +269,23 @@ important question.
 ## 8. Growth decisions and learnings
 
 Dated, so we stop revisiting settled questions.
+
+**2026-08-28 — the first known activation blocker is a venue, not the
+product.** Cammy Birse asked a club for permission to use Playing Next at
+one of his sets and the club's management refused. He is the only DJ so far
+who has actually tried to use it, and the thing that stopped him was
+outside the product entirely: not setup, not pricing, not the app, but who
+controls what happens in the room.
+
+That is worth holding lightly until more DJs report back, because one case
+is not a pattern. But if venue permission turns out to be common it changes
+more than the pitch. It would mean a resident DJ cannot unilaterally adopt
+Playing Next, which affects where activation effort should go (mobile,
+private and wedding work versus club residencies), gives the parked
+venue/promoter B2B workstream a concrete reason to exist, and suggests the
+product may eventually need something a DJ can put in front of a manager.
+**Do not act on a sample of one — ask the other four whether they need
+permission before recording it as a pattern.**
 
 **2026-08-28 — the funnel breaks at first use, not at acquisition.**
 Reconciling Elliot's outreach list against the database: 23 prospects, 8
