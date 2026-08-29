@@ -14,11 +14,21 @@ import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
  * who signed up and vanished. Nothing in the Admin used to say anything
  * about them at all.
  */
+/*
+ * Tier order is the priority order: a lower tier can never outrank a
+ * higher one whatever its date.
+ *
+ * "upcoming" sits above "awaiting reply" deliberately. A gig with a date
+ * on it is time-sensitive and is the single event that turns a
+ * payments-ready DJ into an activated one, so it has to be prepared for
+ * before the day arrives. Waiting on a reply matters just as much in
+ * aggregate but rarely has to happen today, and it does not expire.
+ */
 export const QUEUE_TIERS = [
   "overdue",
   "today",
-  "attention",
   "upcoming",
+  "attention",
   "stalled",
 ] as const;
 
