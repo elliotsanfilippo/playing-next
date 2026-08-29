@@ -111,6 +111,23 @@ export function useModalA11y({ open, onClose }: Options) {
      * was still focusable with the dialog open. Verified on the live
      * dashboard before and after.
      */
+    /*
+     * Lock the page behind. Measured on the live Admin during the 6B.1
+     * review: a wheel over the open drawer scrolled the list underneath
+     * by 673px, because the drawer is its own scroll container and the
+     * overflow chained to the document once it reached its end.
+     *
+     * The padding compensation stops the page shifting sideways as the
+     * scrollbar disappears, which otherwise reads as the whole layout
+     * flinching the moment a dialog opens.
+     */
+    const previousOverflow = document.body.style.overflow;
+    const previousPadding = document.body.style.paddingRight;
+    const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = "hidden";
+    if (scrollbar > 0) document.body.style.paddingRight = `${scrollbar}px`;
+
     const marked: HTMLElement[] = [];
 
     let node: HTMLElement | null = container;
@@ -132,6 +149,8 @@ export function useModalA11y({ open, onClose }: Options) {
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
       marked.forEach((el) => el.removeAttribute("inert"));
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPadding;
       returnFocusRef.current?.focus();
     };
   }, [open, onClose]);

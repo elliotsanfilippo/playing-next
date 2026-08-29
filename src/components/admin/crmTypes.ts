@@ -75,3 +75,11 @@ export type PipelineRow = {
   contact: CrmContact | null;
   stage: LifecycleStage;
 };
+
+/** A DJ account no CRM contact has claimed yet, for the linking UI. */
+export type UnlinkedDj = {
+  id: string;
+  dj_name: string;
+  slug: string;
+  created_at: string;
+};
