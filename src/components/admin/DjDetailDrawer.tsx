@@ -113,6 +113,32 @@ export default function DjDetailDrawer({
     next_action: contact?.next_action ?? "",
   });
 
+  /*
+   * Re-sync the draft when the contact changes underneath the open
+   * drawer - which happens every time Log writes. Without this the
+   * blocker select would keep showing the value from when the drawer
+   * opened and Save details would write that stale value back, which is
+   * the same bug the next step had.
+   *
+   * Adjusting state during render rather than in an effect: this is
+   * React's documented pattern for deriving state from changed props,
+   * and it avoids the extra render an effect would cause.
+   */
+  const [syncedAt, setSyncedAt] = useState(contact?.updated_at);
+  if (contact && contact.updated_at !== syncedAt) {
+    setSyncedAt(contact.updated_at);
+    setDraft({
+      outreach_status: contact.outreach_status ?? "prospect",
+      activation_blocker: contact.activation_blocker ?? "",
+      acquisition_source: contact.acquisition_source ?? "",
+      contact_channel: contact.contact_channel ?? "",
+      contact_handle: contact.contact_handle ?? "",
+      next_gig_date: dateInput(contact.next_gig_date ?? null),
+      next_follow_up_at: dateInput(contact.next_follow_up_at ?? null),
+      next_action: contact.next_action ?? "",
+    });
+  }
+
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState<CrmNote[]>([]);
   const [notesFailed, setNotesFailed] = useState(false);
@@ -205,6 +231,19 @@ export default function DjDetailDrawer({
     }
   };
 
+  /*
+   * Deliberately does NOT write next_action or next_follow_up_at.
+   *
+   * It used to, from a draft captured when the drawer opened and never
+   * re-synced - and the form stopped rendering inputs for either field,
+   * so they were write-only from a value nobody could see. Logging an
+   * interaction set a next step correctly, and then tapping Save details
+   * wrote null over both. Proven end to end on a temporary contact: the
+   * step survived the log and the refetch, and was destroyed by Save.
+   *
+   * The next step belongs to Log, Done and Later now. A form that does
+   * not show a field must never write it.
+   */
   const save = () =>
     patch(
       {
@@ -214,10 +253,8 @@ export default function DjDetailDrawer({
         contact_channel: draft.contact_channel || null,
         contact_handle: draft.contact_handle || null,
         next_gig_date: draft.next_gig_date || null,
-        next_follow_up_at: draft.next_follow_up_at || null,
-        next_action: draft.next_action || null,
       },
-      "Saved."
+      "Details saved."
     );
 
   /*
