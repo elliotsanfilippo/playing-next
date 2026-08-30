@@ -19,6 +19,14 @@ export type DjStat = {
   gig_date_count: number;
   onboarding_complete: boolean;
   stripe_connected: boolean;
+  /* Product events for the timeline. The three *_at / pro_since values
+     are NULL for DJs who reached that state before the columns existed. */
+  first_request_at: string | null;
+  first_paid_at: string | null;
+  repeat_night_at: string | null;
+  onboarded_at: string | null;
+  payments_ready_at: string | null;
+  pro_since: string | null;
 };
 
 export type CrmContact = {
@@ -82,4 +90,18 @@ export type UnlinkedDj = {
   dj_name: string;
   slug: string;
   created_at: string;
+};
+
+/*
+ * A thing the admin has to do. Open when completed_at is null; the row
+ * survives completion so the timeline can show it.
+ */
+export type CrmTask = {
+  id: string;
+  contact_id: string;
+  title: string;
+  due_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 };

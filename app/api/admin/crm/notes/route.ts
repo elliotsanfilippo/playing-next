@@ -94,11 +94,22 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Writing a note is contact, so it advances last_contact_at unless
-     * the note is backdated behind what is already recorded. Doing this
-     * here rather than asking the UI to send two requests keeps the two
-     * facts from drifting apart when one call fails.
+     * Only a real interaction advances last_contact_at.
+     *
+     * The caller says which this is. Logging an interaction means
+     * something happened between us and passes true; adding a
+     * historical note is recording context and passes false. Writing a
+     * note used to always advance the date, which invented contact
+     * dates for three contacts during the GROWTH_CRM import and had to
+     * be reverted by hand.
+     *
+     * Defaults to false: a caller that has not thought about it should
+     * not silently claim you spoke to someone.
      */
+    if (body.advance_last_contact !== true) {
+      return NextResponse.json({ note: data });
+    }
+
     const occurred = data.occurred_at as string;
     const { data: contact } = await supabaseAdmin
       .from("crm_contacts")

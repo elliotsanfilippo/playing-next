@@ -8,6 +8,7 @@ import {
   Link2,
   Check,
   Clock,
+  Plus,
   AlertTriangle,
   MessageSquarePlus,
 } from "lucide-react";
@@ -35,16 +36,13 @@ import LogInteractionForm, {
   type LogPayload,
 } from "@/src/components/admin/LogInteractionForm";
 import { MoreDetails, SectionLabel } from "@/src/components/admin/DrawerSections";
-import {
-  hasNextStep,
-  donePatch,
-  laterPatch,
-  dueLabel,
-  LATER_OPTIONS,
-} from "@/src/lib/crmActions";
+import { buildActivity, activityDate } from "@/src/lib/crmActivity";
+import { taskDueLabel, classifyTask } from "@/src/lib/crmQueue";
+
 import type {
   CrmContact,
   CrmNote,
+  CrmTask,
   PipelineRow,
   UnlinkedDj,
 } from "@/src/components/admin/crmTypes";
@@ -83,6 +81,11 @@ export default function DjDetailDrawer({
   onChanged,
   onLinked,
   initialMode = "detail",
+  tasks,
+  onCompleteTask,
+  onReopenTask,
+  onRescheduleTask,
+  onEditTask,
 }: {
   row: PipelineRow;
   onClose: () => void;
@@ -92,6 +95,11 @@ export default function DjDetailDrawer({
   onLinked?: (contactId: string, djProfileId: string) => Promise<void>;
   /** Overview's Log button opens the drawer straight into the log flow. */
   initialMode?: "detail" | "log";
+  tasks: CrmTask[];
+  onCompleteTask: (task: CrmTask) => void;
+  onReopenTask: (task: CrmTask) => void;
+  onRescheduleTask: (task: CrmTask, days: number) => void;
+  onEditTask: (task: CrmTask) => void;
 }) {
   const { containerRef, dialogProps } = useModalA11y({ open: true, onClose });
   const viewport = useVisualViewport();
@@ -109,8 +117,6 @@ export default function DjDetailDrawer({
     contact_channel: contact?.contact_channel ?? "",
     contact_handle: contact?.contact_handle ?? "",
     next_gig_date: dateInput(contact?.next_gig_date ?? null),
-    next_follow_up_at: dateInput(contact?.next_follow_up_at ?? null),
-    next_action: contact?.next_action ?? "",
   });
 
   /*
@@ -134,8 +140,6 @@ export default function DjDetailDrawer({
       contact_channel: contact.contact_channel ?? "",
       contact_handle: contact.contact_handle ?? "",
       next_gig_date: dateInput(contact.next_gig_date ?? null),
-      next_follow_up_at: dateInput(contact.next_follow_up_at ?? null),
-      next_action: contact.next_action ?? "",
     });
   }
 
@@ -267,10 +271,68 @@ export default function DjDetailDrawer({
    * boilerplate next actions like "Follow up", and auto-noting those
    * would bury the real history under entries nobody wrote.
    */
-  const completeStep = () => patch(donePatch(), "Next step cleared.");
+  /*
+   * Creating a task is its own act. It must never require inventing an
+   * interaction first, which is why + Task exists here as well as
+   * inside the log flow.
+   */
+  const addTask = async (title: string, dueAt?: string | null) => {
+    if (!contact || !title.trim()) return;
+    setSaving(true);
+    try {
+      await adminJson(
+        await adminFetch("/api/admin/crm/tasks", {
+          method: "POST",
+          body: JSON.stringify({
+            contact_id: contact.id,
+            title,
+            due_at: dueAt || null,
+          }),
+        })
+      );
+      toast.success("Task added.");
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to add.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const later = (days: number, label: string) =>
-    patch(laterPatch(days), `Moved to ${label.toLowerCase()}.`);
+  const promptTask = () => {
+    const title = window.prompt("What do you need to do?");
+    if (!title?.trim()) return;
+    return addTask(title);
+  };
+
+  /*
+   * A note without contact. Recording that a venue said no last month
+   * is history, not a conversation you had today - so this explicitly
+   * does not advance last_contact_at.
+   */
+  const addHistoricalNote = async () => {
+    const body = window.prompt("Note (history, not a new interaction)");
+    if (!body?.trim() || !contact) return;
+    setSaving(true);
+    try {
+      await adminJson(
+        await adminFetch("/api/admin/crm/notes", {
+          method: "POST",
+          body: JSON.stringify({
+            contact_id: contact.id,
+            body,
+            advance_last_contact: false,
+          }),
+        })
+      );
+      toast.success("Note added.");
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to add.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /* The one action that writes history, and the only one that advances
      last_contact_at, because an interaction genuinely is contact. */
@@ -281,16 +343,23 @@ export default function DjDetailDrawer({
       await adminJson(
         await adminFetch("/api/admin/crm/notes", {
           method: "POST",
-          body: JSON.stringify({ contact_id: contact.id, body: payload.note }),
+          body: JSON.stringify({
+            contact_id: contact.id,
+            body: payload.note,
+            /* This one genuinely is contact. */
+            advance_last_contact: true,
+          }),
         })
       );
 
+      /*
+       * next_action and next_follow_up_at are deliberately absent. A
+       * follow-up from a logged interaction is a real crm_tasks row,
+       * the same object + Task creates. The legacy columns stay in the
+       * database untouched as rollback data and are written by nothing.
+       */
       const fields: Record<string, unknown> = {
         last_contact_at: new Date().toISOString(),
-        next_action: payload.nextAction.trim() || null,
-        next_follow_up_at: payload.nextAction.trim()
-          ? payload.nextDate || null
-          : null,
       };
       if (payload.blockerChanged) fields.activation_blocker = payload.blocker;
 
@@ -300,6 +369,19 @@ export default function DjDetailDrawer({
           body: JSON.stringify({ id: contact.id, ...fields }),
         })
       );
+
+      if (payload.nextAction.trim()) {
+        await adminJson(
+          await adminFetch("/api/admin/crm/tasks", {
+            method: "POST",
+            body: JSON.stringify({
+              contact_id: contact.id,
+              title: payload.nextAction,
+              due_at: payload.nextDate || null,
+            }),
+          })
+        );
+      }
 
       toast.success("Interaction logged.");
       setMode("detail");
@@ -387,21 +469,6 @@ export default function DjDetailDrawer({
     }
   };
 
-  const addNote = async () => {
-    if (!contact || !newNote.trim()) return;
-    try {
-      const response = await adminFetch("/api/admin/crm/notes", {
-        method: "POST",
-        body: JSON.stringify({ contact_id: contact.id, body: newNote }),
-      });
-      const result = await adminJson<{ note: CrmNote }>(response);
-      setNotes((current) => [result.note, ...current]);
-      setNewNote("");
-      onChanged();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to save.");
-    }
-  };
 
   const deleteNote = async (id: string) => {
     try {
@@ -425,11 +492,33 @@ export default function DjDetailDrawer({
       ]
     : [];
 
+  /* This contact's tasks, open first and soonest due first. The list is
+     a list: there is no structural limit of one, which was the whole
+     point of moving off next_action. */
+  const contactTasks = useMemo(
+    () => tasks.filter((t) => contact && t.contact_id === contact.id),
+    [tasks, contact]
+  );
+  const openTasks = useMemo(
+    () =>
+      contactTasks
+        .filter((t) => !t.completed_at)
+        .sort((a, b) => {
+          if (!a.due_at && !b.due_at) return 0;
+          if (!a.due_at) return 1;
+          if (!b.due_at) return -1;
+          return a.due_at < b.due_at ? -1 : 1;
+        }),
+    [contactTasks]
+  );
+  const activity = useMemo(
+    () => buildActivity(row, notes, contactTasks),
+    [row, notes, contactTasks]
+  );
+
   const blockerLabel = contact?.activation_blocker
     ? BLOCKER_LABELS[contact.activation_blocker as ActivationBlocker]
     : null;
-  const step = contact?.next_action?.trim() || null;
-  const due = dueLabel(contact?.next_follow_up_at);
 
   return (
     <div
@@ -499,109 +588,156 @@ export default function DjDetailDrawer({
             <>
               {/* ── What happens next ─────────────────────────── */}
               <section className="border-b border-white/5 p-5">
-                <SectionLabel>What happens next</SectionLabel>
+                <div className="flex items-center justify-between gap-3">
+                  <SectionLabel>
+                    Tasks{openTasks.length > 0 && ` · ${openTasks.length} open`}
+                  </SectionLabel>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="min-h-[44px]"
+                    onClick={promptTask}
+                    disabled={saving}
+                  >
+                    <Plus size={14} className="mr-1.5" />
+                    Task
+                  </Button>
+                </div>
 
-                {step ? (
-                  <>
-                    <p className="mt-2.5 text-base text-white">{step}</p>
-                    {due && (
-                      <p
-                        className={`mt-1.5 font-mono text-xs ${
-                          due.overdue
-                            ? "text-status-declined"
-                            : due.today
-                              ? "text-status-pending"
-                              : "text-text-muted"
-                        }`}
-                      >
-                        {due.text}
-                      </p>
-                    )}
-
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="min-h-[44px]"
-                        onClick={completeStep}
-                        disabled={saving}
-                      >
-                        <Check size={14} className="mr-1.5" />
-                        Done
-                      </Button>
-
-                      {/* Later is a menu, not four permanent buttons */}
-                      <details className="relative [&_summary::-webkit-details-marker]:hidden">
-                        <summary className="flex min-h-[44px] cursor-pointer list-none items-center rounded-control border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-                          <Clock size={14} className="mr-1.5" />
-                          Later
-                        </summary>
-                        <div className="absolute left-0 z-10 mt-1 w-44 overflow-hidden rounded-control border border-white/10 bg-surface-overlay shadow-xl shadow-black/50">
-                          {LATER_OPTIONS.map((o) => (
-                            <button
-                              key={o.days}
-                              type="button"
-                              onClick={() => later(o.days, o.label)}
-                              disabled={saving}
-                              className="flex min-h-[44px] w-full items-center px-4 text-left text-sm text-zinc-200 transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
-                            >
-                              {o.label}
-                            </button>
-                          ))}
-                        </div>
-                      </details>
-                    </div>
-                  </>
-                ) : (
+                {openTasks.length === 0 ? (
                   <p className="mt-2.5 text-sm text-text-muted">
-                    Nothing planned. You are waiting on them, so there is no
-                    task of yours to complete. Log an interaction when they
-                    reply, or to record that you chased.
+                    Nothing to do for this person. Add a task when you decide
+                    on one - being blocked or awaiting a reply is state, not a
+                    task.
                   </p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {openTasks.map((task, index) => {
+                      const tier = classifyTask(task);
+                      return (
+                        <li
+                          key={task.id}
+                          className={`rounded-control border p-3 ${
+                            index === 0
+                              ? "border-white/15 bg-white/[0.04]"
+                              : "border-white/5 bg-white/[0.02]"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-white">
+                            {task.title}
+                          </p>
+                          <p
+                            className={`mt-1 font-mono text-xs ${
+                              tier === "overdue"
+                                ? "text-status-declined"
+                                : tier === "today"
+                                  ? "text-status-pending"
+                                  : "text-text-muted"
+                            }`}
+                          >
+                            {taskDueLabel(task)}
+                          </p>
+                          <div className="mt-2.5 flex flex-wrap gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="min-h-[44px]"
+                              onClick={() => onCompleteTask(task)}
+                            >
+                              <Check size={14} className="mr-1.5" />
+                              Complete
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-[44px]"
+                              onClick={() => onRescheduleTask(task, 7)}
+                            >
+                              <Clock size={14} className="mr-1.5" />
+                              Next week
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-[44px]"
+                              onClick={() => onEditTask(task)}
+                            >
+                              Edit
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
+
+                {/* Quick actions. Log is the only one that records
+                    contact; the other two never touch last_contact_at. */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    className="min-h-[44px]"
+                    onClick={() => setMode("log")}
+                    disabled={saving}
+                  >
+                    <MessageSquarePlus size={14} className="mr-1.5" />
+                    Log interaction
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-[44px]"
+                    onClick={addHistoricalNote}
+                    disabled={saving}
+                  >
+                    <Plus size={14} className="mr-1.5" />
+                    Note
+                  </Button>
+                </div>
               </section>
 
-              {/* ── History ───────────────────────────────────── */}
+              {/* ── Activity ──────────────────────────────────── */}
               <section className="border-b border-white/5 p-5">
-                <SectionLabel>History</SectionLabel>
+                <SectionLabel>Activity</SectionLabel>
 
-                <div className="mt-3 space-y-2">
-                  {notesFailed ? (
-                    <p className="rounded-control border border-status-declined-surface/20 bg-status-declined-surface/10 p-3 text-sm text-status-declined">
-                      History could not be loaded. This is not the same as
-                      there being none.
-                    </p>
-                  ) : notes.length === 0 ? (
-                    <p className="text-sm text-text-muted">
-                      Nothing recorded yet.
-                    </p>
-                  ) : (
-                    notes.map((note) => (
-                      <div
-                        key={note.id}
-                        className="flex items-start justify-between gap-3 rounded-control border border-white/5 bg-white/[0.02] p-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm text-zinc-200">{note.body}</p>
-                          <p className="mt-1 font-mono text-xs text-text-muted">
-                            {new Date(note.occurred_at).toLocaleDateString(
-                              undefined,
-                              { day: "numeric", month: "short" }
-                            )}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => deleteNote(note.id)}
-                          aria-label="Delete note"
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
+                {notesFailed ? (
+                  <p className="mt-3 rounded-control border border-status-declined-surface/20 bg-status-declined-surface/10 p-3 text-sm text-status-declined">
+                    History could not be loaded. This is not the same as there
+                    being none.
+                  </p>
+                ) : activity.length === 0 ? (
+                  <p className="mt-2.5 text-sm text-text-muted">
+                    Nothing recorded yet.
+                  </p>
+                ) : (
+                  <ol className="mt-4 space-y-3 border-l border-white/10 pl-4">
+                    {activity.map((entry) => (
+                      <li key={entry.id} className="relative">
+                        {/* A dot per source, not a rainbow: green for
+                            things you did, blue for things the product
+                            did. */}
+                        <span
+                          aria-hidden
+                          className={`absolute -left-[1.32rem] top-1.5 h-2 w-2 rounded-full ${
+                            entry.kind === "product"
+                              ? "bg-status-playing"
+                              : "bg-accent"
+                          }`}
+                        />
+                        <p className="text-sm text-zinc-200">
+                          {entry.kind === "task" && (
+                            <span className="text-text-muted">Task completed: </span>
+                          )}
+                          {entry.detail ?? entry.title}
+                        </p>
+                        <p className="mt-0.5 font-mono text-xs text-text-muted">
+                          {activityDate(entry)}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </section>
 
               {/* ── More details ─────────────────────────────── */}

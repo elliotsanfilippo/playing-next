@@ -44,12 +44,11 @@ export default function LogInteractionForm({
 }) {
   const [note, setNote] = useState("");
   const [blocker, setBlocker] = useState(contact.activation_blocker ?? "");
-  const [nextAction, setNextAction] = useState(contact.next_action ?? "");
-  const [nextDate, setNextDate] = useState(
-    contact.next_follow_up_at
-      ? new Date(contact.next_follow_up_at).toISOString().slice(0, 10)
-      : ""
-  );
+  /* Empty, always. This creates a NEW task; prefilling it from the
+     legacy next_action would resurrect the field this replaced and make
+     every log silently re-propose the same stale text. */
+  const [nextAction, setNextAction] = useState("");
+  const [nextDate, setNextDate] = useState("");
 
   const blockerChanged = (blocker || null) !== (contact.activation_blocker ?? null);
 

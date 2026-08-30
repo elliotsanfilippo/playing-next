@@ -1,5 +1,5 @@
 import { LIFECYCLE_LABELS, type LifecycleStage } from "@/src/lib/djLifecycle";
-import { buildQueue } from "@/src/lib/crmQueue";
+import type { TaskItem, StateItem } from "@/src/lib/crmQueue";
 import type { PipelineRow } from "@/src/components/admin/crmTypes";
 
 /*
@@ -52,11 +52,23 @@ export type FilterCounts = {
   secondary: Record<string, number>;
 };
 
-export function buildFilterIndex(rows: PipelineRow[]) {
-  const queue = buildQueue(rows);
-  const inQueue = new Set(queue.map((q) => q.row.key));
+export function buildFilterIndex(
+  rows: PipelineRow[],
+  taskItems: TaskItem[],
+  stateItems: StateItem[]
+) {
+  /*
+   * "Needs attention" is anyone with something to do OR something worth
+   * knowing - the union of the two Overview sections, not a third
+   * definition. "Awaiting reply" is the state tier by name.
+   */
+  const withTask = new Set(
+    taskItems.filter((t) => t.row).map((t) => t.row!.key)
+  );
+  const inState = new Set(stateItems.map((s) => s.row.key));
+  const inQueue = new Set([...withTask, ...inState]);
   const awaiting = new Set(
-    queue.filter((q) => q.tier === "attention").map((q) => q.row.key)
+    stateItems.filter((s) => s.tier === "awaiting").map((s) => s.row.key)
   );
 
   const matchesPrimary = (row: PipelineRow, f: PrimaryFilter) => {

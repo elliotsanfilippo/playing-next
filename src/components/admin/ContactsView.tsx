@@ -11,7 +11,11 @@ import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import { stageTone } from "@/src/components/admin/stageTone";
 import ContactIdentity from "@/src/components/admin/ContactIdentity";
-import { buildQueue, sortForContacts } from "@/src/lib/crmQueue";
+import {
+  buildTaskQueue,
+  buildStateQueue,
+  sortForContacts,
+} from "@/src/lib/crmQueue";
 import {
   buildFilterIndex,
   visiblePrimary,
@@ -20,7 +24,11 @@ import {
   type PrimaryFilter,
   type SecondaryFilter,
 } from "@/src/lib/crmFilters";
-import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
+import type {
+  CrmContact,
+  CrmTask,
+  PipelineRow,
+} from "@/src/components/admin/crmTypes";
 
 /*
  * The Pipeline view is a desktop view. A six-column board on a 390px
@@ -50,11 +58,16 @@ function useIsDesktop() {
 
 type View = "list" | "pipeline";
 
-function followUpCell(contact: CrmContact | null) {
-  if (!contact?.next_follow_up_at) {
+/*
+ * Reads the soonest open task, never next_follow_up_at. The legacy
+ * column stays in the database untouched; nothing in the interface
+ * looks at it.
+ */
+function followUpCell(task: CrmTask | null) {
+  if (!task?.due_at) {
     return <span className="text-text-muted">&mdash;</span>;
   }
-  const due = new Date(contact.next_follow_up_at);
+  const due = new Date(task.due_at);
   due.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -115,10 +128,12 @@ function StageCell({ row }: { row: PipelineRow }) {
 
 export default function ContactsView({
   rows,
+  tasks,
   onOpen,
   onAddProspect,
 }: {
   rows: PipelineRow[];
+  tasks: CrmTask[];
   onOpen: (key: string) => void;
   onAddProspect: (name: string) => Promise<void>;
 }) {
@@ -132,12 +147,29 @@ export default function ContactsView({
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
 
+  const taskItems = useMemo(() => buildTaskQueue(tasks, rows), [tasks, rows]);
+
+  /* The soonest open task per contact, for the list's "next" column. */
+  const nextTaskByContact = useMemo(() => {
+    const map = new Map<string, CrmTask>();
+    for (const item of taskItems) {
+      const id = item.task.contact_id;
+      if (!map.has(id)) map.set(id, item.task);
+    }
+    return map;
+  }, [taskItems]);
+  const nextTaskFor = (row: PipelineRow) =>
+    row.contact ? (nextTaskByContact.get(row.contact.id) ?? null) : null;
+  const stateItems = useMemo(() => buildStateQueue(rows), [rows]);
   const ordered = useMemo(
-    () => sortForContacts(rows, buildQueue(rows)),
-    [rows]
+    () => sortForContacts(rows, taskItems, stateItems),
+    [rows, taskItems, stateItems]
   );
 
-  const index = useMemo(() => buildFilterIndex(rows), [rows]);
+  const index = useMemo(
+    () => buildFilterIndex(rows, taskItems, stateItems),
+    [rows, taskItems, stateItems]
+  );
 
   /* Filters and search compose: both narrow the same ordered list, so
      "Ready" plus a search term means ready DJs matching that term, not
@@ -367,11 +399,13 @@ export default function ContactsView({
                       )}
                     </td>
                     <td className="max-w-[15rem] px-4 py-3.5 text-zinc-300">
-                      {row.contact?.next_action || (
+                      {nextTaskFor(row)?.title || (
                         <span className="text-text-muted">&mdash;</span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5">{followUpCell(row.contact)}</td>
+                    <td className="px-5 py-3.5">
+                      {followUpCell(nextTaskFor(row))}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -383,7 +417,7 @@ export default function ContactsView({
               const blocker = row.contact?.activation_blocker
                 ? BLOCKER_LABELS[row.contact.activation_blocker as ActivationBlocker]
                 : null;
-              const step = row.contact?.next_action?.trim() || null;
+              const step = nextTaskFor(row)?.title ?? null;
               const last = row.contact?.last_contact_at
                 ? relativeDays(row.contact.last_contact_at).toLowerCase()
                 : null;

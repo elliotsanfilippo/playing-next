@@ -1,63 +1,41 @@
 import { blockerPolicy } from "@/src/lib/crmTaxonomy";
-import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
+import type {
+  CrmContact,
+  CrmTask,
+  PipelineRow,
+} from "@/src/components/admin/crmTypes";
 
 /*
- * ── What needs doing, in the order it needs doing ─────────────────
+ * ── Two different questions, kept apart ───────────────────────────
  *
- * The previous version listed whatever matched, in row order, which put
- * a gig three days away above a follow-up two days overdue. Ordering by
- * a sort key alone would fix today's symptom and break again the next
- * time a reason is added, so urgency is expressed as tiers: a lower
- * tier can never outrank a higher one whatever its date.
+ * What do I need to DO?          tasks, from crm_tasks
+ * What is TRUE that I should     state, from the blocker and the
+ * be aware of?                   product lifecycle
  *
- * Tier 5, onboarding stalled, is the one that surfaces the nine people
- * who signed up and vanished. Nothing in the Admin used to say anything
- * about them at all.
+ * These were one blended list before, which is how "Mark done" ended up
+ * offered on a row that had no task on it. A DJ can legitimately be
+ * awaiting a reply AND have a task due Friday; those are two facts and
+ * the interface now says so.
+ *
+ * Nothing here reads next_action or next_follow_up_at. Those columns
+ * remain in the database as rollback data and are operationally dead.
  */
-/*
- * Tier order is the priority order: a lower tier can never outrank a
- * higher one whatever its date.
- *
- * "upcoming" sits above "awaiting reply" deliberately. A gig with a date
- * on it is time-sensitive and is the single event that turns a
- * payments-ready DJ into an activated one, so it has to be prepared for
- * before the day arrives. Waiting on a reply matters just as much in
- * aggregate but rarely has to happen today, and it does not expire.
- */
-export const QUEUE_TIERS = [
-  "overdue",
-  "today",
-  "upcoming",
-  "attention",
-  "stalled",
-] as const;
-
-export type QueueTier = (typeof QUEUE_TIERS)[number];
-
-export const TIER_LABELS: Record<QueueTier, string> = {
-  overdue: "Overdue",
-  today: "Today",
-  attention: "Awaiting reply",
-  upcoming: "Upcoming",
-  stalled: "Onboarding stalled",
-};
-
-export type QueueItem = {
-  row: PipelineRow;
-  tier: QueueTier;
-  /** Plain sentence saying why this is here. */
-  reason: string;
-  /** Short right-aligned stamp: "3d late", "Today", "Sat 6 Sep". */
-  stamp: string;
-  /** Sort key inside a tier. Lower is more urgent. */
-  rank: number;
-};
 
 const DAY = 86_400_000;
 const STALLED_AFTER_DAYS = 7;
+/* Overview answers "now", so a task months away is not part of it. The
+   Tasks tab shows every future task without this window. */
+const OVERVIEW_UPCOMING_DAYS = 7;
 
 function startOfToday(): number {
   const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function dayOf(value: string): number | null {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
@@ -66,168 +44,174 @@ function daysBetween(a: number, b: number): number {
   return Math.round((a - b) / DAY);
 }
 
-function shortDate(value: string): string {
-  return new Date(value).toLocaleDateString(undefined, {
-    weekday: "short",
+/* ── Tasks ─────────────────────────────────────────────────────── */
+
+export const TASK_TIERS = ["overdue", "today", "upcoming", "unscheduled"] as const;
+export type TaskTier = (typeof TASK_TIERS)[number];
+
+export const TASK_TIER_LABELS: Record<TaskTier, string> = {
+  overdue: "Overdue",
+  today: "Today",
+  upcoming: "Upcoming",
+  unscheduled: "Unscheduled",
+};
+
+export type TaskItem = {
+  task: CrmTask;
+  row: PipelineRow | null;
+  tier: TaskTier;
+  /** "2 days overdue", "Due today", "Due 6 Sept", "No date". */
+  dueLabel: string;
+  rank: number;
+};
+
+/**
+ * Every tier is derived from due_at and completed_at alone. There is no
+ * status column, deliberately: two fields describing one thing is how
+ * they drift.
+ */
+export function classifyTask(task: CrmTask, today = startOfToday()): TaskTier {
+  if (!task.due_at) return "unscheduled";
+  const due = dayOf(task.due_at);
+  if (due === null) return "unscheduled";
+  if (due < today) return "overdue";
+  if (due === today) return "today";
+  return "upcoming";
+}
+
+export function taskDueLabel(task: CrmTask, today = startOfToday()): string {
+  if (!task.due_at) return "No date";
+  const due = dayOf(task.due_at);
+  if (due === null) return "No date";
+  const days = daysBetween(today, due);
+  if (days === 1) return "1 day overdue";
+  if (days > 1) return `${days} days overdue`;
+  if (days === 0) return "Due today";
+  if (days === -1) return "Due tomorrow";
+  return `Due ${new Date(task.due_at).toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
+  })}`;
+}
+
+export function buildTaskQueue(
+  tasks: CrmTask[],
+  rows: PipelineRow[]
+): TaskItem[] {
+  const today = startOfToday();
+  const byContact = new Map(
+    rows.filter((r) => r.contact).map((r) => [r.contact!.id, r])
+  );
+  const order = new Map(TASK_TIERS.map((t, i) => [t, i]));
+
+  return tasks
+    .filter((t) => !t.completed_at)
+    .map((task) => {
+      const tier = classifyTask(task, today);
+      const due = task.due_at ? dayOf(task.due_at) : null;
+      return {
+        task,
+        row: byContact.get(task.contact_id) ?? null,
+        tier,
+        dueLabel: taskDueLabel(task, today),
+        /* Most overdue first inside overdue; soonest first inside
+           upcoming; newest first among unscheduled. */
+        rank:
+          due === null
+            ? -new Date(task.created_at).getTime()
+            : tier === "overdue"
+              ? -daysBetween(today, due)
+              : daysBetween(due, today),
+      };
+    })
+    .sort((a, b) => {
+      const tier = order.get(a.tier)! - order.get(b.tier)!;
+      return tier !== 0 ? tier : a.rank - b.rank;
+    });
+}
+
+/** The subset Overview shows: everything except distant future work. */
+export function overviewTasks(items: TaskItem[]): TaskItem[] {
+  const today = startOfToday();
+  return items.filter((item) => {
+    if (item.tier !== "upcoming") return true;
+    const due = item.task.due_at ? dayOf(item.task.due_at) : null;
+    return due !== null && daysBetween(due, today) <= OVERVIEW_UPCOMING_DAYS;
   });
 }
 
-/* Midnight of the day a timestamp falls on. Comparing a raw timestamp
-   against today's midnight makes yesterday lunchtime round to zero days,
-   which had the queue saying "Contacted today" about the same 28 Aug
-   contact the Contacts list correctly called "Yesterday". */
-function dayOf(value: string): number | null {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+export function countTaskTiers(items: TaskItem[]): Record<TaskTier, number> {
+  const counts = Object.fromEntries(TASK_TIERS.map((t) => [t, 0])) as Record<
+    TaskTier,
+    number
+  >;
+  for (const i of items) counts[i.tier] += 1;
+  return counts;
 }
 
-function followUpDay(contact: CrmContact | null): number | null {
-  if (!contact?.next_follow_up_at) return null;
-  const d = new Date(contact.next_follow_up_at);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
+/* ── States ────────────────────────────────────────────────────── */
+
+export const STATE_TIERS = ["awaiting", "stalled"] as const;
+export type StateTier = (typeof STATE_TIERS)[number];
+
+export const STATE_TIER_LABELS: Record<StateTier, string> = {
+  awaiting: "Awaiting reply",
+  stalled: "Onboarding stalled",
+};
+
+export type StateItem = {
+  row: PipelineRow;
+  tier: StateTier;
+  reason: string;
+  stamp: string;
+  rank: number;
+};
 
 /**
- * One item per row at most. A DJ with an overdue follow-up AND an
- * upcoming gig appears once, at the more urgent of the two, so the
- * queue length is a count of people rather than of reasons.
+ * Things that are true and worth knowing, but are not actions of mine.
+ * Nothing here can be "completed"; it changes when the person or the
+ * product changes, which is exactly why these are not tasks.
  */
-export function buildQueue(rows: PipelineRow[]): QueueItem[] {
+export function buildStateQueue(rows: PipelineRow[]): StateItem[] {
   const today = startOfToday();
-  const items: QueueItem[] = [];
+  const items: StateItem[] = [];
 
   for (const row of rows) {
     const contact = row.contact;
-    const due = followUpDay(contact);
-
-    if (due !== null && due < today) {
-      const late = daysBetween(today, due);
-      items.push({
-        row,
-        tier: "overdue",
-        reason: contact?.next_action || "Follow-up overdue",
-        stamp: `${late}d late`,
-        rank: -late,
-      });
-      continue;
-    }
-
-    if (due !== null && due === today) {
-      items.push({
-        row,
-        tier: "today",
-        reason: contact?.next_action || "Follow-up due today",
-        stamp: "Today",
-        rank: 0,
-      });
-      continue;
-    }
-
-    const gig = contact?.next_gig_date ? new Date(contact.next_gig_date) : null;
-    if (gig && !Number.isNaN(gig.getTime())) {
-      gig.setHours(0, 0, 0, 0);
-      const away = daysBetween(gig.getTime(), today);
-      if (away >= 0 && away <= 7) {
-        items.push({
-          row,
-          tier: "upcoming",
-          reason: contact?.next_action?.trim() || "Gig coming up",
-          stamp: shortDate(contact!.next_gig_date!),
-          rank: away,
-        });
-        continue;
-      }
-    }
-
-    if (due !== null && due > today) {
-      const away = daysBetween(due, today);
-      items.push({
-        row,
-        tier: "upcoming",
-        reason: contact?.next_action || "Follow-up scheduled",
-        stamp: shortDate(contact!.next_follow_up_at!),
-        rank: away,
-      });
-      continue;
-    }
-
-    /*
-     * Does an unresolved relationship still need you? Decided by the
-     * blocker's policy, not by whether the field happens to be set.
-     *
-     * This deliberately does not test lifecycle stage. Ben Phillips is
-     * onboarding-incomplete rather than ready-to-activate, and he is
-     * still someone we are waiting on a reply from; gating on
-     * ready_to_activate would drop him exactly the way the previous rule
-     * dropped everyone else.
-     */
     const hasBlocker = !!contact?.activation_blocker;
     const policy = blockerPolicy(contact?.activation_blocker);
-    const hasNextAction = !!contact?.next_action?.trim();
     const isReady = row.stage === "ready_to_activate";
 
-    /*
-     * With a blocker recorded, its policy decides. Without one, only a
-     * ready-to-activate DJ surfaces - the original rule, kept.
-     *
-     * The distinction matters: "no blocker recorded" is the default for
-     * all 23 imported contacts, so treating an absent blocker as "always
-     * needs you" would have put fifteen cold prospects nobody has ever
-     * spoken to into a queue titled Awaiting reply. A cold prospect
-     * enters the queue by being given a follow-up date, which is a
-     * decision, not by existing.
-     */
-    const needsAttention = hasBlocker
+    /* when_due used to mean "there is a next action recorded". With
+       next_action retired, it means the person has an open task. */
+    const surfaces = hasBlocker
       ? policy === "always"
-        ? true
-        : policy === "when_due"
-          ? hasNextAction
-          : false
       : isReady;
 
-    if (needsAttention) {
-      const contactedOn = contact?.last_contact_at
-        ? dayOf(contact.last_contact_at)
-        : null;
-      const waitingDays =
-        contactedOn !== null ? daysBetween(today, contactedOn) : null;
-
+    if (surfaces) {
+      const waited =
+        contact?.last_contact_at !== undefined && contact?.last_contact_at
+          ? daysBetween(today, dayOf(contact.last_contact_at) ?? today)
+          : null;
       items.push({
         row,
-        tier: "attention",
-        reason:
-          contact?.next_action?.trim() ||
-          (contact?.activation_blocker
-            ? "Waiting on a reply"
-            : "Ready to activate, no blocker recorded"),
+        tier: "awaiting",
+        reason: contact?.activation_blocker
+          ? "Waiting on a reply from them"
+          : "Ready to activate, no blocker recorded",
         stamp:
-          waitingDays !== null
-            ? waitingDays === 0
+          waited === null
+            ? "Not contacted"
+            : waited === 0
               ? "Contacted today"
-              : waitingDays === 1
+              : waited === 1
                 ? "Waiting 1 day"
-                : `${waitingDays}d waiting`
-            : contact?.activation_blocker
-              ? "No reply yet"
-              : "No blocker",
-        /* Ready-to-activate first, then longest-waiting first. */
-        rank: (isReady ? -10_000 : 0) - (waitingDays ?? 0),
+                : `${waited}d waiting`,
+        rank: -(waited ?? 0),
       });
       continue;
     }
 
-    /*
-     * Signed up a week or more ago, never finished onboarding, and
-     * nobody has ever spoken to them. Without the "never contacted"
-     * condition this would re-list the same nine people forever, which
-     * is how a queue stops being read.
-     */
     if (
       row.stage === "onboarding_incomplete" &&
       row.dj &&
@@ -239,103 +223,76 @@ export function buildQueue(rows: PipelineRow[]): QueueItem[] {
       items.push({
         row,
         tier: "stalled",
-        reason:
-          contact?.next_action?.trim() ||
-          "Signed up and never finished setup. Never contacted.",
+        reason: "Signed up and never finished setup. Never contacted.",
         stamp: `${age}d ago`,
         rank: -age,
       });
     }
   }
 
-  const order = new Map(QUEUE_TIERS.map((t, i) => [t, i]));
+  const order = new Map(STATE_TIERS.map((t, i) => [t, i]));
   return items.sort((a, b) => {
     const tier = order.get(a.tier)! - order.get(b.tier)!;
     return tier !== 0 ? tier : a.rank - b.rank;
   });
 }
 
-export function countByTier(items: QueueItem[]): Record<QueueTier, number> {
-  const counts = Object.fromEntries(
-    QUEUE_TIERS.map((t) => [t, 0])
-  ) as Record<QueueTier, number>;
-  for (const item of items) counts[item.tier] += 1;
+export function countStateTiers(items: StateItem[]): Record<StateTier, number> {
+  const counts = Object.fromEntries(STATE_TIERS.map((t) => [t, 0])) as Record<
+    StateTier,
+    number
+  >;
+  for (const i of items) counts[i.tier] += 1;
   return counts;
 }
 
-/*
- * ── Default order for the Contacts list ───────────────────────────
- *
- * Importing the real pipeline put sixteen cold prospects above every
- * account: the list opened on Ellis Tilson and Badja, people with no
- * account and no contact ever, while Cammy Birse sat at row 26 of 32.
- * Newest-first is the wrong axis when most of what is new is also the
- * coldest thing in the file.
- *
- * The order is therefore by how much of your attention a row has a
- * claim on:
- *
- *   1  anything in the Needs You queue, in queue order
- *   2  DJs with accounts, most advanced stage first
- *   3  prospects you have actually spoken to, most recent first
- *   4  cold prospects, newest first
- *
- * Search and the Pipeline view are unaffected; this is only the default
- * resting order of the list.
- */
+/* ── Contacts list ordering ────────────────────────────────────── */
+
 const STAGE_RANK: Record<string, number> = {
-  pro: 0,
-  repeat: 1,
-  activated: 2,
-  ready_to_activate: 3,
-  onboarded: 4,
-  payments_ready: 5,
-  onboarding_incomplete: 6,
-  signed_up: 7,
-  prospect: 8,
+  pro: 0, repeat: 1, activated: 2, ready_to_activate: 3,
+  onboarded: 4, payments_ready: 5, onboarding_incomplete: 6,
+  signed_up: 7, prospect: 8,
 };
 
+/**
+ * Order by claim on attention: people with open tasks, then people in a
+ * state worth knowing, then accounts by stage, then prospects you have
+ * spoken to, then cold ones.
+ */
 export function sortForContacts(
   rows: PipelineRow[],
-  queue: QueueItem[]
+  taskItems: TaskItem[],
+  stateItems: StateItem[]
 ): PipelineRow[] {
-  const queuePosition = new Map(queue.map((item, index) => [item.row.key, index]));
+  const taskRank = new Map<string, number>();
+  taskItems.forEach((item, i) => {
+    if (item.row && !taskRank.has(item.row.key)) taskRank.set(item.row.key, i);
+  });
+  const statePos = new Map(stateItems.map((s, i) => [s.row.key, i]));
 
-  const band = (row: PipelineRow): number => {
-    if (queuePosition.has(row.key)) return 0;
-    if (row.dj) return 1;
-    if (row.contact?.last_contact_at) return 2;
-    return 3;
+  const band = (row: PipelineRow) => {
+    if (taskRank.has(row.key)) return 0;
+    if (statePos.has(row.key)) return 1;
+    if (row.dj) return 2;
+    if (row.contact?.last_contact_at) return 3;
+    return 4;
   };
 
   return [...rows].sort((a, b) => {
-    const bandDiff = band(a) - band(b);
-    if (bandDiff !== 0) return bandDiff;
-
-    if (band(a) === 0) {
-      return queuePosition.get(a.key)! - queuePosition.get(b.key)!;
-    }
-
-    if (band(a) === 1) {
-      const stage =
-        (STAGE_RANK[a.stage] ?? 9) - (STAGE_RANK[b.stage] ?? 9);
-      if (stage !== 0) return stage;
-      return (
-        new Date(b.dj!.created_at).getTime() -
-        new Date(a.dj!.created_at).getTime()
-      );
-    }
-
+    const d = band(a) - band(b);
+    if (d !== 0) return d;
+    if (band(a) === 0) return taskRank.get(a.key)! - taskRank.get(b.key)!;
+    if (band(a) === 1) return statePos.get(a.key)! - statePos.get(b.key)!;
     if (band(a) === 2) {
-      return (
-        new Date(b.contact!.last_contact_at!).getTime() -
-        new Date(a.contact!.last_contact_at!).getTime()
-      );
+      const stage = (STAGE_RANK[a.stage] ?? 9) - (STAGE_RANK[b.stage] ?? 9);
+      if (stage !== 0) return stage;
+      return new Date(b.dj!.created_at).getTime() - new Date(a.dj!.created_at).getTime();
     }
-
-    return (
-      new Date(b.contact?.created_at ?? 0).getTime() -
-      new Date(a.contact?.created_at ?? 0).getTime()
-    );
+    if (band(a) === 3) {
+      return new Date(b.contact!.last_contact_at!).getTime() -
+             new Date(a.contact!.last_contact_at!).getTime();
+    }
+    return new Date(b.contact?.created_at ?? 0).getTime() -
+           new Date(a.contact?.created_at ?? 0).getTime();
   });
 }

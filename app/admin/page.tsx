@@ -10,23 +10,26 @@ import NotFound from "@/app/not-found";
 import { supabase } from "@/src/lib/supabase";
 import { adminFetch, adminJson } from "@/src/lib/adminFetch";
 import type { LifecycleStage } from "@/src/lib/djLifecycle";
-import { laterPatch } from "@/src/lib/crmActions";
+
 import OverviewView from "@/src/components/admin/OverviewView";
 import ContactsView from "@/src/components/admin/ContactsView";
 import ReportsView from "@/src/components/admin/ReportsView";
+import TasksView from "@/src/components/admin/TasksView";
 import DjDetailDrawer from "@/src/components/admin/DjDetailDrawer";
 import type {
   CrmContact,
+  CrmTask,
   DjStat,
   PipelineRow,
   Report,
 } from "@/src/components/admin/crmTypes";
 
-type Destination = "overview" | "contacts" | "reports";
+type Destination = "overview" | "contacts" | "tasks" | "reports";
 
 const DESTINATIONS: { key: Destination; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "contacts", label: "Contacts" },
+  { key: "tasks", label: "Tasks" },
   { key: "reports", label: "Reports" },
 ];
 
@@ -46,6 +49,7 @@ export default function AdminPage() {
   const [djs, setDjs] = useState<DjStat[]>([]);
   const [contacts, setContacts] = useState<CrmContact[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [tasks, setTasks] = useState<CrmTask[]>([]);
 
   const [destination, setDestination] = useState<Destination>("overview");
   const [openRowKey, setOpenRowKey] = useState<string | null>(null);
@@ -63,17 +67,19 @@ export default function AdminPage() {
         return;
       }
 
-      const [djsResponse, reportsResponse, contactsResponse] =
+      const [djsResponse, reportsResponse, contactsResponse, tasksResponse] =
         await Promise.all([
           adminFetch("/api/admin/djs"),
           adminFetch("/api/admin/reports"),
           adminFetch("/api/admin/crm/contacts"),
+          adminFetch("/api/admin/crm/tasks"),
         ]);
 
       if (
         djsResponse.status === 403 ||
         reportsResponse.status === 403 ||
-        contactsResponse.status === 403
+        contactsResponse.status === 403 ||
+        tasksResponse.status === 403
       ) {
         setAuthorized(false);
         setLoadFailed(false);
@@ -81,15 +87,18 @@ export default function AdminPage() {
         return;
       }
 
-      const [djsResult, reportsResult, contactsResult] = await Promise.all([
-        adminJson<{ djs: DjStat[] }>(djsResponse),
-        adminJson<{ reports: Report[] }>(reportsResponse),
-        adminJson<{ contacts: CrmContact[] }>(contactsResponse),
-      ]);
+      const [djsResult, reportsResult, contactsResult, tasksResult] =
+        await Promise.all([
+          adminJson<{ djs: DjStat[] }>(djsResponse),
+          adminJson<{ reports: Report[] }>(reportsResponse),
+          adminJson<{ contacts: CrmContact[] }>(contactsResponse),
+          adminJson<{ tasks: CrmTask[] }>(tasksResponse),
+        ]);
 
       setDjs(djsResult.djs ?? []);
       setReports(reportsResult.reports ?? []);
       setContacts(contactsResult.contacts ?? []);
+      setTasks(tasksResult.tasks ?? []);
       setAuthorized(true);
       setLoadFailed(false);
     } catch (error) {
@@ -201,8 +210,45 @@ export default function AdminPage() {
    * which is the whole difference between postponing something and
    * pretending it happened.
    */
-  const later = (row: PipelineRow, days: number) =>
-    patchContact(row, laterPatch(days), "Moved to next week.");
+  const patchTask = async (
+    id: string,
+    body: Record<string, unknown>,
+    message: string
+  ) => {
+    try {
+      await adminJson(
+        await adminFetch("/api/admin/crm/tasks", {
+          method: "PATCH",
+          body: JSON.stringify({ id, ...body }),
+        })
+      );
+      toast.success(message);
+      loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save.");
+    }
+  };
+
+  /* completed_at only. Never last_contact_at, never a note. */
+  const completeTask = (task: CrmTask) =>
+    patchTask(task.id, { completed_at: new Date().toISOString() }, "Task completed.");
+
+  const reopenTask = (task: CrmTask) =>
+    patchTask(task.id, { completed_at: null }, "Task reopened.");
+
+  /* due_at only. Rescheduling is not contact and writes no history. */
+  const rescheduleTask = (task: CrmTask, days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setHours(9, 0, 0, 0);
+    return patchTask(task.id, { due_at: d.toISOString() }, "Rescheduled.");
+  };
+
+  const editTask = (task: CrmTask) => {
+    const title = window.prompt("Task", task.title);
+    if (title === null || !title.trim() || title === task.title) return;
+    return patchTask(task.id, { title }, "Task updated.");
+  };
 
   const openRowAt = (key: string, mode: "detail" | "log" = "detail") => {
     setOpenMode(mode);
@@ -393,8 +439,11 @@ export default function AdminPage() {
             rows={rows}
             djs={djs}
             reports={reports}
+            tasks={tasks}
             onOpen={openRowAt}
-            onLater={later}
+            onCompleteTask={completeTask}
+            onRescheduleTask={rescheduleTask}
+            onGoToTasks={() => setDestination("tasks")}
             onGoToReports={() => setDestination("reports")}
           />
         )}
@@ -402,8 +451,21 @@ export default function AdminPage() {
         {destination === "contacts" && (
           <ContactsView
             rows={rows}
+            tasks={tasks}
             onOpen={(key) => openRowAt(key)}
             onAddProspect={addProspect}
+          />
+        )}
+
+        {destination === "tasks" && (
+          <TasksView
+            tasks={tasks}
+            rows={rows}
+            onOpenContact={(key) => openRowAt(key)}
+            onComplete={completeTask}
+            onReopen={reopenTask}
+            onReschedule={rescheduleTask}
+            onEdit={editTask}
           />
         )}
 
@@ -461,6 +523,11 @@ export default function AdminPage() {
           key={openRow.contact?.id ?? openRow.key}
           row={openRow}
           initialMode={openMode}
+          tasks={tasks}
+          onCompleteTask={completeTask}
+          onReopenTask={reopenTask}
+          onRescheduleTask={rescheduleTask}
+          onEditTask={editTask}
           onClose={() => setOpenRowKey(null)}
           onChanged={loadData}
           onLinked={relinkOpenRow}

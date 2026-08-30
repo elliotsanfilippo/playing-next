@@ -48,11 +48,18 @@ type DjProfileRow = {
   onboarding_complete: boolean | null;
   stripe_connected: boolean | null;
   stripe_subscription_status: string | null;
+  /* Stamped by the dj_profiles trigger on the first transition into
+     each state. NULL for DJs who got there before the columns existed;
+     the timeline says "before tracking began" rather than guessing. */
+  onboarded_at: string | null;
+  payments_ready_at: string | null;
+  pro_since: string | null;
 };
 
 type SongRequestRow = {
   id: string;
   dj_profile_id: string;
+  created_at: string | null;
   request_status: string;
   dj_earnings: number | null;
   reported_not_played_at: string | null;
@@ -97,11 +104,11 @@ export async function GET(request: NextRequest) {
       await Promise.all([
         supabaseAdmin
           .from("dj_profiles")
-          .select("id, dj_name, slug, plan, request_status, created_at, onboarding_complete, stripe_connected, stripe_subscription_status")
+          .select("id, dj_name, slug, plan, request_status, created_at, onboarding_complete, stripe_connected, stripe_subscription_status, onboarded_at, payments_ready_at, pro_since")
           .order("created_at", { ascending: false }),
         supabaseAdmin
           .from("song_requests")
-          .select("id, dj_profile_id, request_status, dj_earnings, reported_not_played_at, stripe_fee, accepted_at"),
+          .select("id, dj_profile_id, created_at, request_status, dj_earnings, reported_not_played_at, stripe_fee, accepted_at"),
         supabaseAdmin
           .from("chargeback_disputes")
           .select("dj_profile_id, disputed_amount, deduction_status")
@@ -231,7 +238,40 @@ export async function GET(request: NextRequest) {
 
       const stats = lifecycleStats(profileForLifecycle, lifecycleRequests);
 
+      /*
+       * Derived product events for the contact timeline. These need no
+       * stored timestamp because the requests carry their own: the
+       * first request the DJ ever received, the first one where money
+       * actually moved, and the second distinct night they took paid
+       * requests on.
+       */
+      const requestDates = requests
+        .map((r) => r.created_at)
+        .filter((d): d is string => !!d)
+        .sort();
+
+      const paidDates = lifecycleRequests
+        .filter(
+          (r) =>
+            r.stripe_fee !== null &&
+            r.stripe_fee !== undefined &&
+            r.accepted_at
+        )
+        .map((r) => r.accepted_at as string)
+        .sort();
+
+      const paidNights = [...new Set(paidDates.map((d) => d.slice(0, 10)))].sort();
+
       return {
+        first_request_at: requestDates[0] ?? null,
+        first_paid_at: paidDates[0] ?? null,
+        repeat_night_at:
+          paidNights.length >= 2
+            ? paidDates.find((d) => d.slice(0, 10) === paidNights[1]) ?? null
+            : null,
+        onboarded_at: dj.onboarded_at,
+        payments_ready_at: dj.payments_ready_at,
+        pro_since: dj.pro_since,
         lifecycle_stage: resolveLifecycleStage(
           profileForLifecycle,
           lifecycleRequests

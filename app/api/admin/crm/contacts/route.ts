@@ -29,6 +29,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * arrives is the same failure with the arrow reversed. Anything not
  * named here cannot be written, including columns that do not exist yet.
  */
+/*
+ * next_action and next_follow_up_at are deliberately absent from this
+ * allowlist. They are the legacy task model, kept in the database as
+ * rollback data, and nothing may write them any more - crm_tasks owns
+ * tasks now. Removing them here means an accidental write is not
+ * possible rather than merely unlikely.
+ */
 type Writable = Record<string, string | null>;
 
 function buildPayload(body: Record<string, unknown>, partial: boolean) {
@@ -55,7 +62,6 @@ function buildPayload(body: Record<string, unknown>, partial: boolean) {
     text("contact_channel", 40);
     text("contact_handle", 200);
     text("acquisition_source", 80);
-    text("next_action", 500);
   } catch (e) {
     return err(e instanceof Error ? e.message : "Invalid field.");
   }
@@ -81,7 +87,7 @@ function buildPayload(body: Record<string, unknown>, partial: boolean) {
   /* Dates are passed straight to Postgres, which is stricter than any
      check written here would be, but an obviously wrong shape is worth
      rejecting with a sentence rather than a 22007. */
-  for (const key of ["next_gig_date", "last_contact_at", "next_follow_up_at"]) {
+  for (const key of ["next_gig_date", "last_contact_at"]) {
     if (!(key in body)) continue;
     const v = body[key];
     if (v === null || v === "") { out[key] = null; continue; }
