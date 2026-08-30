@@ -135,10 +135,12 @@ function StageCell({ row }: { row: PipelineRow }) {
  * carry something: a line reading "last contact never" on fifteen
  * consecutive prospects is a placeholder for absence, not information.
  *
- * No lifecycle badge. Inside a lifecycle group it would repeat the
- * heading directly above it on every single row, which is how a
- * directory turns back into a wall of chips. Search results are the one
- * place the group is not implied, so that is the one place it is drawn.
+ * The lifecycle badge is drawn only where it says something the
+ * surroundings do not. Inside a lifecycle group it would repeat the
+ * heading above it on every row, which is how a directory turns back
+ * into a wall of chips. It IS drawn in search results, where the group
+ * is not implied, and under New signups, where the group describes the
+ * missing CRM context rather than where the DJ has got to.
  *
  * Identity goes through ContactIdentity like everywhere else, so a long
  * name and a long slug wrap the same way here as in the drawer.
@@ -147,11 +149,13 @@ function ContactRow({
   row,
   task,
   groupLabel,
+  showStage = false,
   onOpen,
 }: {
   row: PipelineRow;
   task: CrmTask | null;
   groupLabel?: string;
+  showStage?: boolean;
   onOpen: (key: string) => void;
 }) {
   const blocker = row.contact?.activation_blocker
@@ -168,7 +172,7 @@ function ContactRow({
       className="w-full p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
     >
       {/* Stacked, not name-versus-badge. Nothing competes. */}
-      <ContactIdentity row={row} />
+      <ContactIdentity row={row} showStage={showStage} />
 
       {groupLabel && (
         <p className="mt-2 font-mono text-[0.66rem] uppercase tracking-[0.12em] text-text-muted">
@@ -507,6 +511,7 @@ export default function ContactsView({
                          so a search result carries it rather than making
                          you work out where the person lives. */
                       groupLabel={GROUP_LABELS[groupFor(row)]}
+                      showStage
                       onOpen={onOpen}
                     />
                   </li>
@@ -553,6 +558,7 @@ export default function ContactsView({
                             <ContactRow
                               row={row}
                               task={nextTaskFor(row)}
+                              showStage={group.key === "new_signups"}
                               onOpen={onOpen}
                             />
                           </li>

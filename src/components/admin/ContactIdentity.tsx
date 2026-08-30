@@ -31,11 +31,20 @@ export default function ContactIdentity({
   row,
   size = "md",
   inlineBadge = false,
+  showStage = true,
 }: {
   row: PipelineRow;
   size?: "sm" | "md";
   /** Desktop tables can afford name and badge on one row. Phones cannot. */
   inlineBadge?: boolean;
+  /*
+   * Off inside a grouped list whose heading already IS the stage. Four
+   * rows under "Ready to activate" each captioned "Ready to activate"
+   * is the badge noise the directory was meant to remove, not a
+   * fourfold confirmation. The Internal tag is never suppressed: that
+   * one still says something the heading does not.
+   */
+  showStage?: boolean;
 }) {
   const id = displayIdentity(row.dj?.dj_name ?? row.name, row.dj?.slug);
   const internal = isInternalDj(row.dj?.slug);
@@ -59,7 +68,9 @@ export default function ContactIdentity({
 
   const badge = (
     <span className="flex shrink-0 items-center gap-1.5">
-      <Badge tone={stageTone(row.stage)}>{LIFECYCLE_LABELS[row.stage]}</Badge>
+      {showStage && (
+        <Badge tone={stageTone(row.stage)}>{LIFECYCLE_LABELS[row.stage]}</Badge>
+      )}
       {internal && (
         <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">
           internal
@@ -76,6 +87,8 @@ export default function ContactIdentity({
       </span>
     );
   }
+
+  if (!showStage && !internal) return <span className="block min-w-0">{name}</span>;
 
   return (
     <span className="block min-w-0">
