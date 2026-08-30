@@ -63,7 +63,7 @@ export default function OverviewView({
   reports: Report[];
   onOpen: (key: string, mode?: "detail" | "log") => void;
   onCompleteTask: (task: CrmTask) => void;
-  onRescheduleTask: (task: CrmTask, days: number) => void;
+  onRescheduleTask: (task: CrmTask) => void;
   onGoToTasks: () => void;
   onGoToReports: () => void;
 }) {
@@ -217,10 +217,10 @@ export default function OverviewView({
                     variant="ghost"
                     size="sm"
                     className="min-h-[44px]"
-                    onClick={() => onRescheduleTask(item.task, 7)}
+                    onClick={() => onRescheduleTask(item.task)}
                   >
                     <Clock size={14} className="mr-1.5" />
-                    Next week
+                    Reschedule
                   </Button>
                 </div>
               </div>

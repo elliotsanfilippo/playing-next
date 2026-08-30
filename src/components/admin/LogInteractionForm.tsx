@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import Button from "@/src/components/ui/Button";
+import TaskDateChoice from "@/src/components/admin/TaskDateChoice";
+import {
+  resolveTaskDate,
+  type TaskDateOption,
+} from "@/src/lib/taskDates";
 import {
   ACTIVATION_BLOCKERS,
   BLOCKER_LABELS,
@@ -16,7 +21,8 @@ export type LogPayload = {
   blocker: string | null;
   blockerChanged: boolean;
   nextAction: string;
-  nextDate: string;
+  /** Already resolved to a timestamp or null by the shared helper. */
+  nextDate: string | null;
 };
 
 /*
@@ -48,7 +54,9 @@ export default function LogInteractionForm({
      legacy next_action would resurrect the field this replaced and make
      every log silently re-propose the same stale text. */
   const [nextAction, setNextAction] = useState("");
-  const [nextDate, setNextDate] = useState("");
+  /* Same control and same options as + Task, Edit and Reschedule. */
+  const [dateOption, setDateOption] = useState<TaskDateOption>("none");
+  const [picked, setPicked] = useState("");
 
   const blockerChanged = (blocker || null) !== (contact.activation_blocker ?? null);
 
@@ -127,24 +135,23 @@ export default function LogInteractionForm({
           onChange={(e) => setNextAction(e.target.value)}
         />
 
-        <label
-          className="mt-3 block text-sm text-zinc-300"
-          htmlFor="log-date"
-        >
-          When
-        </label>
-        <input
-          id="log-date"
-          type="date"
-          className={`${field} mt-1.5 h-12 disabled:opacity-40`}
-          value={nextDate}
-          disabled={!nextAction.trim()}
-          onChange={(e) => setNextDate(e.target.value)}
-        />
-        {!nextAction.trim() && (
-          /* A dated reminder with no task is the thing that made "Mark
-             done" meaningless, so the date cannot be set on its own. */
-          <p className="mt-1.5 text-xs text-text-muted">
+        {nextAction.trim() ? (
+          <div className="mt-3">
+            <p className="text-sm text-zinc-300">When</p>
+            <div className="mt-1.5">
+              <TaskDateChoice
+                option={dateOption}
+                picked={picked}
+                onOption={setDateOption}
+                onPicked={setPicked}
+                idPrefix="log"
+              />
+            </div>
+          </div>
+        ) : (
+          /* A dated reminder with no task is what made the old model
+             meaningless, so the date cannot be set on its own. */
+          <p className="mt-3 text-xs text-text-muted">
             Add a next step first. A date on its own is not something you
             can act on.
           </p>
@@ -162,7 +169,7 @@ export default function LogInteractionForm({
               blocker: blocker || null,
               blockerChanged,
               nextAction,
-              nextDate,
+              nextDate: resolveTaskDate(dateOption, picked),
             })
           }
         >

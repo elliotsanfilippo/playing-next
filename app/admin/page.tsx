@@ -15,6 +15,8 @@ import OverviewView from "@/src/components/admin/OverviewView";
 import ContactsView from "@/src/components/admin/ContactsView";
 import ReportsView from "@/src/components/admin/ReportsView";
 import TasksView from "@/src/components/admin/TasksView";
+import TaskSheet from "@/src/components/admin/TaskSheet";
+import { rowLabel } from "@/src/lib/djIdentity";
 import DjDetailDrawer from "@/src/components/admin/DjDetailDrawer";
 import type {
   CrmContact,
@@ -55,6 +57,15 @@ export default function AdminPage() {
   const [openRowKey, setOpenRowKey] = useState<string | null>(null);
   const [openMode, setOpenMode] = useState<"detail" | "log">("detail");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  /*
+   * One sheet for create, edit and reschedule, opened from Overview,
+   * Tasks and the contact drawer. A single instance at page level means
+   * the four flows share one control rather than four that drift.
+   */
+  const [taskSheet, setTaskSheet] = useState<
+    { task: CrmTask | null; contactId: string; contactName: string } | null
+  >(null);
+  const [savingTask, setSavingTask] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -236,18 +247,59 @@ export default function AdminPage() {
   const reopenTask = (task: CrmTask) =>
     patchTask(task.id, { completed_at: null }, "Task reopened.");
 
-  /* due_at only. Rescheduling is not contact and writes no history. */
-  const rescheduleTask = (task: CrmTask, days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    d.setHours(9, 0, 0, 0);
-    return patchTask(task.id, { due_at: d.toISOString() }, "Rescheduled.");
+  /* Rescheduling opens the same sheet, so it offers the same choices as
+     creating. It still writes due_at and nothing else. */
+
+  const contactNameFor = (contactId: string) => {
+    const row = rows.find((r) => r.contact?.id === contactId);
+    return row ? rowLabel(row) : "Contact";
   };
 
-  const editTask = (task: CrmTask) => {
-    const title = window.prompt("Task", task.title);
-    if (title === null || !title.trim() || title === task.title) return;
-    return patchTask(task.id, { title }, "Task updated.");
+  /* Edit and Reschedule are the same sheet on an existing task. */
+  const openTaskSheet = (task: CrmTask) =>
+    setTaskSheet({
+      task,
+      contactId: task.contact_id,
+      contactName: contactNameFor(task.contact_id),
+    });
+
+  const openNewTask = (contactId: string, contactName: string) =>
+    setTaskSheet({ task: null, contactId, contactName });
+
+  const saveTaskSheet = async (title: string, dueAt: string | null) => {
+    if (!taskSheet) return;
+    setSavingTask(true);
+    try {
+      if (taskSheet.task) {
+        /* Editing sends title and due_at only. Nothing else about the
+           task, and nothing at all about the contact. */
+        await adminJson(
+          await adminFetch("/api/admin/crm/tasks", {
+            method: "PATCH",
+            body: JSON.stringify({ id: taskSheet.task.id, title, due_at: dueAt }),
+          })
+        );
+        toast.success("Task updated.");
+      } else {
+        await adminJson(
+          await adminFetch("/api/admin/crm/tasks", {
+            method: "POST",
+            body: JSON.stringify({
+              contact_id: taskSheet.contactId,
+              title,
+              due_at: dueAt,
+            }),
+          })
+        );
+        toast.success("Task added.");
+      }
+      setTaskSheet(null);
+      loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save.");
+    } finally {
+      setSavingTask(false);
+    }
   };
 
   const openRowAt = (key: string, mode: "detail" | "log" = "detail") => {
@@ -442,7 +494,7 @@ export default function AdminPage() {
             tasks={tasks}
             onOpen={openRowAt}
             onCompleteTask={completeTask}
-            onRescheduleTask={rescheduleTask}
+            onRescheduleTask={openTaskSheet}
             onGoToTasks={() => setDestination("tasks")}
             onGoToReports={() => setDestination("reports")}
           />
@@ -464,8 +516,8 @@ export default function AdminPage() {
             onOpenContact={(key) => openRowAt(key)}
             onComplete={completeTask}
             onReopen={reopenTask}
-            onReschedule={rescheduleTask}
-            onEdit={editTask}
+            onReschedule={openTaskSheet}
+            onEdit={openTaskSheet}
           />
         )}
 
@@ -518,6 +570,16 @@ export default function AdminPage() {
       </nav>
       )}
 
+      {taskSheet && (
+        <TaskSheet
+          task={taskSheet.task}
+          contactName={taskSheet.contactName}
+          saving={savingTask}
+          onClose={() => setTaskSheet(null)}
+          onSave={saveTaskSheet}
+        />
+      )}
+
       {openRow && (
         <DjDetailDrawer
           key={openRow.contact?.id ?? openRow.key}
@@ -526,8 +588,9 @@ export default function AdminPage() {
           tasks={tasks}
           onCompleteTask={completeTask}
           onReopenTask={reopenTask}
-          onRescheduleTask={rescheduleTask}
-          onEditTask={editTask}
+          onRescheduleTask={openTaskSheet}
+          onEditTask={openTaskSheet}
+          onAddTask={openNewTask}
           onClose={() => setOpenRowKey(null)}
           onChanged={loadData}
           onLinked={relinkOpenRow}

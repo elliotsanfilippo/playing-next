@@ -78,7 +78,7 @@ export default function TasksView({
   onOpenContact: (key: string) => void;
   onComplete: (task: CrmTask) => void;
   onReopen: (task: CrmTask) => void;
-  onReschedule: (task: CrmTask, days: number) => void;
+  onReschedule: (task: CrmTask) => void;
   onEdit: (task: CrmTask) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("open");
@@ -215,10 +215,10 @@ export default function TasksView({
                         variant="ghost"
                         size="sm"
                         className="min-h-[44px]"
-                        onClick={() => onReschedule(item.task, 7)}
+                        onClick={() => onReschedule(item.task)}
                       >
                         <Clock size={14} className="mr-1.5" />
-                        Next week
+                        Reschedule
                       </Button>
                       <Button
                         variant="ghost"

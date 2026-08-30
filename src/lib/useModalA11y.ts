@@ -64,6 +64,17 @@ export function useModalA11y({ open, onClose }: Options) {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        /*
+         * Only the topmost dialog reacts. The task sheet opens above the
+         * contact drawer, and both listen on document with capture, so
+         * without this one Escape would close the sheet AND the drawer
+         * underneath it - losing the contact you were working on because
+         * you dismissed a date picker.
+         */
+        const dialogs = document.querySelectorAll('[role="dialog"]');
+        if (dialogs.length > 0 && dialogs[dialogs.length - 1] !== container) {
+          return;
+        }
         event.preventDefault();
         onClose();
         return;

@@ -86,6 +86,7 @@ export default function DjDetailDrawer({
   onReopenTask,
   onRescheduleTask,
   onEditTask,
+  onAddTask,
 }: {
   row: PipelineRow;
   onClose: () => void;
@@ -98,8 +99,9 @@ export default function DjDetailDrawer({
   tasks: CrmTask[];
   onCompleteTask: (task: CrmTask) => void;
   onReopenTask: (task: CrmTask) => void;
-  onRescheduleTask: (task: CrmTask, days: number) => void;
+  onRescheduleTask: (task: CrmTask) => void;
   onEditTask: (task: CrmTask) => void;
+  onAddTask: (contactId: string, contactName: string) => void;
 }) {
   const { containerRef, dialogProps } = useModalA11y({ open: true, onClose });
   const viewport = useVisualViewport();
@@ -276,33 +278,11 @@ export default function DjDetailDrawer({
    * interaction first, which is why + Task exists here as well as
    * inside the log flow.
    */
-  const addTask = async (title: string, dueAt?: string | null) => {
-    if (!contact || !title.trim()) return;
-    setSaving(true);
-    try {
-      await adminJson(
-        await adminFetch("/api/admin/crm/tasks", {
-          method: "POST",
-          body: JSON.stringify({
-            contact_id: contact.id,
-            title,
-            due_at: dueAt || null,
-          }),
-        })
-      );
-      toast.success("Task added.");
-      onChanged();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to add.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  /* Opens the shared sheet so + Task offers exactly the same choices as
+     Edit, Reschedule and the log flow's "what next?" step. */
   const promptTask = () => {
-    const title = window.prompt("What do you need to do?");
-    if (!title?.trim()) return;
-    return addTask(title);
+    if (!contact) return;
+    onAddTask(contact.id, row.name);
   };
 
   /*
@@ -651,10 +631,10 @@ export default function DjDetailDrawer({
                               variant="ghost"
                               size="sm"
                               className="min-h-[44px]"
-                              onClick={() => onRescheduleTask(task, 7)}
+                              onClick={() => onRescheduleTask(task)}
                             >
                               <Clock size={14} className="mr-1.5" />
-                              Next week
+                              Reschedule
                             </Button>
                             <Button
                               variant="ghost"
