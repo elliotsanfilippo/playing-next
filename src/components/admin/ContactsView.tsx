@@ -218,13 +218,23 @@ export default function ContactsView({
   const [search, setSearch] = useState("");
   const [secondary, setSecondary] = useState<SecondaryFilter>(null);
   /*
-   * Which groups are folded away, for this session only. Thirty rows is
-   * about ten screens on a phone, so the directory opens showing the
-   * shape of the CRM - every heading and every count on one screen -
-   * with the first group expanded and the rest one tap away. Not
-   * persisted: it is a reading position, not a preference.
+   * The one open group, or none. An accordion rather than independent
+   * toggles: with several groups open at once you are back to scrolling
+   * a long list to find the next heading, which is the thing the
+   * directory replaced.
+   *
+   * It starts closed. Contacts is a question - who are all my people
+   * and where are they - and the answer is the six headings and their
+   * counts, which fit on one screen only while nothing is expanded.
+   * Opening a group is choosing to inspect one, and that choice is
+   * better made by the person than assumed on their behalf.
+   *
+   * Not persisted, and deliberately not lifted to the page: Contacts
+   * unmounts when you switch destination, so coming back from Tasks
+   * resets to the directory rather than reopening whatever you were
+   * last reading.
    */
-  const [collapsed, setCollapsed] = useState<Set<ContactGroup> | null>(null);
+  const [openGroup, setOpenGroup] = useState<ContactGroup | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
 
@@ -286,18 +296,9 @@ export default function ContactsView({
   const searching = search.trim().length > 0;
   const groups = useMemo(() => buildGroups(visible), [visible]);
 
-  const isCollapsed = (key: ContactGroup, index: number) =>
-    collapsed ? collapsed.has(key) : index > 0;
-
+  /* Tapping the open one closes it, so zero or one is expanded. */
   const toggleGroup = (key: ContactGroup) =>
-    setCollapsed((current) => {
-      const base =
-        current ?? new Set(groups.slice(1).map((g) => g.key));
-      const next = new Set(base);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setOpenGroup((current) => (current === key ? null : key));
 
   const byStage = useMemo(() => {
     const map = new Map<LifecycleStage, PipelineRow[]>();
@@ -344,7 +345,13 @@ export default function ContactsView({
               <input
                 type="search"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  /* Searching leaves the grouped view, and clearing the
+                     box comes back to the directory rather than to
+                     whichever group happened to be open beforehand. */
+                  setOpenGroup(null);
+                }}
                 placeholder="Search people..."
                 aria-label="Search contacts"
                 /* Names and slugs, not sentences: iOS would otherwise
@@ -521,8 +528,8 @@ export default function ContactsView({
                 ))}
               </ul>
             ) : (
-              groups.map((group, i) => {
-                const folded = isCollapsed(group.key, i);
+              groups.map((group) => {
+                const folded = openGroup !== group.key;
                 return (
                   <section key={group.key} className="border-b border-white/5 last:border-0">
                     <h3>
