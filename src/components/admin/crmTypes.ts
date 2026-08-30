@@ -93,6 +93,24 @@ export type UnlinkedDj = {
 };
 
 /*
+ * A CRM prospect with no account yet, as offered to a new signup that
+ * might be the same person. The counts say what linking will carry
+ * across, which is the whole reason the picker shows more than a name.
+ */
+export type UnlinkedContact = {
+  id: string;
+  display_name: string;
+  outreach_status: string;
+  contact_channel: string | null;
+  contact_handle: string | null;
+  activation_blocker: string | null;
+  last_contact_at: string | null;
+  created_at: string;
+  note_count: number;
+  open_task_count: number;
+};
+
+/*
  * A thing the admin has to do. Open when completed_at is null; the row
  * survives completion so the timeline can show it.
  */

@@ -46,6 +46,7 @@ import type {
   CrmTask,
   PipelineRow,
   UnlinkedDj,
+  UnlinkedContact,
 } from "@/src/components/admin/crmTypes";
 
 /*
@@ -189,6 +190,15 @@ export default function DjDetailDrawer({
   const [linkQuery, setLinkQuery] = useState("");
   const [chosen, setChosen] = useState<UnlinkedDj | null>(null);
 
+  /* The same flow from the account side, for a New signup. */
+  const [linkingProspect, setLinkingProspect] = useState(false);
+  const [prospects, setProspects] = useState<UnlinkedContact[] | null>(null);
+  const [prospectsFailed, setProspectsFailed] = useState(false);
+  const [prospectQuery, setProspectQuery] = useState("");
+  const [chosenProspect, setChosenProspect] = useState<UnlinkedContact | null>(
+    null
+  );
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -233,6 +243,48 @@ export default function DjDetailDrawer({
       cancelled = true;
     };
   }, [linking]);
+
+  useEffect(() => {
+    if (!linkingProspect) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await adminFetch("/api/admin/crm/unlinked-contacts");
+        const result = await adminJson<{ contacts: UnlinkedContact[] }>(
+          response
+        );
+        if (!cancelled) {
+          setProspects(result.contacts);
+          setProspectsFailed(false);
+        }
+      } catch {
+        /* A failed load must not render as "no prospects match". */
+        if (!cancelled) setProspectsFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [linkingProspect]);
+
+  /*
+   * Plain substring filtering on what the admin typed, over name,
+   * channel and handle. This is a search box, not a suggester: it never
+   * ranks, never scores and never proposes a match of its own.
+   */
+  const prospectMatches = useMemo(() => {
+    if (!prospects) return [];
+    const q = prospectQuery.trim().toLowerCase();
+    const list = q
+      ? prospects.filter(
+          (c) =>
+            c.display_name.toLowerCase().includes(q) ||
+            (c.contact_handle ?? "").toLowerCase().includes(q) ||
+            (c.contact_channel ?? "").toLowerCase().includes(q)
+        )
+      : prospects;
+    return list.slice(0, 8);
+  }, [prospects, prospectQuery]);
 
   const matches = useMemo(() => {
     if (!candidates) return [];
@@ -430,27 +482,48 @@ export default function DjDetailDrawer({
     }
   };
 
-  const linkToDj = async () => {
-    if (!contact || !chosen) return;
+  /*
+   * ── The link, in one place ─────────────────────────────────────
+   *
+   * Reached from both directions: from a prospect picking the account
+   * they signed up with, and from a new signup picking the prospect it
+   * turns out to be. They are the same claim about identity made from
+   * opposite ends, so they are the same write - one PATCH attaching
+   * dj_profile_id to the contact, and nothing else.
+   *
+   * Nothing here touches notes, tasks, the blocker, the outreach status
+   * or any other relationship field. They all hang off contact_id and
+   * survive untouched precisely because this does not go near them;
+   * that is what makes linking safe rather than a merge. From the
+   * moment it lands, the Playing Next lifecycle for the account is what
+   * the resolver says it is.
+   */
+  const performLink = async (
+    contactId: string,
+    djProfileId: string,
+    message: string
+  ) => {
     setSaving(true);
     try {
       const response = await adminFetch("/api/admin/crm/contacts", {
         method: "PATCH",
-        body: JSON.stringify({ id: contact.id, dj_profile_id: chosen.id }),
+        body: JSON.stringify({ id: contactId, dj_profile_id: djProfileId }),
       });
       await adminJson<{ contact: CrmContact }>(response);
-      toast.success(`Linked to ${chosen.dj_name}.`);
+      toast.success(message);
       setLinking(false);
       setChosen(null);
+      setLinkingProspect(false);
+      setChosenProspect(null);
 
       if (onLinked) {
-        await onLinked(contact.id, chosen.id);
+        await onLinked(contactId, djProfileId);
         /*
-         * The "Link them" button this click came from has just been
-         * removed from the DOM along with the whole linking panel, so
-         * without moving focus deliberately it would fall back to
-         * <body> and the next Tab would start from the top of the
-         * dialog. The container carries tabIndex={-1} for exactly this.
+         * The button this click came from has just been removed from the
+         * DOM along with the panel around it, so focus would otherwise
+         * fall to <body>. onLinked already moved the drawer onto the
+         * merged row; putting focus back on the panel keeps a keyboard
+         * user where they were.
          */
         containerRef.current?.focus();
       } else {
@@ -464,6 +537,23 @@ export default function DjDetailDrawer({
       setSaving(false);
     }
   };
+
+  /* Prospect side: this contact, the account they picked. */
+  const linkToDj = () => {
+    if (!contact || !chosen) return;
+    return performLink(contact.id, chosen.id, `Linked to ${chosen.dj_name}.`);
+  };
+
+  /* Account side: this account, the prospect they picked. */
+  const linkToProspect = () => {
+    if (!dj || !chosenProspect) return;
+    return performLink(
+      chosenProspect.id,
+      dj.id,
+      `Linked to ${chosenProspect.display_name}.`
+    );
+  };
+
 
   const removeContact = async () => {
     if (!contact) return;
@@ -1021,24 +1111,195 @@ export default function DjDetailDrawer({
             /* No CRM context yet, or an unlinked prospect */
             <div className="space-y-6 p-5">
               {dj ? (
+                /*
+                 * A New signup, seen from the account side. The inbox is
+                 * worked down to zero through exactly these two doors:
+                 * this account is somebody new, or this account is a
+                 * prospect already in the CRM. Either way it leaves the
+                 * inbox the moment a contact points at it, and the
+                 * lifecycle resolver takes over from there.
+                 */
                 <section className="rounded-card border border-white/5 bg-white/[0.02] p-5">
                   <p className="text-sm text-zinc-300">
-                    This DJ has no CRM context yet.
+                    This account is not in your CRM yet.
                   </p>
                   <p className="mt-1.5 text-sm text-text-muted">
-                    Add it to record where they came from, what is blocking
-                    them and when to follow up.
+                    Reconcile it and it moves out of New signups into
+                    whichever lifecycle group Playing Next says it is in.
                   </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-4 min-h-[44px]"
-                    onClick={createContact}
-                    disabled={saving}
-                  >
-                    <Link2 size={15} className="mr-1.5" />
-                    Add CRM context
-                  </Button>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="min-h-[44px]"
+                      onClick={createContact}
+                      disabled={saving}
+                    >
+                      <Plus size={15} className="mr-1.5" />
+                      Add as new contact
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-[44px]"
+                      onClick={() => setLinkingProspect((v) => !v)}
+                      aria-expanded={linkingProspect}
+                      disabled={saving}
+                    >
+                      <Link2 size={15} className="mr-1.5" />
+                      Link to existing prospect
+                    </Button>
+                  </div>
+
+                  {linkingProspect && (
+                    <div className="mt-4 border-t border-white/5 pt-4">
+                      {prospectsFailed ? (
+                        <p className="rounded-control border border-status-declined-surface/20 bg-status-declined-surface/10 p-3 text-sm text-status-declined">
+                          The list of prospects could not be loaded. This is
+                          not the same as there being none.
+                        </p>
+                      ) : (
+                        <>
+                          <label
+                            className="block text-sm text-zinc-300"
+                            htmlFor="prospectsearch"
+                          >
+                            Search prospects with no account yet
+                          </label>
+                          <input
+                            id="prospectsearch"
+                            className={`${field} mt-1.5`}
+                            placeholder="Name, channel or handle"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            value={prospectQuery}
+                            onChange={(e) => {
+                              setProspectQuery(e.target.value);
+                              setChosenProspect(null);
+                            }}
+                          />
+
+                          <ul className="mt-2 space-y-1">
+                            {prospects === null ? (
+                              <li className="text-sm text-text-muted">
+                                Loading...
+                              </li>
+                            ) : prospectMatches.length === 0 ? (
+                              <li className="text-sm text-text-muted">
+                                No unlinked prospects match.
+                              </li>
+                            ) : (
+                              prospectMatches.map((c) => {
+                                const isChosen = chosenProspect?.id === c.id;
+                                /* What linking will carry across, said
+                                   before you commit rather than after. */
+                                const carries = [
+                                  c.note_count === 1
+                                    ? "1 note"
+                                    : c.note_count > 1
+                                      ? `${c.note_count} notes`
+                                      : null,
+                                  c.open_task_count === 1
+                                    ? "1 open task"
+                                    : c.open_task_count > 1
+                                      ? `${c.open_task_count} open tasks`
+                                      : null,
+                                ].filter(Boolean);
+                                const reach = [c.contact_channel, c.contact_handle]
+                                  .filter(Boolean)
+                                  .join(" ");
+                                return (
+                                  <li key={c.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setChosenProspect(c)}
+                                      aria-pressed={isChosen}
+                                      className={`flex min-h-[44px] w-full items-start justify-between gap-3 rounded-control border p-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                                        isChosen
+                                          ? "border-accent/40 bg-accent/10"
+                                          : "border-white/5 bg-white/[0.02] hover:border-white/15"
+                                      }`}
+                                    >
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-sm font-semibold text-white">
+                                          {c.display_name}
+                                        </span>
+                                        <span className="mt-0.5 block font-mono text-xs text-text-muted">
+                                          {OUTREACH_LABELS[
+                                            c.outreach_status as OutreachStatus
+                                          ] ?? c.outreach_status}
+                                          {reach && ` · ${reach}`}
+                                        </span>
+                                        <span className="block font-mono text-xs text-text-muted">
+                                          {c.last_contact_at
+                                            ? `last contact ${relativeDays(c.last_contact_at).toLowerCase()}`
+                                            : "never contacted"}
+                                          {carries.length > 0 &&
+                                            ` · ${carries.join(", ")}`}
+                                        </span>
+                                      </span>
+                                      {isChosen && (
+                                        <Check
+                                          size={15}
+                                          className="mt-0.5 shrink-0 text-accent"
+                                        />
+                                      )}
+                                    </button>
+                                  </li>
+                                );
+                              })
+                            )}
+                          </ul>
+
+                          {/* Naming both sides, because this is the one
+                              action in the CRM that says two records are
+                              the same person. */}
+                          {chosenProspect && (
+                            <div className="mt-3 rounded-control border border-accent/30 bg-accent/[0.07] p-3">
+                              <p className="text-sm text-zinc-200">
+                                Link{" "}
+                                <strong className="text-white">
+                                  {chosenProspect.display_name}
+                                </strong>{" "}
+                                to{" "}
+                                <strong className="text-white">
+                                  {identity.primary}
+                                </strong>
+                                ?
+                              </p>
+                              <p className="mt-1.5 text-xs text-text-muted">
+                                Their notes, tasks, blocker and relationship
+                                details are kept. Nothing is merged and
+                                nothing is overwritten; only the account is
+                                attached.
+                              </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Button
+                                  variant="accent"
+                                  size="sm"
+                                  className="min-h-[44px]"
+                                  onClick={linkToProspect}
+                                  disabled={saving}
+                                >
+                                  {saving ? "Linking..." : "Link them"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="min-h-[44px]"
+                                  onClick={() => setChosenProspect(null)}
+                                  disabled={saving}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </section>
               ) : null}
             </div>
