@@ -10,6 +10,7 @@ import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
 import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import { stageTone } from "@/src/components/admin/stageTone";
+import ContactIdentity from "@/src/components/admin/ContactIdentity";
 import { buildQueue, sortForContacts } from "@/src/lib/crmQueue";
 import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
 
@@ -304,55 +305,49 @@ export default function ContactsView({
           </div>
 
           <ul className="divide-y divide-white/5 md:hidden">
-            {visible.map((row) => (
-              <li key={row.key}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(row.key)}
-                  className="w-full p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Identity row={row} />
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <Badge tone={stageTone(row.stage)}>
-                        {LIFECYCLE_LABELS[row.stage]}
-                      </Badge>
-                    </div>
-                  </div>
+            {visible.map((row) => {
+              const blocker = row.contact?.activation_blocker
+                ? BLOCKER_LABELS[row.contact.activation_blocker as ActivationBlocker]
+                : null;
+              const step = row.contact?.next_action?.trim() || null;
+              const last = row.contact?.last_contact_at
+                ? relativeDays(row.contact.last_contact_at).toLowerCase()
+                : null;
 
-                  {row.contact?.activation_blocker && (
-                    <p className="mt-2.5 text-sm text-status-pending">
-                      {
-                        BLOCKER_LABELS[
-                          row.contact.activation_blocker as ActivationBlocker
-                        ]
-                      }
-                    </p>
-                  )}
+              return (
+                <li key={row.key}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(row.key)}
+                    className="w-full p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+                  >
+                    {/* Stacked, not name-versus-badge. Nothing competes. */}
+                    <ContactIdentity row={row} />
 
-                  {row.contact?.next_action && (
-                    <p className="mt-2.5 text-sm text-zinc-300">
-                      {row.contact.next_action}
-                    </p>
-                  )}
-
-                  <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-text-muted">
-                    <span>
-                      last contact{" "}
-                      {row.contact
-                        ? relativeDays(row.contact.last_contact_at).toLowerCase()
-                        : "never"}
-                    </span>
-                    {row.contact?.next_follow_up_at && (
-                      <span>follow-up {followUpCell(row.contact)}</span>
+                    {blocker && (
+                      <p className="mt-2.5 text-sm text-status-pending">
+                        {blocker}
+                      </p>
                     )}
-                  </div>
-                </button>
-              </li>
-            ))}
+
+                    {step && (
+                      <p className="mt-1.5 text-sm text-zinc-200">{step}</p>
+                    )}
+
+                    {/* Only rendered when there is something to say. A line
+                        reading "last contact never" on fifteen consecutive
+                        prospects is a placeholder for absence, not information. */}
+                    {last && (
+                      <p className="mt-2 font-mono text-xs text-text-muted">
+                        last contact {last}
+                      </p>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
+
         </>
       ) : (
         <div className="p-5">

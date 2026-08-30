@@ -10,6 +10,7 @@ import NotFound from "@/app/not-found";
 import { supabase } from "@/src/lib/supabase";
 import { adminFetch, adminJson } from "@/src/lib/adminFetch";
 import type { LifecycleStage } from "@/src/lib/djLifecycle";
+import { laterPatch } from "@/src/lib/crmActions";
 import OverviewView from "@/src/components/admin/OverviewView";
 import ContactsView from "@/src/components/admin/ContactsView";
 import ReportsView from "@/src/components/admin/ReportsView";
@@ -48,6 +49,7 @@ export default function AdminPage() {
 
   const [destination, setDestination] = useState<Destination>("overview");
   const [openRowKey, setOpenRowKey] = useState<string | null>(null);
+  const [openMode, setOpenMode] = useState<"detail" | "log">("detail");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -193,22 +195,18 @@ export default function AdminPage() {
     }
   };
 
-  const markDone = (row: PipelineRow) =>
-    patchContact(
-      row,
-      { last_contact_at: new Date().toISOString(), next_follow_up_at: null },
-      "Marked done."
-    );
+  /*
+   * Later moves only the date of an existing next step. It never invents
+   * a task, never touches last_contact_at and never writes history -
+   * which is the whole difference between postponing something and
+   * pretending it happened.
+   */
+  const later = (row: PipelineRow, days: number) =>
+    patchContact(row, laterPatch(days), "Moved to next week.");
 
-  const snooze = (row: PipelineRow, days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    d.setHours(9, 0, 0, 0);
-    return patchContact(
-      row,
-      { next_follow_up_at: d.toISOString() },
-      days === 1 ? "Snoozed to tomorrow." : `Snoozed ${days} days.`
-    );
+  const openRowAt = (key: string, mode: "detail" | "log" = "detail") => {
+    setOpenMode(mode);
+    setOpenRowKey(key);
   };
 
   /*
@@ -395,9 +393,8 @@ export default function AdminPage() {
             rows={rows}
             djs={djs}
             reports={reports}
-            onOpen={setOpenRowKey}
-            onMarkDone={markDone}
-            onSnooze={snooze}
+            onOpen={openRowAt}
+            onLater={later}
             onGoToReports={() => setDestination("reports")}
           />
         )}
@@ -405,7 +402,7 @@ export default function AdminPage() {
         {destination === "contacts" && (
           <ContactsView
             rows={rows}
-            onOpen={setOpenRowKey}
+            onOpen={(key) => openRowAt(key)}
             onAddProspect={addProspect}
           />
         )}
@@ -463,6 +460,7 @@ export default function AdminPage() {
         <DjDetailDrawer
           key={openRow.contact?.id ?? openRow.key}
           row={openRow}
+          initialMode={openMode}
           onClose={() => setOpenRowKey(null)}
           onChanged={loadData}
           onLinked={relinkOpenRow}

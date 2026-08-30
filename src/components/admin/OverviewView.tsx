@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Flag, Check, Clock, ArrowRight } from "lucide-react";
-import Badge from "@/src/components/ui/Badge";
-import { LIFECYCLE_LABELS } from "@/src/lib/djLifecycle";
+import { Flag, Clock, ArrowRight, MessageSquarePlus } from "lucide-react";
 import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
-import { stageTone } from "@/src/components/admin/stageTone";
+import ContactIdentity from "@/src/components/admin/ContactIdentity";
+import { hasNextStep } from "@/src/lib/crmActions";
 import { relativeDays } from "@/src/lib/djIdentity";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
@@ -45,16 +44,14 @@ export default function OverviewView({
   djs,
   reports,
   onOpen,
-  onMarkDone,
-  onSnooze,
+  onLater,
   onGoToReports,
 }: {
   rows: PipelineRow[];
   djs: DjStat[];
   reports: Report[];
-  onOpen: (key: string) => void;
-  onMarkDone: (row: PipelineRow) => void;
-  onSnooze: (row: PipelineRow, days: number) => void;
+  onOpen: (key: string, mode?: "detail" | "log") => void;
+  onLater: (row: PipelineRow, days: number) => void;
   onGoToReports: () => void;
 }) {
   const [tier, setTier] = useState<QueueTier | "all">("all");
@@ -261,15 +258,12 @@ export default function OverviewView({
             </p>
           ) : (
             shown.map((item) => {
-              const id = displayIdentity(
-                item.row.dj?.dj_name ?? item.row.name,
-                item.row.dj?.slug
-              );
               const contact = item.row.contact;
               const blocker = contact?.activation_blocker
                 ? BLOCKER_LABELS[contact.activation_blocker as ActivationBlocker]
                 : null;
-              const nextAction = contact?.next_action?.trim() || null;
+              const step = contact?.next_action?.trim() || null;
+              const owed = hasNextStep(contact);
 
               return (
                 <div
@@ -281,82 +275,75 @@ export default function OverviewView({
                     onClick={() => onOpen(item.row.key)}
                     className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                   >
-                    <span className="flex items-start justify-between gap-3">
-                      <span
-                        className={`min-w-0 flex-1 truncate font-semibold text-white ${id.isSlug ? "font-mono text-sm" : ""}`}
-                      >
-                        {id.primary}
-                      </span>
-                      <Badge tone={stageTone(item.row.stage)} className="shrink-0">
-                        {LIFECYCLE_LABELS[item.row.stage]}
-                      </Badge>
+                    {/*
+                      One identity component everywhere. On a phone the
+                      lifecycle badge stacks under the name rather than
+                      competing with it for horizontal space, which is what
+                      let long slugs collide with it before.
+                    */}
+                    <ContactIdentity row={item.row} />
+
+                    {/* Stage and timing share one quiet meta line instead of
+                        each claiming its own coloured row. */}
+                    <span className="mt-2 block font-mono text-xs text-text-muted">
+                      {item.stamp}
+                      {contact?.last_contact_at &&
+                        ` · last contact ${relativeDays(contact.last_contact_at).toLowerCase()}`}
                     </span>
 
-                    {/* What happened, and what to do about it, kept apart.
-                        They were one sentence before, which read as a
-                        single ambiguous instruction. */}
                     {blocker && (
                       <span className="mt-2 block text-sm text-status-pending">
                         {blocker}
                       </span>
                     )}
 
-                    {nextAction ? (
-                      <span className="mt-1.5 block text-sm text-zinc-200">
-                        <span className="text-text-muted">Next: </span>
-                        {nextAction}
-                      </span>
-                    ) : (
-                      <span className="mt-1.5 block text-sm text-text-muted">
-                        {item.reason}
-                      </span>
-                    )}
-
-                    <span
-                      className={`mt-2 block font-mono text-xs ${stampTone[item.tier]}`}
-                    >
-                      {item.stamp}
-                      {contact?.last_contact_at &&
-                        ` · last contact ${relativeDays(contact.last_contact_at).toLowerCase()}`}
+                    <span className="mt-1.5 block text-sm text-zinc-200">
+                      {step ? (
+                        <>
+                          <span className="text-text-muted">Next: </span>
+                          {step}
+                        </>
+                      ) : (
+                        <span className="text-text-muted">
+                          Waiting on a reply from them
+                        </span>
+                      )}
                     </span>
                   </button>
 
-                  {/* Words, not bare glyphs. A tick and a clock had only
-                      title tooltips, which do not exist on touch. */}
+                  {/*
+                    Log is the primary action everywhere. Later only appears
+                    when there is a step to postpone, and Done is not offered
+                    here at all: completing a task you cannot see on the row
+                    was the confusion this redesign exists to remove.
+                  */}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
                       className="min-h-[44px]"
-                      onClick={() => onMarkDone(item.row)}
-                      disabled={!item.row.contact}
+                      onClick={() => onOpen(item.row.key, "log")}
+                      disabled={!contact}
                     >
-                      <Check size={14} className="mr-1.5" />
-                      Done
+                      <MessageSquarePlus size={14} className="mr-1.5" />
+                      Log
                     </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="min-h-[44px]"
-                      onClick={() => onSnooze(item.row, 7)}
-                      disabled={!item.row.contact}
-                    >
-                      <Clock size={14} className="mr-1.5" />
-                      Snooze
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="min-h-[44px]"
-                      onClick={() => onOpen(item.row.key)}
-                    >
-                      Open
-                    </Button>
+                    {owed && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-[44px]"
+                        onClick={() => onLater(item.row, 7)}
+                      >
+                        <Clock size={14} className="mr-1.5" />
+                        Later
+                      </Button>
+                    )}
                   </div>
 
-                  {!item.row.contact && (
+                  {!contact && (
                     <p className="mt-2 text-xs text-text-muted">
-                      Done and Snooze need CRM context. Open to add it.
+                      No CRM context yet. Open to add it.
                     </p>
                   )}
                 </div>

@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { X, Trash2, Link2, Plus, Check, Clock, AlertTriangle } from "lucide-react";
+import {
+  X,
+  Trash2,
+  Link2,
+  Check,
+  Clock,
+  AlertTriangle,
+  MessageSquarePlus,
+} from "lucide-react";
 import Button from "@/src/components/ui/Button";
 import Badge from "@/src/components/ui/Badge";
 import { useModalA11y } from "@/src/lib/useModalA11y";
@@ -11,7 +19,6 @@ import {
   useKeepFocusVisible,
 } from "@/src/lib/useVisualViewport";
 import { adminFetch, adminJson } from "@/src/lib/adminFetch";
-import { LIFECYCLE_LABELS } from "@/src/lib/djLifecycle";
 import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import {
@@ -20,8 +27,21 @@ import {
   BLOCKER_LABELS,
   OUTREACH_LABELS,
   OUTREACH_STATUSES,
+  type ActivationBlocker,
 } from "@/src/lib/crmTaxonomy";
 import { stageTone } from "@/src/components/admin/stageTone";
+import ContactIdentity from "@/src/components/admin/ContactIdentity";
+import LogInteractionForm, {
+  type LogPayload,
+} from "@/src/components/admin/LogInteractionForm";
+import { MoreDetails, SectionLabel } from "@/src/components/admin/DrawerSections";
+import {
+  hasNextStep,
+  donePatch,
+  laterPatch,
+  dueLabel,
+  LATER_OPTIONS,
+} from "@/src/lib/crmActions";
 import type {
   CrmContact,
   CrmNote,
@@ -62,6 +82,7 @@ export default function DjDetailDrawer({
   onClose,
   onChanged,
   onLinked,
+  initialMode = "detail",
 }: {
   row: PipelineRow;
   onClose: () => void;
@@ -69,6 +90,8 @@ export default function DjDetailDrawer({
   /* Lets the parent move the open drawer onto the merged row rather
      than letting it unmount when the prospect's key disappears. */
   onLinked?: (contactId: string, djProfileId: string) => Promise<void>;
+  /** Overview's Log button opens the drawer straight into the log flow. */
+  initialMode?: "detail" | "log";
 }) {
   const { containerRef, dialogProps } = useModalA11y({ open: true, onClose });
   const viewport = useVisualViewport();
@@ -95,6 +118,9 @@ export default function DjDetailDrawer({
   const [notesFailed, setNotesFailed] = useState(false);
   const [newNote, setNewNote] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [mode, setMode] = useState<"detail" | "log">(
+    initialMode === "log" && contact ? "log" : "detail"
+  );
 
   /* Linking */
   const [linking, setLinking] = useState(false);
@@ -194,14 +220,59 @@ export default function DjDetailDrawer({
       "Saved."
     );
 
-  const markDone = () =>
-    patch(
-      { last_contact_at: new Date().toISOString(), next_follow_up_at: null },
-      "Marked done."
-    );
+  /*
+   * Done finishes a task of mine. It clears the step and its date and
+   * writes nothing else - in particular not last_contact_at, because
+   * ticking something off is not contact. That conflation is what made
+   * the old button claim you had spoken to someone you had not.
+   *
+   * No history is written either. 14 of the 23 imported contacts carry
+   * boilerplate next actions like "Follow up", and auto-noting those
+   * would bury the real history under entries nobody wrote.
+   */
+  const completeStep = () => patch(donePatch(), "Next step cleared.");
 
-  const snooze = (days: number, label: string) =>
-    patch({ next_follow_up_at: addDays(days) }, `Snoozed to ${label}.`);
+  const later = (days: number, label: string) =>
+    patch(laterPatch(days), `Moved to ${label.toLowerCase()}.`);
+
+  /* The one action that writes history, and the only one that advances
+     last_contact_at, because an interaction genuinely is contact. */
+  const logInteraction = async (payload: LogPayload) => {
+    if (!contact) return;
+    setSaving(true);
+    try {
+      await adminJson(
+        await adminFetch("/api/admin/crm/notes", {
+          method: "POST",
+          body: JSON.stringify({ contact_id: contact.id, body: payload.note }),
+        })
+      );
+
+      const fields: Record<string, unknown> = {
+        last_contact_at: new Date().toISOString(),
+        next_action: payload.nextAction.trim() || null,
+        next_follow_up_at: payload.nextAction.trim()
+          ? payload.nextDate || null
+          : null,
+      };
+      if (payload.blockerChanged) fields.activation_blocker = payload.blocker;
+
+      await adminJson(
+        await adminFetch("/api/admin/crm/contacts", {
+          method: "PATCH",
+          body: JSON.stringify({ id: contact.id, ...fields }),
+        })
+      );
+
+      toast.success("Interaction logged.");
+      setMode("detail");
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const createContact = async () => {
     if (!dj) return;
@@ -317,14 +388,13 @@ export default function DjDetailDrawer({
       ]
     : [];
 
+  const blockerLabel = contact?.activation_blocker
+    ? BLOCKER_LABELS[contact.activation_blocker as ActivationBlocker]
+    : null;
+  const step = contact?.next_action?.trim() || null;
+  const due = dueLabel(contact?.next_follow_up_at);
+
   return (
-    /*
-       Sized from the visual viewport rather than the layout one. iOS
-       does not shrink the layout viewport for the keyboard, so a sheet
-       sized to 100% keeps its footer underneath it with no extra scroll
-       range to reach it. Every value here is read from the browser, so
-       there is no per-device pixel guess.
-    */
     <div
       className="fixed inset-x-0 z-50 flex justify-end"
       style={{
@@ -343,515 +413,395 @@ export default function DjDetailDrawer({
         {...dialogProps("crm-drawer-title")}
         className="relative flex h-full w-full max-w-[46rem] flex-col border-l border-white/10 bg-surface-base shadow-2xl shadow-black/60"
       >
+        {/* ── At a glance ───────────────────────────────────────── */}
         <header
-          className="flex items-start justify-between gap-4 border-b border-white/5 p-5"
+          className="border-b border-white/5 p-5"
           style={{ paddingTop: "max(env(safe-area-inset-top), 1.25rem)" }}
         >
-          <div className="min-w-0">
-            <h2
-              id="crm-drawer-title"
-              className={`truncate text-h3 ${identity.isSlug ? "font-mono text-[1.05rem]" : ""}`}
-            >
-              {identity.primary}
+          <div className="flex items-start justify-between gap-3">
+            <h2 id="crm-drawer-title" className="min-w-0 flex-1">
+              <ContactIdentity row={row} />
             </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <Badge tone={stageTone(row.stage)}>
-                {LIFECYCLE_LABELS[row.stage]}
-              </Badge>
-              {isInternalDj(dj?.slug) && (
-                <Badge tone="neutral">Internal</Badge>
-              )}
-              <span className="font-mono text-xs text-text-muted">
-                {dj && !identity.isSlug && `/${dj.slug} · `}
-                {dj ? `joined ${joinedLabel(dj.created_at)}` : "No account yet"}
-                {contact && ` · last contact ${relativeDays(contact.last_contact_at)}`}
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close panel"
+              className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-text-muted transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close panel"
-            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-text-muted transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          >
-            <X size={18} />
-          </button>
+          <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-text-muted">
+            {dj ? `joined ${joinedLabel(dj.created_at)}` : "No account yet"}
+            {contact && (
+              <>
+                <span aria-hidden>·</span>
+                <span>last contact {relativeDays(contact.last_contact_at).toLowerCase()}</span>
+              </>
+            )}
+          </p>
+
+          {blockerLabel && (
+            <p className="mt-2 text-sm text-status-pending">{blockerLabel}</p>
+          )}
         </header>
 
         <div
           ref={scrollerRef}
           className="flex-1 overflow-y-auto scroll-subtle [overscroll-behavior:contain]"
         >
-          <div className="grid gap-6 p-5 md:grid-cols-2">
-            <div className="space-y-6">
-              <section>
-                <p className={`${sectionLabel} text-status-playing`}>
-                  Derived automatically
-                </p>
-                <p className="mt-1 text-xs text-text-muted">
-                  Read from the product. Not editable, and never stored in the
-                  CRM.
-                </p>
+          {mode === "log" && contact ? (
+            <LogInteractionForm
+              contact={contact}
+              saving={saving}
+              onCancel={() => setMode("detail")}
+              onSave={logInteraction}
+            />
+          ) : contact ? (
+            <>
+              {/* ── What happens next ─────────────────────────── */}
+              <section className="border-b border-white/5 p-5">
+                <SectionLabel>What happens next</SectionLabel>
 
-                {dj ? (
-                  <dl className="mt-3 grid grid-cols-2 gap-2">
-                    {derived.map(([term, value]) => (
-                      <div
-                        key={term}
-                        className="rounded-control border border-white/5 bg-white/[0.02] p-3"
+                {step ? (
+                  <>
+                    <p className="mt-2.5 text-base text-white">{step}</p>
+                    {due && (
+                      <p
+                        className={`mt-1.5 font-mono text-xs ${
+                          due.overdue
+                            ? "text-status-declined"
+                            : due.today
+                              ? "text-status-pending"
+                              : "text-text-muted"
+                        }`}
                       >
-                        <dt className="text-xs text-text-muted">{term}</dt>
-                        <dd className="mt-0.5 text-sm font-semibold text-white">
-                          {value}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
+                        {due.text}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="min-h-[44px]"
+                        onClick={completeStep}
+                        disabled={saving}
+                      >
+                        <Check size={14} className="mr-1.5" />
+                        Done
+                      </Button>
+
+                      {/* Later is a menu, not four permanent buttons */}
+                      <details className="relative [&_summary::-webkit-details-marker]:hidden">
+                        <summary className="flex min-h-[44px] cursor-pointer list-none items-center rounded-control border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                          <Clock size={14} className="mr-1.5" />
+                          Later
+                        </summary>
+                        <div className="absolute left-0 z-10 mt-1 w-44 overflow-hidden rounded-control border border-white/10 bg-surface-overlay shadow-xl shadow-black/50">
+                          {LATER_OPTIONS.map((o) => (
+                            <button
+                              key={o.days}
+                              type="button"
+                              onClick={() => later(o.days, o.label)}
+                              disabled={saving}
+                              className="flex min-h-[44px] w-full items-center px-4 text-left text-sm text-zinc-200 transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  </>
                 ) : (
-                  <p className="mt-3 rounded-control border border-white/5 bg-white/[0.02] p-4 text-sm text-text-muted">
-                    No Playing Next account yet. Nothing to derive until they
-                    sign up and this contact is linked to their profile.
+                  <p className="mt-2.5 text-sm text-text-muted">
+                    Nothing planned. You are waiting on them, so there is no
+                    task of yours to complete. Log an interaction when they
+                    reply, or to record that you chased.
                   </p>
                 )}
               </section>
 
-              {dj && (
-                <section>
-                  <p className={`${sectionLabel} text-status-pending`}>
-                    Quality
-                  </p>
-                  <p className="mt-1 text-xs text-text-muted">
-                    Guest-reported problems against this DJ.
-                  </p>
-                  <dl className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-control border border-white/5 bg-white/[0.02] p-3">
-                      <dt className="text-xs text-text-muted">
-                        Not-played reports
-                      </dt>
-                      <dd
-                        className={`mt-0.5 text-sm font-semibold ${dj.not_played_reports > 0 ? "text-status-pending" : "text-white"}`}
-                      >
-                        {dj.not_played_reports}
-                      </dd>
-                    </div>
-                    <div className="rounded-control border border-white/5 bg-white/[0.02] p-3">
-                      <dt className="text-xs text-text-muted">Dispute rate</dt>
-                      <dd
-                        className={`mt-0.5 text-sm font-semibold ${dj.dispute_rate > 0.1 ? "text-status-declined" : "text-white"}`}
-                      >
-                        {(dj.dispute_rate * 100).toFixed(1)}%
-                      </dd>
-                    </div>
-                  </dl>
-                </section>
-              )}
+              {/* ── History ───────────────────────────────────── */}
+              <section className="border-b border-white/5 p-5">
+                <SectionLabel>History</SectionLabel>
 
-              {contact && !dj && (
-                <section className="rounded-card border border-white/5 bg-white/[0.02] p-4">
-                  <p className={`${sectionLabel} text-text-muted`}>
-                    Link to an account
-                  </p>
-
-                  {!linking ? (
-                    <>
-                      <p className="mt-2 text-sm text-text-muted">
-                        Once they sign up, link this contact to their DJ profile
-                        so their real progress appears here.
-                      </p>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="mt-3"
-                        onClick={() => setLinking(true)}
-                      >
-                        <Link2 size={15} className="mr-1.5" />
-                        Link to a DJ account
-                      </Button>
-                    </>
-                  ) : candidatesFailed ? (
-                    <p className="mt-3 rounded-control border border-status-declined-surface/20 bg-status-declined-surface/10 p-3 text-sm text-status-declined">
-                      The list of accounts could not be loaded. This is not the
-                      same as there being none.
+                <div className="mt-3 space-y-2">
+                  {notesFailed ? (
+                    <p className="rounded-control border border-status-declined-surface/20 bg-status-declined-surface/10 p-3 text-sm text-status-declined">
+                      History could not be loaded. This is not the same as
+                      there being none.
+                    </p>
+                  ) : notes.length === 0 ? (
+                    <p className="text-sm text-text-muted">
+                      Nothing recorded yet.
                     </p>
                   ) : (
-                    <>
-                      <label className="mt-3 block text-sm text-zinc-300" htmlFor="linksearch">
-                        Search accounts nobody has claimed
-                      </label>
-                      <input
-                        id="linksearch"
-                        autoFocus
-                        className={`${field} mt-1.5`}
-                        placeholder="Name or /slug"
-                        value={linkQuery}
-                        onChange={(e) => {
-                          setLinkQuery(e.target.value);
-                          setChosen(null);
-                        }}
-                      />
-
-                      <ul className="mt-2 space-y-1">
-                        {candidates === null ? (
-                          <li className="text-sm text-text-muted">Loading...</li>
-                        ) : matches.length === 0 ? (
-                          <li className="text-sm text-text-muted">
-                            No unlinked accounts match. Every other account is
-                            already linked to a contact.
-                          </li>
-                        ) : (
-                          matches.map((c) => {
-                            const cid = displayIdentity(c.dj_name, c.slug);
-                            const isChosen = chosen?.id === c.id;
-                            return (
-                              <li key={c.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => setChosen(c)}
-                                  aria-pressed={isChosen}
-                                  className={`flex min-h-[44px] w-full items-center justify-between gap-3 rounded-control border p-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
-                                    isChosen
-                                      ? "border-accent/40 bg-accent/10"
-                                      : "border-white/5 bg-white/[0.02] hover:border-white/15"
-                                  }`}
-                                >
-                                  <span className="min-w-0">
-                                    <span className="block truncate text-sm font-semibold text-white">
-                                      {cid.primary}
-                                    </span>
-                                    <span className="block font-mono text-xs text-text-muted">
-                                      joined {joinedLabel(c.created_at)}
-                                    </span>
-                                  </span>
-                                  {isChosen && (
-                                    <Check size={15} className="shrink-0 text-accent" />
-                                  )}
-                                </button>
-                              </li>
-                            );
-                          })
-                        )}
-                      </ul>
-
-                      {chosen && (
-                        <div className="mt-3 rounded-control border border-accent/30 bg-accent/[0.07] p-3">
-                          <p className="text-sm text-zinc-200">
-                            Link{" "}
-                            <strong className="text-white">
-                              {contact.display_name}
-                            </strong>{" "}
-                            to the account{" "}
-                            <strong className="text-white">
-                              {displayIdentity(chosen.dj_name, chosen.slug).primary}
-                            </strong>
-                            ?
+                    notes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="flex items-start justify-between gap-3 rounded-control border border-white/5 bg-white/[0.02] p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm text-zinc-200">{note.body}</p>
+                          <p className="mt-1 font-mono text-xs text-text-muted">
+                            {new Date(note.occurred_at).toLocaleDateString(
+                              undefined,
+                              { day: "numeric", month: "short" }
+                            )}
                           </p>
-                          <p className="mt-1 text-xs text-text-muted">
-                            This cannot be claimed by another contact
-                            afterwards.
-                          </p>
-                          <div className="mt-3 flex gap-2">
-                            <Button
-                              variant="accent"
-                              size="sm"
-                              onClick={linkToDj}
-                              disabled={saving}
-                            >
-                              Link them
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setChosen(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
                         </div>
-                      )}
-                    </>
+                        <button
+                          type="button"
+                          onClick={() => deleteNote(note.id)}
+                          aria-label="Delete note"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))
                   )}
-                </section>
-              )}
-            </div>
+                </div>
+              </section>
 
-            <div className="space-y-6">
-              {contact ? (
-                <>
-                  <section className="space-y-3.5">
-                    <div>
-                      <p className={`${sectionLabel} text-accent`}>
-                        Relationship
-                      </p>
-                      <p className="mt-1 text-xs text-text-muted">
-                        Yours to maintain. Nothing here is guessed or
-                        overwritten.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-zinc-300" htmlFor="action">
-                        Next action
-                      </label>
-                      <input
-                        id="action"
-                        className={`${field} mt-1.5`}
-                        placeholder="Ask about the Friday residency"
-                        value={draft.next_action}
-                        onChange={(e) =>
-                          setDraft({ ...draft, next_action: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="min-h-[44px]"
-                        onClick={markDone}
-                        disabled={saving}
-                      >
-                        <Check size={14} className="mr-1.5" />
-                        Mark done
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="min-h-[44px]"
-                        onClick={() => snooze(1, "tomorrow")}
-                        disabled={saving}
-                      >
-                        <Clock size={14} className="mr-1.5" />
-                        Tomorrow
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="min-h-[44px]"
-                        onClick={() => snooze(7, "next week")}
-                        disabled={saving}
-                      >
-                        Next week
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-sm text-zinc-300" htmlFor="followup">
-                          Follow up on
-                        </label>
-                        <input
-                          id="followup"
-                          type="date"
-                          className={`${field} mt-1.5`}
-                          value={draft.next_follow_up_at}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              next_follow_up_at: e.target.value,
-                            })
-                          }
-                        />
+              {/* ── More details ─────────────────────────────── */}
+              <MoreDetails title="Product activity">
+                {dj ? (
+                  <>
+                    <dl className="grid grid-cols-2 gap-2">
+                      {derived.map(([term, value]) => (
+                        <div
+                          key={term}
+                          className="rounded-control border border-white/5 bg-white/[0.02] p-3"
+                        >
+                          <dt className="text-xs text-text-muted">{term}</dt>
+                          <dd className="mt-0.5 text-sm font-semibold text-white">
+                            {value}
+                          </dd>
+                        </div>
+                      ))}
+                      <div className="rounded-control border border-white/5 bg-white/[0.02] p-3">
+                        <dt className="text-xs text-text-muted">Not-played reports</dt>
+                        <dd className={`mt-0.5 text-sm font-semibold ${dj.not_played_reports > 0 ? "text-status-pending" : "text-white"}`}>
+                          {dj.not_played_reports}
+                        </dd>
                       </div>
-                      <div>
-                        <label className="text-sm text-zinc-300" htmlFor="gig">
-                          Next gig
-                        </label>
-                        <input
-                          id="gig"
-                          type="date"
-                          className={`${field} mt-1.5`}
-                          value={draft.next_gig_date}
-                          onChange={(e) =>
-                            setDraft({ ...draft, next_gig_date: e.target.value })
-                          }
-                        />
+                      <div className="rounded-control border border-white/5 bg-white/[0.02] p-3">
+                        <dt className="text-xs text-text-muted">Dispute rate</dt>
+                        <dd className={`mt-0.5 text-sm font-semibold ${dj.dispute_rate > 0.1 ? "text-status-declined" : "text-white"}`}>
+                          {(dj.dispute_rate * 100).toFixed(1)}%
+                        </dd>
                       </div>
-                    </div>
+                    </dl>
+                    <p className="mt-3 text-xs text-text-muted">
+                      Read from the product. Not editable, and never stored in
+                      the CRM.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-text-muted">
+                    No Playing Next account yet. Nothing to derive until they
+                    sign up and this contact is linked to their profile.
+                  </p>
+                )}
+              </MoreDetails>
 
-                    <div>
-                      <label className="text-sm text-zinc-300" htmlFor="blocker">
-                        Activation blocker
-                      </label>
-                      <select
-                        id="blocker"
-                        className={`${field} mt-1.5`}
-                        value={draft.activation_blocker}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            activation_blocker: e.target.value,
-                          })
-                        }
-                      >
-                        <option value="" className="bg-zinc-900">
-                          None recorded
+              <MoreDetails title="Relationship details">
+                <div className="space-y-3.5">
+                  <div>
+                    <label className="text-sm text-zinc-300" htmlFor="blocker">
+                      Activation blocker
+                    </label>
+                    <select
+                      id="blocker"
+                      className={`${field} mt-1.5`}
+                      value={draft.activation_blocker}
+                      onChange={(e) =>
+                        setDraft({ ...draft, activation_blocker: e.target.value })
+                      }
+                    >
+                      <option value="" className="bg-zinc-900">
+                        None recorded
+                      </option>
+                      {ACTIVATION_BLOCKERS.map((b) => (
+                        <option key={b} value={b} className="bg-zinc-900">
+                          {BLOCKER_LABELS[b]}
                         </option>
-                        {ACTIVATION_BLOCKERS.map((b) => (
-                          <option key={b} value={b} className="bg-zinc-900">
-                            {BLOCKER_LABELS[b]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      ))}
+                    </select>
+                  </div>
 
-                    <div>
-                      <label className="text-sm text-zinc-300" htmlFor="outreach">
-                        Outreach status
-                      </label>
-                      <select
-                        id="outreach"
-                        className={`${field} mt-1.5`}
-                        value={draft.outreach_status}
-                        onChange={(e) =>
-                          setDraft({ ...draft, outreach_status: e.target.value })
-                        }
-                      >
-                        {OUTREACH_STATUSES.map((s) => (
-                          <option key={s} value={s} className="bg-zinc-900">
-                            {OUTREACH_LABELS[s]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <label className="text-sm text-zinc-300" htmlFor="gig">
+                      Next gig
+                    </label>
+                    <input
+                      id="gig"
+                      type="date"
+                      className={`${field} mt-1.5`}
+                      value={draft.next_gig_date}
+                      onChange={(e) =>
+                        setDraft({ ...draft, next_gig_date: e.target.value })
+                      }
+                    />
+                  </div>
 
+                  <div>
+                    <label className="text-sm text-zinc-300" htmlFor="source">
+                      Where they came from
+                    </label>
+                    <input
+                      id="source"
+                      list="acquisition-sources"
+                      className={`${field} mt-1.5`}
+                      placeholder="Direct outreach, Instagram, referral..."
+                      value={draft.acquisition_source}
+                      onChange={(e) =>
+                        setDraft({ ...draft, acquisition_source: e.target.value })
+                      }
+                    />
+                    <datalist id="acquisition-sources">
+                      {ACQUISITION_SOURCES.map((s) => (
+                        <option key={s} value={s} />
+                      ))}
+                    </datalist>
+                    <p className="mt-1.5 text-xs text-text-muted">
+                      Your own record. Automated attribution will never
+                      overwrite this.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-sm text-zinc-300" htmlFor="source">
-                        Where they came from
+                      <label className="text-sm text-zinc-300" htmlFor="channel">
+                        Channel
                       </label>
                       <input
-                        id="source"
-                        list="acquisition-sources"
+                        id="channel"
                         className={`${field} mt-1.5`}
-                        placeholder="Direct outreach, Instagram, referral..."
-                        value={draft.acquisition_source}
+                        placeholder="Instagram"
+                        value={draft.contact_channel}
                         onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            acquisition_source: e.target.value,
-                          })
+                          setDraft({ ...draft, contact_channel: e.target.value })
                         }
                       />
-                      <datalist id="acquisition-sources">
-                        {ACQUISITION_SOURCES.map((s) => (
-                          <option key={s} value={s} />
-                        ))}
-                      </datalist>
-                      <p className="mt-1.5 text-xs text-text-muted">
-                        Your own record. Automated attribution will never
-                        overwrite this.
-                      </p>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-sm text-zinc-300" htmlFor="channel">
-                          Channel
-                        </label>
-                        <input
-                          id="channel"
-                          className={`${field} mt-1.5`}
-                          placeholder="Instagram"
-                          value={draft.contact_channel}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              contact_channel: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-zinc-300" htmlFor="handle">
-                          Handle
-                        </label>
-                        <input
-                          id="handle"
-                          className={`${field} mt-1.5`}
-                          placeholder="@name"
-                          value={draft.contact_handle}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              contact_handle: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </section>
-
-                  <section>
-                    <p className={`${sectionLabel} text-text-muted`}>Notes</p>
-
-                    <div className="mt-3 flex gap-2">
+                    <div>
+                      <label className="text-sm text-zinc-300" htmlFor="handle">
+                        Handle
+                      </label>
                       <input
-                        className={field}
-                        placeholder="What was said?"
-                        value={newNote}
-                        onChange={(e) => setNewNote(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") addNote();
-                        }}
+                        id="handle"
+                        className={`${field} mt-1.5`}
+                        placeholder="@name"
+                        value={draft.contact_handle}
+                        onChange={(e) =>
+                          setDraft({ ...draft, contact_handle: e.target.value })
+                        }
                       />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-zinc-300" htmlFor="outreach">
+                      Outreach status
+                    </label>
+                    <select
+                      id="outreach"
+                      className={`${field} mt-1.5`}
+                      value={draft.outreach_status}
+                      onChange={(e) =>
+                        setDraft({ ...draft, outreach_status: e.target.value })
+                      }
+                    >
+                      {OUTREACH_STATUSES.map((s) => (
+                        <option key={s} value={s} className="bg-zinc-900">
+                          {OUTREACH_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-xs text-text-muted">
+                      Kept for the record. Nothing in the Admin reads it, so
+                      it does not need maintaining.
+                    </p>
+                  </div>
+
+                  <Button
+                    variant="secondary"
+                    className="min-h-[44px] w-full"
+                    onClick={save}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Save details"}
+                  </Button>
+                </div>
+              </MoreDetails>
+
+              <MoreDetails title="Admin">
+                {confirmingDelete ? (
+                  <div className="rounded-card border border-status-declined-surface/25 bg-status-declined-surface/[0.07] p-4">
+                    <p className="flex items-start gap-2 text-sm font-semibold text-white">
+                      <AlertTriangle
+                        size={16}
+                        className="mt-0.5 shrink-0 text-status-declined"
+                      />
+                      Remove the CRM context for {row.name}?
+                    </p>
+                    <ul className="mt-2 ml-6 list-disc space-y-1 text-sm text-text-muted">
+                      <li>
+                        {notes.length} history entr{notes.length === 1 ? "y" : "ies"} will be deleted
+                      </li>
+                      <li>
+                        The DJ&rsquo;s account, requests and earnings are{" "}
+                        <strong className="text-zinc-200">not</strong> touched
+                      </li>
+                    </ul>
+                    <div className="mt-4 flex gap-2">
                       <Button
-                        variant="secondary"
+                        variant="danger"
                         size="sm"
-                        onClick={addNote}
-                        disabled={!newNote.trim()}
-                        className="min-h-[44px] min-w-[44px] shrink-0"
-                        aria-label="Add note"
+                        className="min-h-[44px]"
+                        onClick={removeContact}
+                        disabled={saving}
                       >
-                        <Plus size={15} />
+                        Remove context
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-[44px]"
+                        onClick={() => setConfirmingDelete(false)}
+                      >
+                        Keep it
                       </Button>
                     </div>
-
-                    <div className="mt-3 space-y-2">
-                      {notesFailed ? (
-                        <p className="rounded-control border border-status-declined-surface/20 bg-status-declined-surface/10 p-3 text-sm text-status-declined">
-                          Notes could not be loaded. This is not the same as
-                          having none.
-                        </p>
-                      ) : notes.length === 0 ? (
-                        <p className="text-sm text-text-muted">No notes yet.</p>
-                      ) : (
-                        notes.map((note) => (
-                          <div
-                            key={note.id}
-                            className="flex items-start justify-between gap-3 rounded-control border border-white/5 bg-white/[0.02] p-3"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm text-zinc-200">{note.body}</p>
-                              <p className="mt-1 font-mono text-xs text-text-muted">
-                                {new Date(note.occurred_at).toLocaleDateString(
-                                  undefined,
-                                  { day: "numeric", month: "short" }
-                                )}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => deleteNote(note.id)}
-                              aria-label="Delete note"
-                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </section>
-                </>
-              ) : (
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(true)}
+                    className="flex min-h-[44px] items-center gap-1.5 rounded-control px-3 text-sm text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  >
+                    <Trash2 size={14} />
+                    Remove CRM context
+                  </button>
+                )}
+              </MoreDetails>
+            </>
+          ) : (
+            /* No CRM context yet, or an unlinked prospect */
+            <div className="space-y-6 p-5">
+              {dj ? (
                 <section className="rounded-card border border-white/5 bg-white/[0.02] p-5">
                   <p className="text-sm text-zinc-300">
                     This DJ has no CRM context yet.
                   </p>
                   <p className="mt-1.5 text-sm text-text-muted">
-                    Add it to record where they came from, what is blocking them
-                    and when to follow up.
+                    Add it to record where they came from, what is blocking
+                    them and when to follow up.
                   </p>
                   <Button
                     variant="secondary"
@@ -864,81 +814,147 @@ export default function DjDetailDrawer({
                     Add CRM context
                   </Button>
                 </section>
-              )}
+              ) : null}
             </div>
-          </div>
+          )}
 
-          {/*
-            Destructive action, deliberately at the very bottom, in its own
-            band, never beside Save. Playing Next's standing rule: a
-            destructive action never carries primary emphasis and an
-            irreversible one asks first.
-          */}
-          {contact && (
-            <div className="border-t border-white/5 p-5">
-              {confirmingDelete ? (
-                <div className="rounded-card border border-status-declined-surface/25 bg-status-declined-surface/[0.07] p-4">
-                  <p className="flex items-start gap-2 text-sm font-semibold text-white">
-                    <AlertTriangle
-                      size={16}
-                      className="mt-0.5 shrink-0 text-status-declined"
-                    />
-                    Remove the CRM context for {row.name}?
+          {/* Linking stays available for an unlinked prospect */}
+          {contact && !dj && (
+            <MoreDetails title="Link to an account">
+              {!linking ? (
+                <>
+                  <p className="text-sm text-text-muted">
+                    Once they sign up, link this contact to their DJ profile so
+                    their real progress appears here.
                   </p>
-                  <ul className="mt-2 ml-6 list-disc space-y-1 text-sm text-text-muted">
-                    <li>
-                      {notes.length} note{notes.length === 1 ? "" : "s"} will be
-                      deleted
-                    </li>
-                    <li>
-                      The DJ&rsquo;s account, requests and earnings are{" "}
-                      <strong className="text-zinc-200">not</strong> touched
-                    </li>
-                  </ul>
-                  <div className="mt-4 flex gap-2">
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={removeContact}
-                      disabled={saving}
-                    >
-                      Remove context
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmingDelete(false)}
-                    >
-                      Keep it
-                    </Button>
-                  </div>
-                </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3 min-h-[44px]"
+                    onClick={() => setLinking(true)}
+                  >
+                    <Link2 size={15} className="mr-1.5" />
+                    Link to a DJ account
+                  </Button>
+                </>
+              ) : candidatesFailed ? (
+                <p className="rounded-control border border-status-declined-surface/20 bg-status-declined-surface/10 p-3 text-sm text-status-declined">
+                  The list of accounts could not be loaded. This is not the
+                  same as there being none.
+                </p>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setConfirmingDelete(true)}
-                  className="ml-auto flex min-h-[44px] items-center gap-1.5 rounded-control px-3 text-xs text-text-muted transition hover:text-status-declined focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                >
-                  <Trash2 size={13} />
-                  Remove CRM context
-                </button>
+                <>
+                  <label className="block text-sm text-zinc-300" htmlFor="linksearch">
+                    Search accounts nobody has claimed
+                  </label>
+                  <input
+                    id="linksearch"
+                    className={`${field} mt-1.5`}
+                    placeholder="Name or /slug"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    value={linkQuery}
+                    onChange={(e) => {
+                      setLinkQuery(e.target.value);
+                      setChosen(null);
+                    }}
+                  />
+                  <ul className="mt-2 space-y-1">
+                    {candidates === null ? (
+                      <li className="text-sm text-text-muted">Loading...</li>
+                    ) : matches.length === 0 ? (
+                      <li className="text-sm text-text-muted">
+                        No unlinked accounts match.
+                      </li>
+                    ) : (
+                      matches.map((c) => {
+                        const cid = displayIdentity(c.dj_name, c.slug);
+                        const isChosen = chosen?.id === c.id;
+                        return (
+                          <li key={c.id}>
+                            <button
+                              type="button"
+                              onClick={() => setChosen(c)}
+                              aria-pressed={isChosen}
+                              className={`flex min-h-[44px] w-full items-center justify-between gap-3 rounded-control border p-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                                isChosen
+                                  ? "border-accent/40 bg-accent/10"
+                                  : "border-white/5 bg-white/[0.02] hover:border-white/15"
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold text-white">
+                                  {cid.primary}
+                                </span>
+                                <span className="block font-mono text-xs text-text-muted">
+                                  joined {joinedLabel(c.created_at)}
+                                </span>
+                              </span>
+                              {isChosen && (
+                                <Check size={15} className="shrink-0 text-accent" />
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })
+                    )}
+                  </ul>
+
+                  {chosen && (
+                    <div className="mt-3 rounded-control border border-accent/30 bg-accent/[0.07] p-3">
+                      <p className="text-sm text-zinc-200">
+                        Link{" "}
+                        <strong className="text-white">{contact.display_name}</strong>{" "}
+                        to{" "}
+                        <strong className="text-white">
+                          {displayIdentity(chosen.dj_name, chosen.slug).primary}
+                        </strong>
+                        ?
+                      </p>
+                      <p className="mt-1 text-xs text-text-muted">
+                        This cannot be claimed by another contact afterwards.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          className="min-h-[44px]"
+                          onClick={linkToDj}
+                          disabled={saving}
+                        >
+                          Link them
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-[44px]"
+                          onClick={() => setChosen(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-            </div>
+            </MoreDetails>
           )}
         </div>
 
-        {contact && (
+        {/* The primary action, always reachable. Not a form save. */}
+        {contact && mode === "detail" && (
           <footer
             className="border-t border-white/5 bg-surface-base/95 p-4 backdrop-blur"
             style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
           >
             <Button
               variant="accent"
-              onClick={save}
+              className="min-h-[48px] w-full"
+              onClick={() => setMode("log")}
               disabled={saving}
-              className="w-full sm:w-auto"
             >
-              {saving ? "Saving..." : "Save changes"}
+              <MessageSquarePlus size={16} className="mr-2" />
+              Log interaction
             </Button>
           </footer>
         )}
