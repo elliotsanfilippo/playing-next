@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Search, Plus, AlertTriangle } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
@@ -12,6 +12,14 @@ import { isInternalDj } from "@/src/lib/internalAccounts";
 import { stageTone } from "@/src/components/admin/stageTone";
 import ContactIdentity from "@/src/components/admin/ContactIdentity";
 import { buildQueue, sortForContacts } from "@/src/lib/crmQueue";
+import {
+  buildFilterIndex,
+  visiblePrimary,
+  primaryLabel,
+  SECONDARY_LABELS,
+  type PrimaryFilter,
+  type SecondaryFilter,
+} from "@/src/lib/crmFilters";
 import type { CrmContact, PipelineRow } from "@/src/components/admin/crmTypes";
 
 /*
@@ -119,6 +127,8 @@ export default function ContactsView({
   /* Pipeline is never rendered narrow, whatever the toggle last held. */
   const effectiveView: View = isDesktop ? view : "list";
   const [search, setSearch] = useState("");
+  const [primary, setPrimary] = useState<PrimaryFilter>("all");
+  const [secondary, setSecondary] = useState<SecondaryFilter>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
 
@@ -127,16 +137,33 @@ export default function ContactsView({
     [rows]
   );
 
+  const index = useMemo(() => buildFilterIndex(rows), [rows]);
+
+  /* Filters and search compose: both narrow the same ordered list, so
+     "Ready" plus a search term means ready DJs matching that term, not
+     one or the other. */
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return ordered;
-    return ordered.filter(
-      (r) =>
+    return ordered.filter((r) => {
+      if (!index.matchesPrimary(r, primary)) return false;
+      if (!index.matchesSecondary(r, secondary)) return false;
+      if (!q) return true;
+      return (
         r.name.toLowerCase().includes(q) ||
         (r.dj?.slug ?? "").toLowerCase().includes(q) ||
         (r.contact?.contact_handle ?? "").toLowerCase().includes(q)
-    );
-  }, [ordered, search]);
+      );
+    });
+  }, [ordered, search, primary, secondary, index]);
+
+  /*
+   * Changing what you are looking at puts you at the top of it. Keyed on
+   * the filter values only, so typing in the search box does not yank
+   * the page while you are still deciding what to type.
+   */
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [primary, secondary]);
 
   const byStage = useMemo(() => {
     const map = new Map<LifecycleStage, PipelineRow[]>();
@@ -209,6 +236,51 @@ export default function ContactsView({
           </div>
         </div>
 
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {visiblePrimary(index.counts).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setPrimary(f)}
+                aria-pressed={primary === f}
+                className={`min-h-[44px] rounded-full border px-4 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                  primary === f
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-white/10 bg-white/5 text-text-muted hover:text-white"
+                }`}
+              >
+                {primaryLabel(f)}{" "}
+                <span className="opacity-70">{index.counts.primary[f]}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Secondary filters narrow whatever the primary selected.
+              Tapping the active one clears it, so there is always a way
+              back without a reset button. */}
+          <div className="flex flex-wrap gap-2">
+            {(["awaiting", "never_contacted", "venue"] as const)
+              .filter((f) => index.counts.secondary[f] > 0)
+              .map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setSecondary(secondary === f ? null : f)}
+                  aria-pressed={secondary === f}
+                  className={`min-h-[44px] rounded-full border px-4 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                    secondary === f
+                      ? "border-status-playing-surface/40 bg-status-playing-surface/10 text-status-playing"
+                      : "border-white/10 bg-white/[0.03] text-text-muted hover:text-white"
+                  }`}
+                >
+                  {SECONDARY_LABELS[f]}{" "}
+                  <span className="opacity-70">{index.counts.secondary[f]}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+
         {adding && (
           <div className="flex gap-2">
             <input
@@ -250,7 +322,9 @@ export default function ContactsView({
         <p className="p-10 text-center text-sm text-text-muted">
           {rows.length === 0
             ? "Nobody in the pipeline yet. Add a prospect to start."
-            : "Nobody matches that search."}
+            : search.trim()
+              ? "Nobody matches that search in this group."
+              : "Nobody in this group."}
         </p>
       ) : effectiveView === "list" ? (
         <>

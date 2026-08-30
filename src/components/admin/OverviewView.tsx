@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Flag, Clock, ArrowRight, MessageSquarePlus } from "lucide-react";
 import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
 import ContactIdentity from "@/src/components/admin/ContactIdentity";
+import { MoreDetails } from "@/src/components/admin/DrawerSections";
 import { hasNextStep } from "@/src/lib/crmActions";
 import { relativeDays } from "@/src/lib/djIdentity";
 import Card from "@/src/components/ui/Card";
@@ -22,20 +23,31 @@ import type { DjStat, PipelineRow, Report } from "@/src/components/admin/crmType
 
 const MOBILE_PREVIEW = 5;
 
+/*
+ * Colour only where it means urgency.
+ *
+ * Every row used to carry a tinted background AND a coloured left
+ * border AND a lifecycle badge AND a coloured blocker AND coloured
+ * timing, so nothing stood out because everything did. Now only an
+ * overdue or due-today row gets an accent edge; awaiting reply, upcoming
+ * and stalled rows are plain dark cards and let the badge and the
+ * blocker carry the meaning. The transparent border keeps every row on
+ * the same grid so nothing shifts when one becomes urgent.
+ */
 const tierTone: Record<QueueTier, string> = {
-  overdue:
-    "border-status-declined-surface/25 bg-status-declined-surface/[0.07]",
-  today: "border-status-pending-surface/25 bg-status-pending-surface/[0.07]",
-  upcoming: "border-white/5 bg-white/[0.02]",
-  attention: "border-status-playing-surface/25 bg-status-playing-surface/[0.06]",
-  stalled: "border-white/5 bg-white/[0.02]",
+  overdue: "border-status-declined",
+  today: "border-status-pending",
+  upcoming: "border-transparent",
+  attention: "border-transparent",
+  stalled: "border-transparent",
 };
 
+/* Timing is neutral unless it is actually late. */
 const stampTone: Record<QueueTier, string> = {
   overdue: "text-status-declined",
   today: "text-status-pending",
   upcoming: "text-text-muted",
-  attention: "text-status-playing",
+  attention: "text-text-muted",
   stalled: "text-text-muted",
 };
 
@@ -126,66 +138,90 @@ export default function OverviewView({
         </Card>
       </div>
 
-      <Card variant="elevated" className="order-3 p-5 md:order-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-h3">Growth snapshot</h2>
-          <p className="font-mono text-xs text-text-muted">
-            {funnel.total} external accounts · {funnel.internalExcluded} internal
-            excluded
+      {/*
+        Compressed for mobile. The four counts read as one sentence, the
+        cross-cutting payments fact sits beside them as a chip, and the
+        one insight worth acting on is a single line. Bars, per-step
+        definitions and drop-off move behind a disclosure - the
+        explanations are good and are kept, they just are not open by
+        default on a phone.
+      */}
+      <Card variant="elevated" className="order-3 overflow-hidden md:order-2">
+        <div className="p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-h3">Growth</h2>
+            <p className="font-mono text-xs text-text-muted">
+              {funnel.total} external · {funnel.internalExcluded} internal
+              excluded
+            </p>
+          </div>
+
+          <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+            {funnel.steps.map((step) => (
+              <div key={step.key} className="flex items-baseline gap-1.5">
+                <dt className="sr-only">{step.label}</dt>
+                <dd
+                  className={`font-mono text-lg font-bold ${step.count === 0 ? "text-status-declined" : "text-white"}`}
+                >
+                  {step.count}
+                </dd>
+                <span className="text-sm text-text-muted">{step.label}</span>
+              </div>
+            ))}
+          </dl>
+
+          <p className="mt-3">
+            <span className="inline-block rounded-full border border-status-pending-surface/25 bg-status-pending-surface/10 px-3 py-1 text-xs font-semibold text-status-pending">
+              {funnel.paymentsReadyTotal} payments connected
+            </span>
           </p>
+
+          {funnel.paymentsReadyButNotOnboarded.length > 0 && (
+            <p className="mt-3 text-sm text-zinc-300">
+              {funnel.paymentsReadyButNotOnboarded.length} connected payments
+              but never finished onboarding, which makes them the closest
+              people to a first paid request.
+            </p>
+          )}
         </div>
 
-        {/*
-          Each step is a strict subset of the one above it, so the shape
-          is a real funnel rather than five unrelated counts drawn in a
-          row. Payments-ready is reported underneath instead of as a step,
-          because it is NOT a subset - see src/lib/crmFunnel.ts.
-        */}
-        <ol className="mt-5 space-y-2.5">
-          {funnel.steps.map((step, index) => {
-            const width = Math.max((step.count / maxCount) * 100, 2);
-            const zero = step.count === 0;
-            return (
-              <li key={step.key}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm text-zinc-200">
-                    <span
-                      className={`font-mono text-base font-bold ${zero ? "text-status-declined" : "text-white"}`}
-                    >
-                      {step.count}
-                    </span>{" "}
-                    {index === 0 ? "external DJs" : "of them"} {step.label}
+        <MoreDetails title="Funnel detail">
+          <ol className="space-y-3">
+            {funnel.steps.map((step, index) => {
+              const width = Math.max((step.count / maxCount) * 100, 2);
+              const zero = step.count === 0;
+              return (
+                <li key={step.key}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-sm text-zinc-200">
+                      <span
+                        className={`font-mono text-base font-bold ${zero ? "text-status-declined" : "text-white"}`}
+                      >
+                        {step.count}
+                      </span>{" "}
+                      {index === 0 ? "external DJs" : "of them"} {step.label}
+                    </p>
+                    {step.lostFromPrevious !== null &&
+                      step.lostFromPrevious > 0 && (
+                        <p className="shrink-0 font-mono text-xs text-status-declined">
+                          {step.lostFromPrevious} lost
+                        </p>
+                      )}
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.04]">
+                    <div
+                      className={`h-full rounded-full ${zero ? "bg-status-declined/40" : "bg-white/25"}`}
+                      style={{ width: `${width}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {step.definition}
                   </p>
-                  {step.lostFromPrevious !== null &&
-                    step.lostFromPrevious > 0 && (
-                      <p className="shrink-0 font-mono text-xs text-status-declined">
-                        {step.lostFromPrevious} lost here
-                      </p>
-                    )}
-                </div>
-                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/[0.04]">
-                  <div
-                    className={`h-full rounded-full ${zero ? "bg-status-declined/40" : "bg-accent/70"}`}
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-text-muted">{step.definition}</p>
-              </li>
-            );
-          })}
-        </ol>
-
-        {funnel.paymentsReadyButNotOnboarded.length > 0 && (
-          <p className="mt-5 rounded-control border border-status-pending-surface/20 bg-status-pending-surface/[0.07] p-3 text-sm text-zinc-200">
-            <strong className="text-status-pending">
-              {funnel.paymentsReadyTotal} connected payments
-            </strong>
-            , but {funnel.paymentsReadyButNotOnboarded.length} of them never
-            finished onboarding. They handed over bank details and then stopped,
-            which makes them the closest people in the pipeline to a first paid
-            request.
-          </p>
-        )}
+                </li>
+              );
+            })}
+          </ol>
+        </MoreDetails>
       </Card>
 
       <Card variant="elevated" className="order-1 overflow-hidden md:order-3">
@@ -285,7 +321,9 @@ export default function OverviewView({
 
                     {/* Stage and timing share one quiet meta line instead of
                         each claiming its own coloured row. */}
-                    <span className="mt-2 block font-mono text-xs text-text-muted">
+                    <span
+                      className={`mt-2 block font-mono text-xs ${stampTone[item.tier]}`}
+                    >
                       {item.stamp}
                       {contact?.last_contact_at &&
                         ` · last contact ${relativeDays(contact.last_contact_at).toLowerCase()}`}
