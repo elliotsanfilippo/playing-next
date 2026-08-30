@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Search, Plus, AlertTriangle } from "lucide-react";
+import { Search, Plus, AlertTriangle, ChevronDown } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Badge from "@/src/components/ui/Badge";
 import Button from "@/src/components/ui/Button";
@@ -18,12 +18,16 @@ import {
 } from "@/src/lib/crmQueue";
 import {
   buildFilterIndex,
-  visiblePrimary,
-  primaryLabel,
+  SECONDARY_FILTERS,
   SECONDARY_LABELS,
-  type PrimaryFilter,
   type SecondaryFilter,
 } from "@/src/lib/crmFilters";
+import {
+  buildGroups,
+  groupFor,
+  GROUP_LABELS,
+  type ContactGroup,
+} from "@/src/lib/crmGroups";
 import type {
   CrmContact,
   CrmTask,
@@ -126,6 +130,69 @@ function StageCell({ row }: { row: PipelineRow }) {
   );
 }
 
+/*
+ * One mobile row. Four lines at most, and the last three only when they
+ * carry something: a line reading "last contact never" on fifteen
+ * consecutive prospects is a placeholder for absence, not information.
+ *
+ * No lifecycle badge. Inside a lifecycle group it would repeat the
+ * heading directly above it on every single row, which is how a
+ * directory turns back into a wall of chips. Search results are the one
+ * place the group is not implied, so that is the one place it is drawn.
+ *
+ * Identity goes through ContactIdentity like everywhere else, so a long
+ * name and a long slug wrap the same way here as in the drawer.
+ */
+function ContactRow({
+  row,
+  task,
+  groupLabel,
+  onOpen,
+}: {
+  row: PipelineRow;
+  task: CrmTask | null;
+  groupLabel?: string;
+  onOpen: (key: string) => void;
+}) {
+  const blocker = row.contact?.activation_blocker
+    ? BLOCKER_LABELS[row.contact.activation_blocker as ActivationBlocker]
+    : null;
+  const last = row.contact?.last_contact_at
+    ? relativeDays(row.contact.last_contact_at).toLowerCase()
+    : null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(row.key)}
+      className="w-full p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+    >
+      {/* Stacked, not name-versus-badge. Nothing competes. */}
+      <ContactIdentity row={row} />
+
+      {groupLabel && (
+        <p className="mt-2 font-mono text-[0.66rem] uppercase tracking-[0.12em] text-text-muted">
+          {groupLabel}
+        </p>
+      )}
+
+      {blocker && (
+        <p className="mt-2.5 text-sm text-status-pending">{blocker}</p>
+      )}
+
+      {task?.title && (
+        <p className="mt-1.5 text-sm text-zinc-200">{task.title}</p>
+      )}
+
+      {last && (
+        <p className="mt-2 font-mono text-xs text-text-muted">
+          last contact {last}
+        </p>
+      )}
+    </button>
+  );
+}
+
 export default function ContactsView({
   rows,
   tasks,
@@ -142,8 +209,15 @@ export default function ContactsView({
   /* Pipeline is never rendered narrow, whatever the toggle last held. */
   const effectiveView: View = isDesktop ? view : "list";
   const [search, setSearch] = useState("");
-  const [primary, setPrimary] = useState<PrimaryFilter>("all");
   const [secondary, setSecondary] = useState<SecondaryFilter>(null);
+  /*
+   * Which groups are folded away, for this session only. Thirty rows is
+   * about ten screens on a phone, so the directory opens showing the
+   * shape of the CRM - every heading and every count on one screen -
+   * with the first group expanded and the rest one tap away. Not
+   * persisted: it is a reading position, not a preference.
+   */
+  const [collapsed, setCollapsed] = useState<Set<ContactGroup> | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
 
@@ -177,7 +251,6 @@ export default function ContactsView({
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return ordered.filter((r) => {
-      if (!index.matchesPrimary(r, primary)) return false;
       if (!index.matchesSecondary(r, secondary)) return false;
       if (!q) return true;
       return (
@@ -186,7 +259,7 @@ export default function ContactsView({
         (r.contact?.contact_handle ?? "").toLowerCase().includes(q)
       );
     });
-  }, [ordered, search, primary, secondary, index]);
+  }, [ordered, search, secondary, index]);
 
   /*
    * Changing what you are looking at puts you at the top of it. Keyed on
@@ -195,7 +268,29 @@ export default function ContactsView({
    */
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-  }, [primary, secondary]);
+  }, [secondary]);
+
+  /*
+   * The grouped directory. Searching replaces it with a flat result
+   * list rather than filtering inside the sections, because a search
+   * that made you guess which group to open before you could see the
+   * match would be worse than the list it replaced.
+   */
+  const searching = search.trim().length > 0;
+  const groups = useMemo(() => buildGroups(visible), [visible]);
+
+  const isCollapsed = (key: ContactGroup, index: number) =>
+    collapsed ? collapsed.has(key) : index > 0;
+
+  const toggleGroup = (key: ContactGroup) =>
+    setCollapsed((current) => {
+      const base =
+        current ?? new Set(groups.slice(1).map((g) => g.key));
+      const next = new Set(base);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const byStage = useMemo(() => {
     const map = new Map<LifecycleStage, PipelineRow[]>();
@@ -268,49 +363,33 @@ export default function ContactsView({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {visiblePrimary(index.counts).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setPrimary(f)}
-                aria-pressed={primary === f}
-                className={`min-h-[44px] rounded-full border px-4 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
-                  primary === f
-                    ? "border-accent/40 bg-accent/10 text-accent"
-                    : "border-white/10 bg-white/5 text-text-muted hover:text-white"
-                }`}
-              >
-                {primaryLabel(f)}{" "}
-                <span className="opacity-70">{index.counts.primary[f]}</span>
-              </button>
-            ))}
-          </div>
+        {/*
+          Three chips, not twelve. The lifecycle chips that used to sit
+          above these are gone: the grouped sections below are that
+          split, shown without having to choose anything first. What is
+          left cuts across every group, which is the only thing a
+          permanent control on a phone screen earns its place by doing.
 
-          {/* Secondary filters narrow whatever the primary selected.
-              Tapping the active one clears it, so there is always a way
-              back without a reset button. */}
-          <div className="flex flex-wrap gap-2">
-            {(["awaiting", "never_contacted", "venue"] as const)
-              .filter((f) => index.counts.secondary[f] > 0)
-              .map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setSecondary(secondary === f ? null : f)}
-                  aria-pressed={secondary === f}
-                  className={`min-h-[44px] rounded-full border px-4 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
-                    secondary === f
-                      ? "border-status-playing-surface/40 bg-status-playing-surface/10 text-status-playing"
-                      : "border-white/10 bg-white/[0.03] text-text-muted hover:text-white"
-                  }`}
-                >
-                  {SECONDARY_LABELS[f]}{" "}
-                  <span className="opacity-70">{index.counts.secondary[f]}</span>
-                </button>
-              ))}
-          </div>
+          Tapping the active one clears it, so there is always a way back
+          without a reset button.
+        */}
+        <div className="flex flex-wrap gap-2">
+          {SECONDARY_FILTERS.filter((f) => index.counts[f] > 0).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setSecondary(secondary === f ? null : f)}
+              aria-pressed={secondary === f}
+              className={`min-h-[44px] rounded-full border px-4 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                secondary === f
+                  ? "border-status-playing-surface/40 bg-status-playing-surface/10 text-status-playing"
+                  : "border-white/10 bg-white/[0.03] text-text-muted hover:text-white"
+              }`}
+            >
+              {SECONDARY_LABELS[f]}{" "}
+              <span className="opacity-70">{index.counts[f]}</span>
+            </button>
+          ))}
         </div>
 
         {adding && (
@@ -412,49 +491,79 @@ export default function ContactsView({
             </table>
           </div>
 
-          <ul className="divide-y divide-white/5 md:hidden">
-            {visible.map((row) => {
-              const blocker = row.contact?.activation_blocker
-                ? BLOCKER_LABELS[row.contact.activation_blocker as ActivationBlocker]
-                : null;
-              const step = nextTaskFor(row)?.title ?? null;
-              const last = row.contact?.last_contact_at
-                ? relativeDays(row.contact.last_contact_at).toLowerCase()
-                : null;
+          {/*
+            The mobile directory. Grouped while browsing, flat while
+            searching - see `searching` below.
+          */}
+          <div className="md:hidden">
+            {searching ? (
+              <ul className="divide-y divide-white/5">
+                {visible.map((row) => (
+                  <li key={row.key}>
+                    <ContactRow
+                      row={row}
+                      task={nextTaskFor(row)}
+                      /* The group is the one thing a flat result loses,
+                         so a search result carries it rather than making
+                         you work out where the person lives. */
+                      groupLabel={GROUP_LABELS[groupFor(row)]}
+                      onOpen={onOpen}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              groups.map((group, i) => {
+                const folded = isCollapsed(group.key, i);
+                return (
+                  <section key={group.key} className="border-b border-white/5 last:border-0">
+                    <h3>
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(group.key)}
+                        aria-expanded={!folded}
+                        aria-controls={`group-${group.key}`}
+                        className="flex min-h-[44px] w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+                      >
+                        <span className="font-mono text-[0.66rem] font-semibold uppercase tracking-[0.13em] text-white">
+                          {group.label}
+                        </span>
+                        <span className="font-mono text-[0.66rem] font-bold text-accent">
+                          {group.rows.length}
+                        </span>
+                        <ChevronDown
+                          size={16}
+                          aria-hidden
+                          className={`ml-auto shrink-0 text-text-muted transition ${folded ? "" : "rotate-180"}`}
+                        />
+                      </button>
+                    </h3>
 
-              return (
-                <li key={row.key}>
-                  <button
-                    type="button"
-                    onClick={() => onOpen(row.key)}
-                    className="w-full p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
-                  >
-                    {/* Stacked, not name-versus-badge. Nothing competes. */}
-                    <ContactIdentity row={row} />
-
-                    {blocker && (
-                      <p className="mt-2.5 text-sm text-status-pending">
-                        {blocker}
+                    <div id={`group-${group.key}`} hidden={folded}>
+                      {/* Said once per group rather than once per row. A
+                          heading and a number do not explain themselves,
+                          and "Onboarding 10" reads as progress or as a
+                          problem depending on what you think it means. */}
+                      <p className="px-5 pb-3 text-xs leading-relaxed text-text-muted">
+                        {group.description}
                       </p>
-                    )}
-
-                    {step && (
-                      <p className="mt-1.5 text-sm text-zinc-200">{step}</p>
-                    )}
-
-                    {/* Only rendered when there is something to say. A line
-                        reading "last contact never" on fifteen consecutive
-                        prospects is a placeholder for absence, not information. */}
-                    {last && (
-                      <p className="mt-2 font-mono text-xs text-text-muted">
-                        last contact {last}
-                      </p>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                      <ul className="divide-y divide-white/5 border-t border-white/5">
+                        {group.rows.map((row) => (
+                          <li key={row.key}>
+                            <ContactRow
+                              row={row}
+                              task={nextTaskFor(row)}
+                              onOpen={onOpen}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                );
+              })
+            )}
+          </div>
 
         </>
       ) : (

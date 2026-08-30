@@ -1,45 +1,36 @@
-import { LIFECYCLE_LABELS, type LifecycleStage } from "@/src/lib/djLifecycle";
 import type { TaskItem, StateItem } from "@/src/lib/crmQueue";
 import type { PipelineRow } from "@/src/components/admin/crmTypes";
 
 /*
- * ── Filters that borrow their rules rather than restating them ────
+ * ── The filters that survived grouping ────────────────────────────
  *
- * Nothing here re-derives a lifecycle stage or re-implements the
- * blocker policy. "Needs attention" and "Awaiting reply" are read
- * straight out of buildQueue, and every other primary filter compares
- * against row.stage, which resolveLifecycleStage already decided. If
- * the definition of "ready to activate" ever changes, it changes in one
- * place and these follow.
+ * Contacts used to open on a wall of nine lifecycle chips above a flat
+ * list of everyone. The grouped directory answers that question better:
+ * the sections ARE the lifecycle split, visible at a glance and without
+ * choosing anything first, so a chip row that filtered to one stage was
+ * doing the same work twice and taking a screen to do it.
+ *
+ * What is left is only what cuts ACROSS the groups, which is the test a
+ * filter has to pass to earn a permanent place on screen. Measured
+ * against the real 32 rows on 2026-08-30: never contacted matched 27,
+ * awaiting reply and venue blocker are the two states worth pulling out
+ * of any group at once.
+ *
+ * Deliberately not here: an open-task filter. Tasks is the destination
+ * for "what do I need to do", and answering it a second time in
+ * Contacts is the conflation this architecture keeps taking apart.
+ *
+ * Nothing below re-derives a rule. "Awaiting reply" is the state tier
+ * by name, straight out of buildStateQueue.
  */
 
-export type PrimaryFilter = "all" | "needs" | LifecycleStage;
 export type SecondaryFilter = "awaiting" | "never_contacted" | "venue" | null;
 
-/* Order matters: this is the order the chips appear in. */
-export const PRIMARY_ORDER: PrimaryFilter[] = [
-  "all",
-  "needs",
-  "prospect",
-  "onboarding_incomplete",
-  "onboarded",
-  "ready_to_activate",
-  "activated",
-  "repeat",
-  "pro",
-];
-
-export const PRIMARY_LABELS: Record<string, string> = {
-  all: "All",
-  needs: "Needs attention",
-  prospect: "Prospects",
-  onboarding_incomplete: "Onboarding",
-  onboarded: "Onboarded",
-  ready_to_activate: "Ready",
-  activated: "Activated",
-  repeat: "Repeat",
-  pro: "Pro",
-};
+export const SECONDARY_FILTERS = [
+  "awaiting",
+  "never_contacted",
+  "venue",
+] as const;
 
 export const SECONDARY_LABELS: Record<string, string> = {
   awaiting: "Awaiting reply",
@@ -47,35 +38,14 @@ export const SECONDARY_LABELS: Record<string, string> = {
   venue: "Venue blocker",
 };
 
-export type FilterCounts = {
-  primary: Record<string, number>;
-  secondary: Record<string, number>;
-};
-
 export function buildFilterIndex(
   rows: PipelineRow[],
-  taskItems: TaskItem[],
+  _taskItems: TaskItem[],
   stateItems: StateItem[]
 ) {
-  /*
-   * "Needs attention" is anyone with something to do OR something worth
-   * knowing - the union of the two Overview sections, not a third
-   * definition. "Awaiting reply" is the state tier by name.
-   */
-  const withTask = new Set(
-    taskItems.filter((t) => t.row).map((t) => t.row!.key)
-  );
-  const inState = new Set(stateItems.map((s) => s.row.key));
-  const inQueue = new Set([...withTask, ...inState]);
   const awaiting = new Set(
     stateItems.filter((s) => s.tier === "awaiting").map((s) => s.row.key)
   );
-
-  const matchesPrimary = (row: PipelineRow, f: PrimaryFilter) => {
-    if (f === "all") return true;
-    if (f === "needs") return inQueue.has(row.key);
-    return row.stage === f;
-  };
 
   const matchesSecondary = (row: PipelineRow, f: SecondaryFilter) => {
     if (!f) return true;
@@ -84,31 +54,10 @@ export function buildFilterIndex(
     return row.contact?.activation_blocker === "venue_refused";
   };
 
-  const counts: FilterCounts = { primary: {}, secondary: {} };
-  for (const f of PRIMARY_ORDER) {
-    counts.primary[f] = rows.filter((r) => matchesPrimary(r, f)).length;
-  }
-  for (const f of ["awaiting", "never_contacted", "venue"] as const) {
-    counts.secondary[f] = rows.filter((r) => matchesSecondary(r, f)).length;
+  const counts: Record<string, number> = {};
+  for (const f of SECONDARY_FILTERS) {
+    counts[f] = rows.filter((r) => matchesSecondary(r, f)).length;
   }
 
-  return { matchesPrimary, matchesSecondary, counts };
-}
-
-/**
- * Which primary chips to render.
- *
- * "All" and "Needs attention" always show, even at zero, because their
- * absence would be confusing rather than tidy. A lifecycle stage with
- * nobody in it is hidden and reappears on its own the day somebody
- * reaches it - which for Activated is the day we have been waiting for.
- */
-export function visiblePrimary(counts: FilterCounts): PrimaryFilter[] {
-  return PRIMARY_ORDER.filter(
-    (f) => f === "all" || f === "needs" || counts.primary[f] > 0
-  );
-}
-
-export function primaryLabel(f: PrimaryFilter): string {
-  return PRIMARY_LABELS[f] ?? LIFECYCLE_LABELS[f as LifecycleStage] ?? f;
+  return { matchesSecondary, counts };
 }

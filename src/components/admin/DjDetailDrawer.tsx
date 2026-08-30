@@ -27,7 +27,8 @@ import {
   ACTIVATION_BLOCKERS,
   BLOCKER_LABELS,
   OUTREACH_LABELS,
-  OUTREACH_STATUSES,
+  OUTREACH_OFFERED,
+  type OutreachStatus,
   type ActivationBlocker,
 } from "@/src/lib/crmTaxonomy";
 import { stageTone } from "@/src/components/admin/stageTone";
@@ -110,6 +111,20 @@ export default function DjDetailDrawer({
 
   const contact = row.contact;
   const dj = row.dj;
+
+  /*
+   * The five manual states, plus the stored value when it is one of the
+   * two retired ones. Without that second half, opening a contact whose
+   * status is "signed_up" would show the select sitting on a different
+   * value and Save changes would quietly rewrite it - which is the
+   * "a form that does not show a field must never write it" rule
+   * failing in its other direction.
+   */
+  const offeredStatuses = useMemo(() => {
+    const stored = contact?.outreach_status as OutreachStatus | undefined;
+    const list = [...OUTREACH_OFFERED] as OutreachStatus[];
+    return stored && !list.includes(stored) ? [stored, ...list] : list;
+  }, [contact?.outreach_status]);
   const identity = displayIdentity(dj?.dj_name ?? row.name, dj?.slug);
 
   /*
@@ -394,10 +409,15 @@ export default function DjDetailDrawer({
     try {
       const response = await adminFetch("/api/admin/crm/contacts", {
         method: "POST",
+        /*
+         * Deliberately does not send outreach_status. Adding CRM context
+         * to an account is not a statement about the relationship, and
+         * "signed up" is already true and already visible from the
+         * lifecycle. The column keeps its own default.
+         */
         body: JSON.stringify({
           display_name: dj.dj_name,
           dj_profile_id: dj.id,
-          outreach_status: "signed_up",
         }),
       });
       await adminJson<{ contact: CrmContact }>(response);
@@ -927,15 +947,16 @@ export default function DjDetailDrawer({
                         setDraft({ ...draft, outreach_status: e.target.value })
                       }
                     >
-                      {OUTREACH_STATUSES.map((s) => (
+                      {offeredStatuses.map((s) => (
                         <option key={s} value={s} className="bg-zinc-900">
                           {OUTREACH_LABELS[s]}
                         </option>
                       ))}
                     </select>
                     <p className="mt-1.5 text-xs text-text-muted">
-                      Kept for the record. Nothing in the Admin reads it, so
-                      it does not need maintaining.
+                      {dj
+                        ? "Whether they signed up is answered by Playing Next above. This is the relationship, which only you know."
+                        : "Where this relationship stands. Only you know this, so nothing sets it automatically."}
                     </p>
                   </div>
 

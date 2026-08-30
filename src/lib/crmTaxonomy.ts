@@ -23,12 +23,52 @@ export const OUTREACH_STATUSES = [
 
 export type OutreachStatus = (typeof OUTREACH_STATUSES)[number];
 
+/*
+ * ── The relationship states worth maintaining by hand ─────────────
+ *
+ * The list above is what Postgres accepts and must stay complete. This
+ * one is what the interface offers, and it is deliberately shorter.
+ *
+ * "signed_up" is gone from it because it was never a human judgement.
+ * Measured on 2026-08-30: all seven linked contacts held it and nobody
+ * else did, so the field said nothing at all about anyone with an
+ * account. Whether somebody signed up is product truth,
+ * answered by dj_profile_id and by the lifecycle resolver, and asking a
+ * person to maintain a second copy of it is asking them to keep a copy
+ * that goes stale.
+ *
+ * "lost" is gone because nothing ever distinguished it from
+ * "not_interested" - it was never used on a single row, and a value
+ * that has to be explained before it can be chosen is a value that will
+ * be chosen inconsistently.
+ *
+ * Neither is dropped from the database and no row is rewritten. Both
+ * remain valid values Postgres accepts, existing rows keep them, and
+ * the select still renders a stored one so that opening a contact and
+ * saving cannot silently change it. This mirrors how next_action and
+ * next_follow_up_at were retired: stop reading and writing, leave the
+ * data alone, decide about the column separately.
+ */
+export const OUTREACH_OFFERED = [
+  "prospect",
+  "contacted",
+  "interested",
+  "signing_up",
+  "not_interested",
+] as const;
+
+/*
+ * Phrased as the state you are in rather than the act that got you
+ * there, because the question the field answers is "where does this
+ * relationship stand", and "Contacted" alone never said whether you
+ * were still waiting.
+ */
 export const OUTREACH_LABELS: Record<OutreachStatus, string> = {
-  prospect: "Prospect",
-  contacted: "Contacted",
+  prospect: "Not contacted",
+  contacted: "Contacted, awaiting reply",
   interested: "Interested",
   signing_up: "Signing up",
-  signed_up: "Signed up",
+  signed_up: "Signed up (set automatically)",
   not_interested: "Not interested",
   lost: "Lost",
 };
