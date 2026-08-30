@@ -28,10 +28,11 @@ a small DJ beta as a sole trader.
   `/admin`**; [GROWTH_CRM.md](GROWTH_CRM.md) is the history and the growth
   strategy behind it.
 - **The current constraint is activation, not acquisition.** Contact to
-  signup works. Signup to first use is 0 of 14.
-- **Current phase**: none. Phase 6A (Dashboard and live gig operations)
-  and Phase 6B (Admin redesign and CRM) are both complete and verified
-  against production.
+  signup works. Signup to first use is **0 of 13** external accounts
+  (16 profiles less the three internal ones).
+- **Current phase**: none. Phase 6A (Dashboard and live gig operations),
+  6B (Admin redesign and CRM) and 6C (CRM operating model) are all
+  complete and verified against production.
 
 The product is feature-complete for the beta. The open work is legal and
 compliance, QA that needs a real DJ login, growth instrumentation, and
@@ -80,7 +81,93 @@ These are settled. Changing one is a deliberate decision, not a detail.
 
 ---
 
-## 3. Recently completed — 6A Dashboard, 6B Admin and CRM
+## 3. Recently completed — 6A Dashboard, 6B Admin and CRM, 6C CRM operating model
+
+### Phase 6C — CRM operating model. COMPLETE, 2026-08-30.
+
+6B built the CRM. 6C is what a fortnight of using it on a phone exposed:
+a modal that could not be touched, a field inventing data it had never
+been given, and a directory that made you reconstruct the shape of the
+pipeline by eye every time. Nine commits, `7a60147` to `cd85d23`, all
+verified on Production against the real 32 rows.
+
+**The P0.** Tapping **+ Task** opened a sheet whose every control was
+dead, on desktop and on the installed iPhone app alike. Proven with
+`elementsFromPoint` before anything was changed: all nine controls
+reported `main` as the topmost element, and **all four children of
+`<main>` carried `inert`**. Not a `pointer-events` bug (`auto`
+everywhere), not an event-blocking bug (the modal system has one capture
+listener, `keydown`, and no pointer handlers at all), and nothing was
+layered above the sheet — z-index was correct. `inert` removes a subtree
+from hit testing entirely.
+
+The cause: the sheet and the drawer are siblings in `<main>`, and both
+pass an inline arrow as `onClose`, so `useModalA11y`'s effect re-ran on
+every render of the Admin page. Opening the sheet **is** a render, so the
+drawer re-walked its siblings at the moment the sheet existed and marked
+it inert. `onClose` now lives in a ref, and a mount-order dialog stack
+means only the topmost dialog marks anything.
+
+Verification surfaced two more bugs in the same file. Topmost was "the
+last `[role="dialog"]` in document order", but the sheet renders *before*
+the drawer, so **Escape was closing the contact drawer out from under the
+open sheet**. And React applies `autoFocus` during commit, before the
+hook's effect, so the hook recorded the sheet's own title field as its
+return target and on close focused a node it had just unmounted, dropping
+focus to `<body>`.
+
+**Next gig was never wrong in the data.** Zero of 23 contacts have ever
+had a `next_gig_date`; nothing infers or defaults it. An empty
+`<input type="date">` renders as a filled-looking field and opens a wheel
+sitting on today, so the control was lying about data that did not exist.
+It now reads "No date set" with Set date, and Clear once set.
+
+**Contacts is a grouped directory.** Eight groups, seven of which *are* a
+lifecycle stage read off `row.stage` — nothing re-derives what the
+resolver decided. The eighth, New signups, is the only judgement, and
+exists because an account with no CRM contact has two true answers at
+once. Precedence: an account with no `crm_contact` that is not internal
+goes to New signups; everything else goes to its stage. Verified: 32
+rows, every row in exactly one group, counts summing to the total.
+Internal accounts are excluded from New signups deliberately — they would
+sit for ever in a queue whose purpose is to be emptied, and excluding them
+is also what keeps Repeat and Pro from reading as empty when they are not.
+
+All groups start collapsed and it is a single-open accordion, so Contacts
+opens on the directory — every heading and count on one screen — rather
+than inside a group. Group state is local to the component, so leaving
+for Tasks and returning resets it. Search still searches everyone
+regardless of what is collapsed, and returns a flat list carrying each
+person's group. People inside a group are A–Z; Overview and Tasks stay
+urgency-driven.
+
+**New signups is an inbox, workable from either end.** Add as new
+contact, or Link to existing prospect, both on the account record. The
+picker searches only contacts with `dj_profile_id` null and is a search
+box, not a suggester: no ranking, no scoring, no email comparison, no
+name-similarity matching. Selection is explicit and the confirmation
+names both sides. Both directions call one `performLink`, which attaches
+`dj_profile_id` and writes nothing else — which is what makes it a link
+rather than a merge. Verified end to end: New signups 6 → 5, Onboarding
+4 → 5, no reload, notes, tasks and blocker all carried across.
+
+**`outreach_status` stopped being a copy of product truth.** Nothing read
+it, and all seven linked contacts held `signed_up` while nobody else did,
+so it said nothing about anyone with an account. The select now offers
+five genuinely manual states; `signed_up` and `lost` are retired from the
+UI and linking no longer writes either. **No data was migrated and no
+value was dropped from the CHECK constraint** — a stored legacy value
+still renders so that opening a contact and saving cannot silently
+rewrite it, exactly as `next_action` was retired.
+
+**One name per person.** `rowIdentity` and `rowLabel` disagreed about the
+fallback, so the same DJ read as `/smithgraeme91` in Contacts and as
+"Sol / Graeme Smith" on their own task. `rowIdentity` is now the single
+authority — real DJ name unless it is the `New DJ` default, then the CRM
+`display_name`, then the slug — and `rowLabel` returns its answer rather
+than deciding again.
+
+The design document is an artifact rather than a file in the repo.
 
 ### Phase 6B — Admin redesign and CRM. COMPLETE, 2026-08-29.
 
@@ -101,12 +188,15 @@ It is now three destinations built around what needs doing.
 - Needs You ranks by tiers, and blockers carry an actionability policy so
   recording outreach cannot make a person disappear.
 - Prospect to DJ linking is explicit and never fuzzy; the UNIQUE
-  constraint surfaces as a readable conflict.
+  constraint surfaces as a readable conflict. 6C added the same
+  operation from the account side.
 - The 23-person pipeline was migrated: 23 contacts, 7 linked, Tarz
   deliberately unlinked, 4 relationship notes preserved.
 
 Open items are relationship decisions rather than engineering: Tarz's
-link, and the identity of `/roxanemetzjyha`.
+link, and the identity of `/roxanemetzjyha`. 6C gave both a place to be
+worked rather than remembered — they sit in the New signups inbox and in
+the Prospects group until reconciled.
 
 ### Phase 6A — Dashboard and live gig operations
 
@@ -457,7 +547,7 @@ Do not silently turn a roadmap idea into a Pro entitlement.
 
 | Item | Detail |
 |---|---|
-| 4 pre-existing lint errors | `admin/page.tsx:82`, `spotify/search/route.ts:99,102`, `ConsentBanner.tsx:41` |
+| 3 pre-existing lint errors | `spotify/search/route.ts:99,102`, `ConsentBanner.tsx:41` |
 | No test runner | Two hand-rolled `node:test` scripts; no `npm test` |
 | Connect payout write-on-read | `/api/stripe/connect/payouts` calls `accounts.update` inside a read path |
 | Cached payout health | Settings cannot distinguish healthy from payout-held |
@@ -562,6 +652,47 @@ Tier 3a). Future work must not regress these:
 Anything dimmer fails AA on our surfaces: zinc-500 measures 3.76-4.15:1
 and zinc-600 2.35-2.59:1. Do not reintroduce either for dashboard text.
 
+**PN Admin dialog invariants** (from the 6C P0, proven on Production with
+`elementsFromPoint` at the centre of every control):
+
+- A dialog's inert marking is taken **once, when it opens**. Any effect
+  that re-marks on re-render will mark a sheet that mounted after it,
+  which is what made **+ Task** untouchable. `useModalA11y` therefore
+  depends on `open` alone and reads `onClose` through a ref.
+- **Only the topmost dialog marks anything inert**, decided by a
+  mount-order stack. Document order is not a proxy for stacking: the task
+  sheet renders before the contact drawer and opens above it.
+- A dialog never captures a return-focus target **inside itself**. React
+  applies `autoFocus` during commit, before passive effects, so the naive
+  capture records a node the dialog is about to unmount.
+- Dialogs declare initial focus with `data-autofocus`, not `autoFocus`,
+  so the hook can record where focus came from before moving it.
+- No sheet may be rendered inside an `inert` ancestor. `pointer-events`,
+  `aria-hidden` and z-index were all measured and were never the cause;
+  do not reach for them when a control goes dead.
+
+**CRM model invariants:**
+
+- Contacts groups are the lifecycle stages, read off `row.stage`. Only
+  New signups is derived here, and only from "an account with no
+  `crm_contact`, not internal". Every row must land in exactly one group
+  and the counts must sum to the total.
+- `rowIdentity` is the only human-facing name in PN Admin: real DJ name
+  unless it is the `New DJ` default, then CRM `display_name`, then slug.
+  `displayIdentity` is for the link pickers alone, where no contact
+  exists by definition. The same person must never carry two names across
+  Contacts, Tasks, Overview, search and sorting.
+- Linking is one operation, `performLink`, from either direction. It
+  attaches `dj_profile_id` and writes nothing else. Never fuzzy, never by
+  email, never by name similarity, always explicitly confirmed.
+- `next_gig_date` is written by its own control and nothing else. It has
+  never held a value inferred from any other date and must not start.
+- Nothing writes `outreach_status` automatically. `signed_up` and `lost`
+  are retired from the UI but remain valid in the CHECK constraint, and a
+  stored legacy value must keep rendering so saving cannot rewrite it.
+- Save changes writes only the fields its form displays: never tasks,
+  `last_contact_at`, notes, lifecycle, or the legacy columns.
+
 **Financial invariants:** stored snapshots are never recomputed; Dashboard
 Tonight equals Earnings Today on the same local-day basis; Accept captures
 exactly once; Decline never captures; a full queue never captures.
@@ -603,3 +734,21 @@ the live authenticated dashboard at 390px.
 transition guards, Playing Next invariant and Dashboard error states
 (`caf02c8`), fallback removal (`512d717`). Five two-device tests passed on
 Production with Stripe confirming the correct capture count.
+
+**Phase 6B — Admin and CRM** — `crm_contacts` and `crm_notes` with RLS on
+and no policies (`20260828`), `crm_tasks` and three write-once lifecycle
+timestamp columns (`20260830`), Overview / Contacts / Tasks / Reports, the
+PN Admin PWA, the mobile UX pass, tasks made authoritative (`15a116d`),
+one scheduling model everywhere (`34c6a2c`), and refresh-on-return with a
+freshness indicator (`03d24c5`). The 23-person pipeline migrated.
+
+**Phase 6C — CRM operating model** — the **+ Task** P0 and the two dialog
+bugs its verification exposed (`7a60147`, `49c9fd8`), optional Next gig
+and a sticky Save changes, the grouped Contacts directory (`f98d0be`),
+badges only where they say something new (`b229450`, `acf1123`),
+account-side linking through one `performLink` (`f1389de`), the
+closed-by-default single-open accordion (`713f247`), A–Z inside each group
+(`2d90bb9`), and one authoritative human-facing identity (`cd85d23`).
+Every step verified on Production against the real 32 rows, with
+temporary labelled records removed afterwards and counts shown returning
+to their previous values.
