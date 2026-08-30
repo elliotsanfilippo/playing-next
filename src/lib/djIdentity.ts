@@ -26,6 +26,51 @@ export function displayIdentity(
   return { primary: "Unnamed DJ", isSlug: false };
 }
 
+/*
+ * The identity for a pipeline row, and the single place that decides
+ * it. ContactIdentity renders this and the Contacts directory sorts by
+ * it, so what you read on a card and the order the cards are in cannot
+ * disagree - which they would the moment two callers each assembled the
+ * arguments to displayIdentity in their own way.
+ */
+export function rowIdentity(row: {
+  dj?: { dj_name?: string | null; slug?: string | null } | null;
+  name?: string;
+}): { primary: string; isSlug: boolean } {
+  return displayIdentity(row.dj?.dj_name ?? row.name, row.dj?.slug);
+}
+
+/**
+ * Sort key for A-Z ordering by the identity on screen.
+ *
+ * The leading slash is dropped rather than sorted on. Seven accounts
+ * show as "/bookings" or "/jojo-metayer" because their DJ never set a
+ * name, and sorting the raw string would herd every one of them above
+ * the letter A - an alphabetical list whose first section is not
+ * alphabetical at all. Dropping it files /bookings under B, which is
+ * where somebody looking for it would run their thumb.
+ *
+ * localeCompare with base sensitivity so case and accents do not open a
+ * second alphabet, and numeric so a DJ called "DJ 100" sorts after
+ * "DJ 9".
+ */
+export function identitySortKey(row: {
+  dj?: { dj_name?: string | null; slug?: string | null } | null;
+  name?: string;
+}): string {
+  return rowIdentity(row).primary.replace(/^\//, "");
+}
+
+export function compareByIdentity(
+  a: Parameters<typeof identitySortKey>[0],
+  b: Parameters<typeof identitySortKey>[0]
+): number {
+  return identitySortKey(a).localeCompare(identitySortKey(b), undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
+}
+
 /** "12 Aug" this year, "12 Aug 2025" otherwise. */
 export function joinedLabel(createdAt: string | null | undefined): string {
   if (!createdAt) return "";

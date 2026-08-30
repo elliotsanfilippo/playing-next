@@ -2,7 +2,7 @@
 
 import Badge from "@/src/components/ui/Badge";
 import { LIFECYCLE_LABELS } from "@/src/lib/djLifecycle";
-import { displayIdentity } from "@/src/lib/djIdentity";
+import { rowIdentity } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import { stageTone } from "@/src/components/admin/stageTone";
 import type { PipelineRow } from "@/src/components/admin/crmTypes";
@@ -46,7 +46,7 @@ export default function ContactIdentity({
    */
   showStage?: boolean;
 }) {
-  const id = displayIdentity(row.dj?.dj_name ?? row.name, row.dj?.slug);
+  const id = rowIdentity(row);
   const internal = isInternalDj(row.dj?.slug);
 
   const name = (

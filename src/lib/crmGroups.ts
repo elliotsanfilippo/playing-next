@@ -1,4 +1,5 @@
 import { isInternalDj } from "@/src/lib/internalAccounts";
+import { compareByIdentity } from "@/src/lib/djIdentity";
 import type { PipelineRow } from "@/src/components/admin/crmTypes";
 
 /*
@@ -108,8 +109,16 @@ export type ContactGroupSection = {
  * fact about the whole business, which Overview already reports, not a
  * place to look for somebody.
  *
- * `rows` arrives already sorted by sortForContacts, and partitioning
- * preserves that order inside each group.
+ * Inside a group the order is alphabetical, and deliberately not the
+ * urgency order the rows arrive in. Once the sections answer "where is
+ * everyone", a group is something you scan for a specific person, and
+ * urgency ordering inside it means the only way to find that person is
+ * to read all sixteen names. Urgency still decides everything on
+ * Overview and Tasks, which is where it answers the question being
+ * asked.
+ *
+ * The key comes from the same helper ContactIdentity renders, so the
+ * order always matches the names on screen.
  */
 export function buildGroups(rows: PipelineRow[]): ContactGroupSection[] {
   const map = new Map<ContactGroup, PipelineRow[]>(
@@ -122,6 +131,6 @@ export function buildGroups(rows: PipelineRow[]): ContactGroupSection[] {
     key: g,
     label: GROUP_LABELS[g],
     description: GROUP_DESCRIPTIONS[g],
-    rows: map.get(g)!,
+    rows: map.get(g)!.sort(compareByIdentity),
   }));
 }
