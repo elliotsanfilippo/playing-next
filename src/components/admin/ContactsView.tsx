@@ -135,12 +135,15 @@ function StageCell({ row }: { row: PipelineRow }) {
  * carry something: a line reading "last contact never" on fifteen
  * consecutive prospects is a placeholder for absence, not information.
  *
- * The lifecycle badge is drawn only where it says something the
- * surroundings do not. Inside a lifecycle group it would repeat the
- * heading above it on every row, which is how a directory turns back
- * into a wall of chips. It IS drawn in search results, where the group
- * is not implied, and under New signups, where the group describes the
- * missing CRM context rather than where the DJ has got to.
+ * The lifecycle badge is drawn only under New signups, and the rule is
+ * the same wherever the row appears: show the stage when the group name
+ * does not already carry it. Seven of the eight groups ARE the stage,
+ * so a badge beside them restates the heading on every row - "Onboarding
+ * incomplete" under a heading reading "Onboarding" - which is how a
+ * directory turns back into the wall of chips it replaced. New signups
+ * is the exception because it describes the missing CRM context rather
+ * than where the DJ has got to, so the stage is genuinely new
+ * information there. Search results carry the group name instead.
  *
  * Identity goes through ContactIdentity like everywhere else, so a long
  * name and a long slug wrap the same way here as in the drawer.
@@ -511,7 +514,7 @@ export default function ContactsView({
                          so a search result carries it rather than making
                          you work out where the person lives. */
                       groupLabel={GROUP_LABELS[groupFor(row)]}
-                      showStage
+                      showStage={groupFor(row) === "new_signups"}
                       onOpen={onOpen}
                     />
                   </li>
