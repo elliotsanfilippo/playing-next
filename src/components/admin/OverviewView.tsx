@@ -17,7 +17,7 @@ import {
   type TaskTier,
 } from "@/src/lib/crmQueue";
 import {
-  displayIdentity,
+  rowIdentity,
   joinedLabel,
   rowLabel,
 } from "@/src/lib/djIdentity";
@@ -96,6 +96,13 @@ export default function OverviewView({
   );
 
   const pending = reports.filter((r) => r.resolution === "pending");
+  /* Row per DJ profile, so identity comes from one helper everywhere. */
+  const rowsByDj = useMemo(() => {
+    const map = new Map<string, PipelineRow>();
+    for (const row of rows) if (row.dj) map.set(row.dj.id, row);
+    return map;
+  }, [rows]);
+
   const newThisWeek = useMemo(
     () =>
       djs.filter(
@@ -421,7 +428,16 @@ export default function OverviewView({
           </div>
           <ul className="divide-y divide-white/5">
             {newThisWeek.map((d) => {
-              const id = displayIdentity(d.dj_name, d.slug);
+              /*
+                Through the row rather than the raw profile, so somebody
+                who signed up this week AND is already in the CRM is
+                named here exactly as they are named in Contacts and on
+                their tasks. Reading dj_name and slug directly is what
+                made the same person "/smithgraeme91" on one screen and
+                "Sol / Graeme Smith" on another.
+              */
+              const row = rowsByDj.get(d.id);
+              const id = rowIdentity(row ?? { dj: d });
               return (
                 <li key={d.id}>
                   <button

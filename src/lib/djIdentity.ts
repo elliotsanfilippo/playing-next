@@ -27,17 +27,47 @@ export function displayIdentity(
 }
 
 /*
- * The identity for a pipeline row, and the single place that decides
- * it. ContactIdentity renders this and the Contacts directory sorts by
- * it, so what you read on a card and the order the cards are in cannot
- * disagree - which they would the moment two callers each assembled the
- * arguments to displayIdentity in their own way.
+ * ── The one human-facing identity in PN Admin ─────────────────────
+ *
+ * Three sources, in this order:
+ *
+ *   1. the DJ's own name, unless it is the "New DJ" signup default
+ *   2. the name recorded during outreach, on the CRM contact
+ *   3. the public slug
+ *
+ * The middle step is the whole point, and its absence was a real bug.
+ * There used to be two helpers: this one, which went straight from the
+ * DJ name to the slug, and rowLabel, which checked the contact in
+ * between. So Sol read as "/smithgraeme91" in Contacts and as
+ * "Sol / Graeme Smith" on their own task, and nothing on either screen
+ * said they were the same person. A name you have written down about
+ * somebody is better than their URL; skipping it was never a decision,
+ * just two code paths.
+ *
+ * rowLabel is now this function's primary, so there is one answer.
+ * displayIdentity remains for the callers that genuinely hold only a DJ
+ * and no contact - the link pickers offer accounts nobody has claimed,
+ * where step 2 has nothing to read by definition.
  */
 export function rowIdentity(row: {
   dj?: { dj_name?: string | null; slug?: string | null } | null;
+  contact?: { display_name?: string | null } | null;
   name?: string;
 }): { primary: string; isSlug: boolean } {
-  return displayIdentity(row.dj?.dj_name ?? row.name, row.dj?.slug);
+  if (hasRealName(row.dj?.dj_name)) {
+    return { primary: row.dj!.dj_name!.trim(), isSlug: false };
+  }
+
+  const recorded = row.contact?.display_name?.trim();
+  if (recorded) return { primary: recorded, isSlug: false };
+
+  /* A prospect with no account has its name on the row itself. */
+  if (!row.dj && row.name?.trim()) {
+    return { primary: row.name.trim(), isSlug: false };
+  }
+
+  if (row.dj?.slug) return { primary: `/${row.dj.slug}`, isSlug: true };
+  return { primary: row.name?.trim() || "Unnamed DJ", isSlug: false };
 }
 
 /**
@@ -98,22 +128,12 @@ export function relativeDays(value: string | null | undefined): string {
 }
 
 /**
- * The best name for a pipeline row.
+ * The best name for a pipeline row, as a bare string.
  *
- * Preference order matters and was wrong at first: a linked DJ whose
- * account still carries the signup default showed as "New DJ" on their
- * task, even though the CRM knows them as "Sol / Graeme Smith". The
- * name a person chose for themselves wins; failing that, the name you
- * recorded during outreach; failing both, the public slug.
+ * Kept as its own export because most callers want text rather than the
+ * isSlug flag - a task's subtitle, a search result label. It is
+ * rowIdentity's answer verbatim, so the two can no longer differ.
  */
-export function rowLabel(row: {
-  dj?: { dj_name?: string | null; slug?: string | null } | null;
-  contact?: { display_name?: string | null } | null;
-  name?: string;
-}): string {
-  if (hasRealName(row.dj?.dj_name)) return row.dj!.dj_name!.trim();
-  const recorded = row.contact?.display_name?.trim();
-  if (recorded) return recorded;
-  if (row.dj?.slug) return `/${row.dj.slug}`;
-  return row.name || "Unnamed";
+export function rowLabel(row: Parameters<typeof rowIdentity>[0]): string {
+  return rowIdentity(row).primary;
 }

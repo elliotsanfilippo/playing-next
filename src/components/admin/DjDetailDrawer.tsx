@@ -20,7 +20,7 @@ import {
   useKeepFocusVisible,
 } from "@/src/lib/useVisualViewport";
 import { adminFetch, adminJson } from "@/src/lib/adminFetch";
-import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
+import { displayIdentity, rowIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import {
   ACQUISITION_SOURCES,
@@ -126,7 +126,7 @@ export default function DjDetailDrawer({
     const list = [...OUTREACH_OFFERED] as OutreachStatus[];
     return stored && !list.includes(stored) ? [stored, ...list] : list;
   }, [contact?.outreach_status]);
-  const identity = displayIdentity(dj?.dj_name ?? row.name, dj?.slug);
+  const identity = rowIdentity(row);
 
   /*
    * The saved state of every field this form is allowed to write, in one
@@ -664,6 +664,19 @@ export default function DjDetailDrawer({
           </div>
 
           <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-text-muted">
+            {/*
+              The slug, whenever it is not already the heading. A DJ who
+              never named themselves now shows as the name you recorded
+              during outreach, which is the better heading but loses the
+              one identifier that is the address of their request page.
+              It belongs here as context rather than as a title.
+            */}
+            {dj && !identity.isSlug && (
+              <>
+                <span>/{dj.slug}</span>
+                <span aria-hidden>·</span>
+              </>
+            )}
             {dj ? `joined ${joinedLabel(dj.created_at)}` : "No account yet"}
             {contact && (
               <>

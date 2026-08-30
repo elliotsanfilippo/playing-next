@@ -7,7 +7,7 @@ import Badge from "@/src/components/ui/Badge";
 import Button from "@/src/components/ui/Button";
 import { FUNNEL_STAGES, LIFECYCLE_LABELS, type LifecycleStage } from "@/src/lib/djLifecycle";
 import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
-import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
+import { rowIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import { stageTone } from "@/src/components/admin/stageTone";
 import ContactIdentity from "@/src/components/admin/ContactIdentity";
@@ -95,7 +95,7 @@ function followUpCell(task: CrmTask | null) {
 }
 
 function Identity({ row }: { row: PipelineRow }) {
-  const id = displayIdentity(row.dj?.dj_name ?? row.name, row.dj?.slug);
+  const id = rowIdentity(row);
   return (
     <>
       <p
@@ -630,10 +630,7 @@ export default function ContactsView({
                       </p>
                     ) : (
                       items.map((row) => {
-                        const id = displayIdentity(
-                          row.dj?.dj_name ?? row.name,
-                          row.dj?.slug
-                        );
+                        const id = rowIdentity(row);
                         return (
                           <button
                             key={row.key}
