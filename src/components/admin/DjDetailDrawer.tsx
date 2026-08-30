@@ -112,14 +112,24 @@ export default function DjDetailDrawer({
   const dj = row.dj;
   const identity = displayIdentity(dj?.dj_name ?? row.name, dj?.slug);
 
-  const [draft, setDraft] = useState({
-    outreach_status: contact?.outreach_status ?? "prospect",
-    activation_blocker: contact?.activation_blocker ?? "",
-    acquisition_source: contact?.acquisition_source ?? "",
-    contact_channel: contact?.contact_channel ?? "",
-    contact_handle: contact?.contact_handle ?? "",
-    next_gig_date: dateInput(contact?.next_gig_date ?? null),
-  });
+  /*
+   * The saved state of every field this form is allowed to write, in one
+   * place. Save compares against it, the re-sync restores from it, and
+   * the two therefore cannot disagree about what "unchanged" means.
+   */
+  const baseline = useMemo(
+    () => ({
+      outreach_status: contact?.outreach_status ?? "prospect",
+      activation_blocker: contact?.activation_blocker ?? "",
+      acquisition_source: contact?.acquisition_source ?? "",
+      contact_channel: contact?.contact_channel ?? "",
+      contact_handle: contact?.contact_handle ?? "",
+      next_gig_date: dateInput(contact?.next_gig_date ?? null),
+    }),
+    [contact]
+  );
+
+  const [draft, setDraft] = useState(baseline);
 
   /*
    * Re-sync the draft when the contact changes underneath the open
@@ -135,16 +145,19 @@ export default function DjDetailDrawer({
   const [syncedAt, setSyncedAt] = useState(contact?.updated_at);
   if (contact && contact.updated_at !== syncedAt) {
     setSyncedAt(contact.updated_at);
-    setDraft({
-      outreach_status: contact.outreach_status ?? "prospect",
-      activation_blocker: contact.activation_blocker ?? "",
-      acquisition_source: contact.acquisition_source ?? "",
-      contact_channel: contact.contact_channel ?? "",
-      contact_handle: contact.contact_handle ?? "",
-      next_gig_date: dateInput(contact.next_gig_date ?? null),
-    });
+    setDraft(baseline);
   }
 
+  /*
+   * Whether the sticky Save has anything to do. Compared field by field
+   * against what is saved, so reopening a drawer and changing nothing
+   * leaves the button disabled and no write happens at all.
+   */
+  const dirty = (Object.keys(baseline) as (keyof typeof baseline)[]).some(
+    (key) => draft[key] !== baseline[key]
+  );
+
+  const [gigEditing, setGigEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState<CrmNote[]>([]);
   const [notesFailed, setNotesFailed] = useState(false);
@@ -250,8 +263,9 @@ export default function DjDetailDrawer({
    * The next step belongs to Log, Done and Later now. A form that does
    * not show a field must never write it.
    */
-  const save = () =>
-    patch(
+  const save = () => {
+    if (!dirty) return;
+    return patch(
       {
         outreach_status: draft.outreach_status,
         activation_blocker: draft.activation_blocker || null,
@@ -260,8 +274,9 @@ export default function DjDetailDrawer({
         contact_handle: draft.contact_handle || null,
         next_gig_date: draft.next_gig_date || null,
       },
-      "Details saved."
+      "Changes saved."
     );
+  };
 
   /*
    * Done finishes a task of mine. It clears the step and its date and
@@ -787,19 +802,61 @@ export default function DjDetailDrawer({
                     </select>
                   </div>
 
+                  {/*
+                    Manual context, and nothing writes it but this
+                    control. A bare <input type="date"> was doing the
+                    opposite of saying so: empty, it still renders as a
+                    filled-looking field, and tapping it opens a wheel
+                    sitting on today - so an unset gig read as a date
+                    somebody had recorded. Checked against Production on
+                    2026-08-30: no contact has ever had a next_gig_date.
+                    Nothing was wrong with the data; the control was
+                    lying about it.
+                  */}
                   <div>
-                    <label className="text-sm text-zinc-300" htmlFor="gig">
+                    <p className="text-sm text-zinc-300" id="gig-label">
                       Next gig
-                    </label>
-                    <input
-                      id="gig"
-                      type="date"
-                      className={`${field} mt-1.5`}
-                      value={draft.next_gig_date}
-                      onChange={(e) =>
-                        setDraft({ ...draft, next_gig_date: e.target.value })
-                      }
-                    />
+                    </p>
+                    {draft.next_gig_date || gigEditing ? (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <input
+                          id="gig"
+                          type="date"
+                          aria-labelledby="gig-label"
+                          autoFocus={gigEditing && !draft.next_gig_date}
+                          className={`${field} min-w-0 flex-1`}
+                          value={draft.next_gig_date}
+                          onChange={(e) =>
+                            setDraft({ ...draft, next_gig_date: e.target.value })
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-[44px]"
+                          onClick={() => {
+                            setGigEditing(false);
+                            setDraft({ ...draft, next_gig_date: "" });
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                        <span className="text-sm text-text-muted">
+                          No date set
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-[44px]"
+                          onClick={() => setGigEditing(true)}
+                        >
+                          Set date
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -882,14 +939,9 @@ export default function DjDetailDrawer({
                     </p>
                   </div>
 
-                  <Button
-                    variant="secondary"
-                    className="min-h-[44px] w-full"
-                    onClick={save}
-                    disabled={saving}
-                  >
-                    {saving ? "Saving..." : "Save details"}
-                  </Button>
+                  <p className="text-xs text-text-muted">
+                    Saved with Save changes at the bottom of this panel.
+                  </p>
                 </div>
               </MoreDetails>
 
@@ -1094,7 +1146,21 @@ export default function DjDetailDrawer({
           )}
         </div>
 
-        {/* The primary action, always reachable. Not a form save. */}
+        {/*
+          The sticky action is the form save, and only the form save. Log
+          interaction was here as a duplicate of the quick action a few
+          hundred pixels above it, which made the panel look as though
+          logging was the only thing it could commit - while the edits
+          made in Relationship details had no visible way to be saved at
+          all except by opening a collapsed section and scrolling to the
+          bottom of it.
+
+          What this writes is exactly the six fields the form shows. It
+          does not touch tasks, last_contact_at, notes, the Playing Next
+          lifecycle, or the legacy next_action / next_follow_up_at
+          columns - each of those has its own authoritative path, and a
+          form that does not show a field must never write it.
+        */}
         {contact && mode === "detail" && (
           <footer
             className="border-t border-white/5 bg-surface-base/95 p-4 backdrop-blur"
@@ -1103,11 +1169,11 @@ export default function DjDetailDrawer({
             <Button
               variant="accent"
               className="min-h-[48px] w-full"
-              onClick={() => setMode("log")}
-              disabled={saving}
+              onClick={save}
+              disabled={saving || !dirty}
             >
-              <MessageSquarePlus size={16} className="mr-2" />
-              Log interaction
+              <Check size={16} className="mr-2" />
+              {saving ? "Saving..." : dirty ? "Save changes" : "No changes"}
             </Button>
           </footer>
         )}

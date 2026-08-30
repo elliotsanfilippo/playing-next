@@ -19,6 +19,21 @@ import { useEffect, useRef } from "react";
  * have their own markup and visual design that this phase was told not to
  * change, so this adds the behaviour and leaves the appearance alone.
  */
+/*
+ * ── Which dialog is on top ────────────────────────────────────────
+ *
+ * Mount order, not document order. The task sheet renders BEFORE the
+ * contact drawer in app/admin/page.tsx but opens above it, so the
+ * previous test - the last [role="dialog"] in the document - named the
+ * drawer as topmost while the sheet was open. Escape therefore closed
+ * the contact drawer out from under the sheet, and the sheet was left
+ * over a dead page.
+ *
+ * A stack cannot get that wrong: whatever opened last is on top,
+ * wherever it happens to sit in the DOM.
+ */
+const dialogStack: HTMLElement[] = [];
+
 type Options = {
   /** Whether the dialog is currently open. */
   open: boolean;
@@ -36,6 +51,26 @@ export function useModalA11y({ open, onClose }: Options) {
    */
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
+  /*
+   * onClose is read through a ref so it can stay out of the effect's
+   * dependencies.
+   *
+   * This is the P0 that made + Task unusable on the installed iPhone
+   * app. Both callers pass an inline arrow - onClose={() =>
+   * setTaskSheet(null)} - so onClose had a new identity on every render
+   * of the Admin page, and this effect tore down and re-ran every time.
+   * Opening the task sheet is itself a state change on that page, so the
+   * drawer's effect re-ran at the exact moment the sheet existed, walked
+   * the sibling list again, and marked the freshly-mounted sheet inert.
+   * The sheet appeared, and nothing inside it could be tapped or
+   * focused. Reproduced in the browser against this DOM shape before the
+   * fix and again after it.
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
 
@@ -45,6 +80,11 @@ export function useModalA11y({ open, onClose }: Options) {
         : null;
 
     const container = containerRef.current;
+    if (container) dialogStack.push(container);
+
+    const isTopmost = () =>
+      dialogStack.length === 0 ||
+      dialogStack[dialogStack.length - 1] === container;
 
     const focusable = () =>
       Array.from(
@@ -58,9 +98,18 @@ export function useModalA11y({ open, onClose }: Options) {
      * dialog has no focusable content of its own, which is why it carries
      * tabIndex={-1} — without somewhere to land, focus stays on <body> and
      * the first Tab press escapes into the page behind.
+     *
+     * Unless the dialog has already put focus somewhere itself. React
+     * honours autoFocus during commit, before this runs, so the previous
+     * unconditional focus() moved off the task sheet's title field and
+     * onto its close button - you tapped + Task and got a dismiss button
+     * rather than a keyboard. A dialog that has expressed a preference
+     * knows better than a generic first-focusable rule.
      */
-    const first = focusable()[0] ?? container;
-    first?.focus();
+    if (!container?.contains(document.activeElement)) {
+      const first = focusable()[0] ?? container;
+      first?.focus();
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -71,12 +120,9 @@ export function useModalA11y({ open, onClose }: Options) {
          * underneath it - losing the contact you were working on because
          * you dismissed a date picker.
          */
-        const dialogs = document.querySelectorAll('[role="dialog"]');
-        if (dialogs.length > 0 && dialogs[dialogs.length - 1] !== container) {
-          return;
-        }
+        if (!isTopmost()) return;
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -141,7 +187,14 @@ export function useModalA11y({ open, onClose }: Options) {
 
     const marked: HTMLElement[] = [];
 
-    let node: HTMLElement | null = container;
+    /*
+     * Only the dialog on top marks anything. A dialog underneath one
+     * that is already open has nothing useful to say about what should
+     * be reachable - and if it marked its siblings it would mark the
+     * dialog above it, which is precisely the failure this pair of
+     * changes exists to make impossible.
+     */
+    let node: HTMLElement | null = isTopmost() ? container : null;
 
     while (node && node !== document.body) {
       const parent: HTMLElement | null = node.parentElement;
@@ -159,12 +212,16 @@ export function useModalA11y({ open, onClose }: Options) {
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
+      if (container) {
+        const at = dialogStack.lastIndexOf(container);
+        if (at !== -1) dialogStack.splice(at, 1);
+      }
       marked.forEach((el) => el.removeAttribute("inert"));
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPadding;
       returnFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   /*
    * Spread onto the dialog's outermost element. aria-labelledby points at
