@@ -16,7 +16,11 @@ import {
   TASK_TIER_LABELS,
   type TaskTier,
 } from "@/src/lib/crmQueue";
-import { displayIdentity, joinedLabel, relativeDays } from "@/src/lib/djIdentity";
+import {
+  displayIdentity,
+  joinedLabel,
+  rowLabel,
+} from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
 import type {
@@ -190,7 +194,7 @@ export default function OverviewView({
                     {item.task.title}
                   </span>
                   <span className="mt-1 block text-sm text-text-muted">
-                    {item.row?.name ?? "Unknown contact"}
+                    {item.row ? rowLabel(item.row) : "Unknown contact"}
                   </span>
                   <span
                     className={`mt-1.5 block font-mono text-xs ${tierText[item.tier]}`}

@@ -10,6 +10,7 @@ import {
   taskDueLabel,
   type TaskTier,
 } from "@/src/lib/crmQueue";
+import { rowLabel } from "@/src/lib/djIdentity";
 import type { CrmTask, PipelineRow } from "@/src/components/admin/crmTypes";
 
 /*
@@ -177,7 +178,7 @@ export default function TasksView({
                     {item.task.title}
                   </span>
                   <span className="mt-1 block text-sm text-text-muted">
-                    {item.row?.name ?? "Contact removed"}
+                    {item.row ? rowLabel(item.row) : "Contact removed"}
                   </span>
                   <span
                     className={`mt-1.5 block font-mono text-xs ${completed ? "text-text-muted" : dueText[item.tier]}`}
