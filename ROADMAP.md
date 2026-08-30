@@ -292,10 +292,11 @@ current beta.
       - Breakpoint checks at 320 / 430 / 768 / 1440. 390 is measured and
         clean; Chrome's minimum window width is 500px, so the others need
         the DevTools device toolbar set per width
-- [ ] **The activation problem.** 14 external signups, **zero activated**.
+- [ ] **The activation problem.** 13 external signups, **zero activated**.
       Four DJs are onboarded and payments-ready and have never taken a
-      request; five follow-ups went out on 2026-08-28 and their answers are
-      the next real input. The first known blocker is **not the product**:
+      request. Two have since said they would try it at a real gig —
+      Sweenz this weekend, Steve at his sports-bar sets — and those two
+      attempts are the next real input. The first known blocker is **not the product**:
       one DJ asked a club for permission to use Playing Next and management
       refused. Treated as a single case, not a pattern, until others report
       back. See [GROWTH_CRM.md](GROWTH_CRM.md)
