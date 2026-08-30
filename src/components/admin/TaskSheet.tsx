@@ -92,7 +92,9 @@ export default function TaskSheet({
             </label>
             <input
               id="task-title"
-              autoFocus={!editing}
+              /* See useModalA11y: React would apply autoFocus before the
+                 dialog hook records where focus came from. */
+              data-autofocus={!editing ? "" : undefined}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ask Cammy how Saturday went"

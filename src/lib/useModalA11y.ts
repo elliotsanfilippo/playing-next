@@ -74,12 +74,28 @@ export function useModalA11y({ open, onClose }: Options) {
   useEffect(() => {
     if (!open) return;
 
+    const container = containerRef.current;
+
+    /*
+     * Where focus goes when this dialog closes.
+     *
+     * Guarded against the dialog's own content, which is not a
+     * hypothetical: React applies autoFocus during commit, before this
+     * effect runs, so a dialog that autofocuses a field was capturing
+     * that field as its own return target - and on close it focused a
+     * node it had just unmounted, dropping focus to <body>. Measured on
+     * the live Admin: after Escape on the task sheet, activeElement was
+     * BODY while the + Task button that opened it was still attached.
+     *
+     * Anything inside this dialog is about to disappear with it, so it
+     * can never be the answer.
+     */
+    const previous = document.activeElement;
     returnFocusRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
+      previous instanceof HTMLElement && !container?.contains(previous)
+        ? previous
         : null;
 
-    const container = containerRef.current;
     if (container) dialogStack.push(container);
 
     const isTopmost = () =>
@@ -107,7 +123,17 @@ export function useModalA11y({ open, onClose }: Options) {
      * knows better than a generic first-focusable rule.
      */
     if (!container?.contains(document.activeElement)) {
-      const first = focusable()[0] ?? container;
+      /*
+       * data-autofocus rather than React's autoFocus, so the dialog can
+       * say where focus belongs without having already moved it before
+       * this effect gets to record where focus came from. The generic
+       * first-focusable rule is the fallback, and for the task sheet it
+       * was the wrong answer anyway: tapping + Task landed on the close
+       * button instead of the field you opened the sheet to type in.
+       */
+      const preferred =
+        container?.querySelector<HTMLElement>("[data-autofocus]") ?? null;
+      const first = preferred ?? focusable()[0] ?? container;
       first?.focus();
     }
 
