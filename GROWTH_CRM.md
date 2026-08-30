@@ -1,32 +1,35 @@
 # Playing Next — Growth & CRM
 
-> ## This file is no longer the live pipeline
+> ## What this file is, and what it is not
 >
-> **On 2026-08-29 the 23-person pipeline below was migrated into the Admin
-> CRM, which is now the operational source of truth.** Contact status,
-> blockers, follow-ups, next actions and notes are maintained at
-> `/admin`, where they join automatically to `dj_profiles` and
-> `song_requests` instead of being reconciled by hand.
+> **This is the growth strategy, the historical outreach record, the
+> activation learnings and the experiment log.** It is not a CRM, and it
+> has not been one since 2026-08-29.
 >
-> **Do not update the pipeline tables in this file.** Two hand-synchronised
-> copies of the same pipeline is exactly the drift the migration removed:
-> the Admin derives onboarding, payments, activation and repeat use from
-> the database live, and a markdown copy would be stale the moment a DJ
-> took a request.
+> **`/admin` is authoritative** for every live operational fact: contacts,
+> tasks, notes, activation blockers, outreach state, the prospect-to-
+> account link, and the Playing Next lifecycle. If this file and the Admin
+> disagree about a person, the Admin is right.
 >
-> **Nothing here has been deleted, and nothing should be.** This remains
-> the historical record of how the beta pipeline was built and the growth
-> strategy behind it. The reasoning, the definitions, the channel
-> experiments and the learnings are still current and still belong here.
-> Sections 1 to 3 are a snapshot as at 2026-08-29 and are frozen at that
-> date by design.
+> **Every count and every per-person status printed here is a historical
+> snapshot.** They were true on the date beside them and are not
+> maintained. Do not manually sync them, and do not read them as current
+> — read the Admin. Where a figure has since been superseded it carries a
+> dated correction rather than being rewritten, because the reasoning
+> that followed from it is part of the record.
+>
+> **Nothing here should be deleted.** The reasoning, the definitions, the
+> channel work, the activation blocker learnings and the growth decisions
+> are still current and still belong here. Sections 1, 3 and 5 are frozen
+> snapshots by design.
 >
 > | | |
 > |---|---|
-> | Migrated | 23 contacts |
+> | Migrated 2026-08-29 | 23 contacts |
 > | Linked to a real DJ profile | 7 |
 > | Left deliberately unlinked | 16, including Tarz |
-> | Live pipeline now at | `/admin` → Contacts |
+> | Live pipeline | `/admin` → Contacts |
+> | Live tasks | `/admin` → Tasks, from `crm_tasks` |
 
 [ROADMAP.md](ROADMAP.md) §6 holds the Growth workstream and its technical
 dependencies. This file holds the strategy, the channel work and the
@@ -37,9 +40,18 @@ people and the product could not yet describe a person who had not signed
 up. No HubSpot, no Salesforce. That constraint ended when `crm_contacts`
 shipped and could represent a prospect with no account.
 
+**When you contact somebody, log it at `/admin`.** Open their contact and
+use Log interaction; it writes the note and advances `last_contact_at`,
+and a follow-up becomes a task with a date. Nothing in this file needs
+touching. The only reason to edit this document is a growth learning, an
+experiment result, or a channel decision.
+
 ---
 
 ## 1. Growth status
+
+> **Snapshot, 2026-08-28.** Not maintained. `/admin` → Overview carries
+> these live. Corrections since are marked inline.
 
 *Database figures read from Production on 2026-08-28. Outreach statuses
 supplied by Elliot from planning that predates these records.*
@@ -48,8 +60,8 @@ supplied by Elliot from planning that predates these records.*
 |---|---|
 | **Total prospects in the pipeline** | **23** |
 | Historically signed up | 8 |
-| DJ profiles in the database | 16 (2 are Elliot's own) |
-| **External signups** | **14** |
+| DJ profiles in the database | 16 (~~2 are Elliot's own~~ → **3 are internal**) |
+| **External signups** | ~~14~~ → **13** |
 | Onboarding complete (external) | **4** |
 | **Payments ready (external)** | **4** |
 | **Activated external DJs** | **0** |
@@ -68,9 +80,16 @@ paid request at a real gig.** Not more signups. Four DJs are already
 technically complete and have never taken a request, so the next win is
 activation, not acquisition.
 
-**The headline finding.** Of 16 profiles, 10 never set a DJ name. Of the 14
+**The headline finding.** Of 16 profiles, most never set a DJ name. Of the
 external signups, **zero** have received a single request. Signup is not the
 constraint; whatever happens between signing up and standing in a booth is.
+
+> **Correction, 2026-08-30.** A third internal account (`elliot`) was
+> identified, so the external count is **13, not 14**, and 9 of 16
+> profiles carry the `New DJ` placeholder rather than 10. Neither changes
+> the finding: the activation rate is still 0. The three internal slugs
+> are listed in `src/lib/internalAccounts.ts` and the Admin excludes them
+> from the external funnel.
 
 ---
 
@@ -80,13 +99,36 @@ Outreach status and product stage are tracked **separately**. A person can
 be historically "Signed up" and currently "Onboarded, payments ready, not
 activated" — that distinction is the whole point of this file.
 
-### Outreach stages
-Prospect → Contacted → Interested → Signing up → Signed up →
-Not interested / lost
+### Outreach stages — manual, and only five of them now
 
-### Product stages
-Account created → Onboarding incomplete → Onboarded → Payments ready →
-**Activated** → Repeat gig/user → Pro
+Not contacted → Contacted, awaiting reply → Interested → Signing up →
+Not interested
+
+**"Signed up" is no longer an outreach stage.** It was one here, and it
+turned out to be a copy of something the product already knew: on
+2026-08-30 all seven linked contacts held it and nobody else did, so it
+said nothing at all about anyone with an account. Whether somebody signed
+up is answered by whether their contact is linked to a `dj_profile`.
+"Lost" is gone too — it was never used and never differed from "not
+interested". Both remain valid values in the database and no row was
+rewritten; they are simply no longer offered.
+
+### Product stages — automatic, never maintained by hand
+
+Account created → Onboarding incomplete → Onboarded → Ready to activate →
+**Activated** → Repeat → Pro
+
+These are not a list anybody keeps up to date. `src/lib/djLifecycle.ts`
+derives the stage live from `dj_profiles` and `song_requests` on every
+load and **stores it nowhere**. Onboarding completion, the Stripe Connect
+`account.updated` webhook, a captured paid request and subscription
+webhooks are what move a DJ along; nothing in the Admin can set a stage,
+and the Pipeline board has no drag handle for exactly that reason.
+
+Two stages in the enum are never the answer: "Signed up" and "Payments
+ready", because anyone signed up is always more precisely one of the
+stages after it. "Ready to activate" is onboarded **and** payments-ready
+**and** no captured request — the group that matters most right now.
 
 ### Activation — adopted definition
 
@@ -109,18 +151,29 @@ Every payments-ready DJ who has not activated carries a blocker. Recording
 which one is how we learn whether the gap is the product, the pitch, or
 something outside our control entirely.
 
+These are the values the database accepts, mirrored by a CHECK constraint
+on `crm_contacts.activation_blocker`:
+
 | Blocker | Meaning |
 |---|---|
-| **Ready, not yet attempted** | Set up, has not tried to use it at a gig |
-| **Venue / management refused** | Tried to use it; the venue would not allow it |
-| **No suitable gig yet** | Willing, but nothing booked that fits |
-| **Product / setup blocker** | Something in the product stopped them |
-| **DJ choice / not interested** | Decided against using it |
-| **Activated** | Accepted a first paid request |
-| **Unknown — awaiting response** | Contacted, no answer yet |
+| `ready_not_attempted` | Set up, has not tried to use it at a gig |
+| `venue_refused` | Tried to use it; the venue would not allow it |
+| `believes_permission_required` | Assumes they need permission and has not asked |
+| `no_suitable_gig` | Willing, but nothing booked that fits |
+| `product_or_setup` | Something in the product stopped them |
+| `dj_not_interested` | Decided against using it |
+| `unknown_awaiting_response` | Contacted, no answer yet |
+
+Two changes from the original list, both deliberate. **"Activated" is not
+a blocker** — it is a lifecycle stage, derived from whether money was
+captured, and storing it here would create a second answer to a question
+the product already answers. And `believes_permission_required` was split
+out from `venue_refused`: a venue that said no is a commercial problem,
+while a DJ who assumes they need permission and never asks is a messaging
+problem. Collapsing them would hide the difference between the two fixes.
 
 A blocker is only recorded once a DJ has actually told us. Until then the
-honest value is **Unknown — awaiting response**.
+honest value is **unknown, awaiting response**.
 
 ---
 
@@ -128,9 +181,19 @@ honest value is **Unknown — awaiting response**.
 
 > **Frozen 2026-08-29 — migrated to the Admin CRM.** Every person below is
 > now a `crm_contacts` row. Product stage is derived live at `/admin` and
-> the values printed here will age; read them as the state at migration,
-> not as current. The seven confident profile links were applied; Tarz was
-> left unlinked on purpose.
+> the values printed here have already aged; read them as the state at
+> migration, not as current. The seven confident profile links were
+> applied; Tarz was left unlinked on purpose.
+>
+> **The "Next action" columns below are dead.** They were the legacy
+> `next_action` and `next_follow_up_at` fields, which nothing in PN Admin
+> reads or writes any more. Work lives in `crm_tasks` and is managed on
+> the Tasks destination, where a task carries a real due date and can be
+> completed, rescheduled or deleted. The legacy columns are still in the
+> database as rollback data and are operationally retired.
+>
+> Read this section as evidence of how the beta pipeline was built, not
+> as a worklist.
 
 Historical outreach status is Elliot's; product stage is read from the
 database. Database evidence can advance someone beyond their historical
@@ -196,6 +259,13 @@ Seven profiles exist that cannot be confidently matched to any name above.
 One of them may be **Tarz** or **Ryan James**; the slugs give no basis to
 decide, so they are left unassigned.
 
+> **These are now the New signups inbox at `/admin` → Contacts**, and that
+> is where they are worked. Six of them appear there (the seventh,
+> `elliot`, is an internal account and is excluded); each can be turned
+> into a contact or linked to a prospect already in the CRM, with explicit
+> confirmation and no guessing. The table below is the evidence that
+> produced the question, not the place to answer it.
+
 | Slug | Product stage | Note |
 |---|---|---|
 | `roxanemetzjyha` | Onboarding incomplete, **Stripe connected** | Furthest along of the unmatched. Worth identifying |
@@ -214,11 +284,60 @@ signed up. Each was matched on the slug containing the person's name.
 
 ---
 
+## 3a. How the operating model works now
+
+Documented here because the growth strategy depends on it: the reason
+this file no longer tracks people is that the Admin tracks them better.
+
+**Four things, kept apart.** They can all be true about the same person at
+once, and the interface says so rather than collapsing them into one
+status.
+
+| | Question it answers | Where it lives |
+|---|---|---|
+| **Tasks** | What do I need to do? | `crm_tasks`, Tasks destination |
+| **Relationship state** | What is currently true? | `outreach_status`, `activation_blocker` |
+| **Activity** | What happened? | `crm_notes` plus completed tasks |
+| **Playing Next lifecycle** | What does the product know? | Derived, never stored |
+
+**Contacts is a grouped directory.** It opens on the shape of the CRM —
+every group and its count on one screen, nothing expanded — and each group
+is a lifecycle stage read straight off the resolver. Every person appears
+in exactly one group.
+
+**New signups is an inbox, not a stage.** It holds Playing Next accounts
+that exist in the product but have not been reconciled with a CRM contact
+— people who signed up without anyone writing anything about them. It is
+meant to be worked down to zero. A signup leaves it when it is either
+turned into a new contact or linked to a prospect already in the CRM, and
+from that moment it appears in whichever lifecycle group the product says
+it belongs to. Internal accounts are excluded, so the queue can actually
+reach zero.
+
+**Linking is always explicit.** From the account, "Link to existing
+prospect" searches only contacts with no account yet; from the prospect,
+"Link to a DJ account" searches only accounts nobody has claimed. Both run
+the same operation, which attaches `dj_profile_id` and writes nothing else
+— notes, tasks, blocker and relationship fields survive because it never
+goes near them. **There is no fuzzy matching anywhere:** no name
+similarity, no email comparison, no scoring, no suggestion. Identity is a
+claim a person makes deliberately, and the confirmation names both sides
+before it is written. The `roxanemetzjyha` and Tarz questions in §3 are
+exactly the kind of thing this exists to resolve, and they now sit in a
+queue rather than in a memory.
+
+**Nothing writes lifecycle by hand.** Onboarding, payments readiness,
+activation, repeat use and Pro all come from `dj_profiles` and
+`song_requests` through one resolver. The Admin refreshes when you return
+to it rather than polling.
+
+---
+
 ## 4. Acquisition channels
 
 | Channel | Status | Notes |
 |---|---|---|
-| Direct DJ outreach | Active, unrecorded | The presumed source of most of the 14 |
+| Direct DJ outreach | Active, unrecorded | The presumed source of most of the 13 |
 | Referrals / word of mouth | Unknown | Not tracked |
 | Organic Instagram | Not started | Bio and positioning still to do |
 | LinkedIn | Not started | Company page, tagline, Elliot's title |
@@ -234,6 +353,10 @@ lands indistinguishable from any other.
 
 ## 5. Funnel metrics
 
+> **Snapshot, 2026-08-28**, with denominators corrected on 2026-08-30
+> after the third internal account was identified. Not maintained —
+> `/admin` → Overview and Reports carry these live.
+
 Now that a prospect list exists, several of these become real. Numbers are
 counted from §3 and the database. **Nothing here is fabricated; blanks stay
 blank.**
@@ -245,9 +368,9 @@ blank.**
 | Response rate | Partial | 2 warm (liked), 2 thinking, 1 signing up |
 | Interested rate | Partial | 5 of 23 showed interest short of signing up |
 | Signup rate | **Yes** | **8 of 23** historically signed up |
-| Onboarding completion | **Yes** | **4 of 14** external profiles |
-| Payments ready | **Yes** | **4 of 14** external profiles |
-| **Activation rate** | **Yes** | **0 of 14 external** |
+| Onboarding completion | **Yes** | **4 of 13** external profiles |
+| Payments ready | **Yes** | **4 of 13** external profiles |
+| **Activation rate** | **Yes** | **0 of 13 external** |
 | First-gig rate | **Yes** | 0 external |
 | Repeat-gig rate | Yes, once any exist | 0 |
 | Free to Pro conversion | **Yes** | 0 external |
@@ -261,6 +384,10 @@ right now.
 
 ## 6. Paid acquisition readiness
 
+> **Re-verified against the codebase 2026-08-30. Every gap below is still
+> open** and none of the CRM work touched any of it. This section is
+> current, not a snapshot.
+
 **Already present:** GTM, GA4 (verified live), Microsoft Clarity, the
 consent mechanism.
 
@@ -269,7 +396,7 @@ consent mechanism.
 | Requirement | State |
 |---|---|
 | Advertising consent option | **Missing — hard blocker.** `ads: false` hardcoded in `ConsentBanner.tsx:45,53` |
-| Business conversion events | **Missing.** Zero custom dataLayer pushes exist |
+| Business conversion events | **Missing.** The only `dataLayer.push` calls are GTM's own bootstrap and the consent update; no business event anywhere |
 | UTM / click-ID attribution | **Missing.** No capture anywhere |
 | Acquisition-source persistence | **Missing.** No column on `dj_profiles` |
 | Google Ads conversion setup | **Missing.** No `AW-` tag |
@@ -331,6 +458,12 @@ ready" and "night in a booth" rather than at the top of the funnel.
 signups, 6 onboarded, 8 Stripe-connected, **0 who have ever taken a
 request**. 10 never set a DJ name. Spending on ads now would buy more
 signups into a funnel whose next step has a 0% pass rate.
+
+> *Figures as counted that day and left as written. Re-measured
+> 2026-08-30 with the third internal account excluded: **13** external, 4
+> onboarded, 6 Stripe-connected, 8 without a DJ name, still **0**
+> activated. The conclusion is unchanged and the correction is recorded
+> rather than the sentence rewritten.*
 
 **2026-08-28 — advertising measurement is impossible today.** Ad consent is
 hardcoded off in both branches of the banner, and the returning-visitor
