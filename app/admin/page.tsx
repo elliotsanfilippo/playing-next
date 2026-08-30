@@ -16,6 +16,7 @@ import ContactsView from "@/src/components/admin/ContactsView";
 import ReportsView from "@/src/components/admin/ReportsView";
 import TasksView from "@/src/components/admin/TasksView";
 import TaskSheet from "@/src/components/admin/TaskSheet";
+import FreshnessIndicator from "@/src/components/admin/FreshnessIndicator";
 import { rowLabel } from "@/src/lib/djIdentity";
 import DjDetailDrawer from "@/src/components/admin/DjDetailDrawer";
 import type {
@@ -47,6 +48,17 @@ export default function AdminPage() {
    * already fixed on the guest page and the dashboard.
    */
   const [loadFailed, setLoadFailed] = useState(false);
+  /*
+   * Freshness. lastFetchedAt is the moment the visible snapshot was
+   * taken; refreshFailed means a background refresh failed while we
+   * still hold good data, which must never be shown as if it were
+   * current. `now` is captured on each refresh rather than ticked by a
+   * timer - see FreshnessIndicator for why.
+   */
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const [djs, setDjs] = useState<DjStat[]>([]);
   const [contacts, setContacts] = useState<CrmContact[]>([]);
@@ -67,7 +79,8 @@ export default function AdminPage() {
   >(null);
   const [savingTask, setSavingTask] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (background = false) => {
+    if (background) setRefreshing(true);
     try {
       const {
         data: { session },
@@ -112,15 +125,32 @@ export default function AdminPage() {
       setTasks(tasksResult.tasks ?? []);
       setAuthorized(true);
       setLoadFailed(false);
+      setRefreshFailed(false);
+      setLastFetchedAt(Date.now());
+      setNow(Date.now());
     } catch (error) {
       if (error instanceof Error && error.message === "NO_SESSION") {
         router.push("/admin/login");
         return;
       }
-      setLoadFailed(true);
-      setAuthorized(true);
+      /*
+       * A failed refresh must not wipe a screen that is still useful.
+       * The full failure screen is only correct when there is nothing
+       * to fall back on; otherwise keep the last good snapshot and say
+       * plainly that it could not be refreshed.
+       */
+      setNow(Date.now());
+      if (background) {
+        /* A refresh failing is not a reason to throw away a screen that
+           still works. Keep the snapshot, say it is stale. */
+        setRefreshFailed(true);
+      } else {
+        setLoadFailed(true);
+        setAuthorized(true);
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [router]);
 
@@ -129,6 +159,36 @@ export default function AdminPage() {
       await loadData();
     })();
   }, [loadData]);
+
+  /*
+   * Refresh when the app comes back into view.
+   *
+   * This is an installed Home Screen app: iOS resumes the existing page
+   * rather than reloading it, so without this the snapshot could be
+   * days old. visibilitychange fires on reopening from the Home Screen,
+   * returning from another app, and unlocking the phone - which are
+   * exactly the moments the data is about to be read.
+   *
+   * No polling, no timer, no socket. The 30s floor stops rapid app
+   * switching turning into a burst of identical requests.
+   */
+  useEffect(() => {
+    const MIN_INTERVAL_MS = 30_000;
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      setNow(Date.now());
+      if (lastFetchedAt && Date.now() - lastFetchedAt < MIN_INTERVAL_MS) return;
+      void loadData(true);
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+    /* Re-registered when the timestamp changes, which is once per fetch
+       and costs one listener swap. Simpler than a ref, and it cannot
+       read a stale value. */
+  }, [loadData, lastFetchedAt]);
+
 
   /*
    * Primary destinations open at the top.
@@ -472,6 +532,14 @@ export default function AdminPage() {
           </nav>
 
           <span className="flex-1" />
+
+          <FreshnessIndicator
+            lastFetchedAt={lastFetchedAt}
+            now={now}
+            refreshFailed={refreshFailed}
+            refreshing={refreshing}
+            onRetry={() => loadData(true)}
+          />
 
           <Button
             variant="ghost"
