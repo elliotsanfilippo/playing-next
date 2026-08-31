@@ -26,19 +26,34 @@ import { ERASURE_EXECUTION_ENABLED } from "@/src/lib/erasureConfig";
  *   performed_by     the verified admin session, never the payload
  *   performed_at     the database default
  *   classification   recomputed from the freshly-read row
- *   fields_cleared   the fields this route actually nulled
- *   row_deleted      hard-coded false, because manual erasure never
- *                    deletes a row - see the migration comment
+ *   fields_cleared   returned by the database, being what it really
+ *                    cleared - not what this route asked for
+ *   row_deleted      written as false by the function; there is no code
+ *                    path here or there that deletes a row
  *
  * The client supplies only which record, which proof was accepted, and
  * the request reference. Everything else it might claim is ignored.
  *
- * Order matters: the audit row is written BEFORE the clearing update. An
- * erasure that fails halfway is then still visible and repeatable, which
- * is the safer of the two failure modes. The reverse - clear first, log
- * second - can erase data and leave no evidence it happened.
+ * ── One transaction, not two statements ───────────────────────────
+ *
+ * This route used to insert the audit row and then clear the field. A
+ * failure between them left an immutable record asserting an erasure
+ * that never happened, and because data_erasures is append-only that
+ * false record could never be corrected. Reversing the order is worse:
+ * the data would be gone with no evidence of who removed it.
+ *
+ * Neither order is safe, because the order was never the problem. Both
+ * writes now happen inside erase_personal_fields, a plpgsql function
+ * whose body is a single transaction - see
+ * supabase/migrations/20260831_erase_atomically.sql. Either the field is
+ * cleared and the erasure recorded, or nothing happened at all.
+ *
+ * The eligibility checks below stay, even though the function enforces
+ * its own. They exist to produce a readable refusal; the function exists
+ * so that a bug in this file cannot clear a live delivery address.
  */
 
+/* Read only - the clearing itself happens inside the transaction. */
 const TABLE: Record<ErasableObjectType, string> = {
   song_request: "song_requests",
   tip: "tips",
@@ -154,37 +169,47 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * The audit row first, so a failure between here and the update
-     * leaves evidence rather than a silent gap. row_deleted is written
-     * as a literal false: this route has no code path that deletes.
+     * One call, one transaction. The function clears the fields and
+     * writes the audit row together, and returns what it actually
+     * cleared so the response cannot claim more than happened.
      */
-    const { error: auditError } = await supabaseAdmin
-      .from("data_erasures")
-      .insert({
-        object_type: objectType,
-        object_id: objectId,
-        fields_cleared: decision.fields,
-        row_deleted: false,
-        classification,
-        request_reference: reference,
-        performed_by: user.email ?? user.id,
-      });
+    const { data: erased, error: rpcError } = await supabaseAdmin.rpc(
+      "erase_personal_fields",
+      {
+        p_object_type: objectType,
+        p_object_id: objectId,
+        p_classification: classification,
+        p_performed_by: user.email ?? user.id,
+        p_request_reference: reference,
+      }
+    );
 
-    if (auditError) return serverError("Erasure: audit write error:", auditError);
+    if (rpcError) {
+      /*
+       * P0002 is the function's own "nothing to erase" - the field was
+       * already empty, or the row was not eligible. Not an error worth a
+       * 500, and importantly not an erasure: no audit row was written,
+       * because a repeated request did not erase anything the first one
+       * had not already removed.
+       */
+      if (rpcError.code === "P0002") {
+        return NextResponse.json(
+          {
+            error:
+              "There was nothing left to erase on that record. Nothing was changed and no erasure was recorded.",
+            erased: [],
+          },
+          { status: 409 }
+        );
+      }
+      return serverError("Erasure: transaction error:", rpcError);
+    }
 
-    /* Only the named fields, set to null. No other column is touched. */
-    const patch: Record<string, null> = {};
-    for (const f of decision.fields) patch[f] = null;
-
-    const { error: clearError } = await supabaseAdmin
-      .from(table)
-      .update(patch)
-      .eq("id", objectId);
-
-    if (clearError) return serverError("Erasure: clear error:", clearError);
+    const fields: string[] =
+      (Array.isArray(erased) ? erased[0]?.fields_cleared : null) ?? [];
 
     return NextResponse.json({
-      erased: decision.fields,
+      erased: fields,
       retained: decision.retained,
       classification,
       verification,
