@@ -50,11 +50,29 @@ const FILTER_HINTS: Record<Filter, string> = {
   done: "Completed. Kept as history.",
 };
 
+/*
+ * Urgency lives in the LEFT edge only.
+ *
+ * These used to be `border-status-pending` and friends, which set border
+ * colour on all four sides. Tailwind's `divide-y` draws the separator
+ * between rows as a bottom border, so it inherited that colour: three
+ * consecutive Today tasks rendered as three amber L-shapes, amber down
+ * the left and amber along the bottom, which is what read as unfinished.
+ *
+ * It broke the neutral rows too, in the other direction. `border-
+ * transparent` made their separator transparent, so upcoming and
+ * unscheduled rows had no divider at all while urgent ones had a
+ * coloured one. Measured on Production at the stacked-Today state.
+ *
+ * Naming the side keeps the separator on `divide-white/5` where it
+ * belongs. Transparent rather than absent on the neutral tiers so every
+ * row keeps the same 2px inset and text never shifts between them.
+ */
 const edge: Record<TaskTier, string> = {
-  overdue: "border-status-declined",
-  today: "border-status-pending",
-  upcoming: "border-transparent",
-  unscheduled: "border-transparent",
+  overdue: "border-l-status-declined",
+  today: "border-l-status-pending",
+  upcoming: "border-l-transparent",
+  unscheduled: "border-l-transparent",
 };
 
 const dueText: Record<TaskTier, string> = {
@@ -164,7 +182,7 @@ export default function TasksView({
             return (
               <div
                 key={item.task.id}
-                className={`border-l-2 p-4 ${completed ? "border-transparent" : edge[item.tier]}`}
+                className={`border-l-2 p-4 ${completed ? "border-l-transparent" : edge[item.tier]}`}
               >
                 <button
                   type="button"

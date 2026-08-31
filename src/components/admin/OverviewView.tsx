@@ -1,11 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Flag, Check, Clock, ArrowRight, MessageSquarePlus } from "lucide-react";
+import {
+  Flag,
+  Check,
+  Clock,
+  ArrowRight,
+  MessageSquarePlus,
+  ChevronDown,
+} from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import ContactIdentity from "@/src/components/admin/ContactIdentity";
-import { MoreDetails } from "@/src/components/admin/DrawerSections";
 import { buildExternalFunnel } from "@/src/lib/crmFunnel";
 import {
   buildTaskQueue,
@@ -45,6 +51,69 @@ const tierText: Record<TaskTier, string> = {
   upcoming: "text-text-muted",
   unscheduled: "text-text-muted",
 };
+
+/*
+ * A secondary section: real information, but not something Overview
+ * should spend a screen on before you have asked for it.
+ *
+ * Only two sections use this, deliberately. Overview is a command
+ * centre, and a command centre that answers nothing until you tap it is
+ * just a menu - so what you have to do, what is true and worth knowing,
+ * and the bottleneck all stay open and unconditional. These two are
+ * reference: you consult them, you do not monitor them.
+ *
+ * The collapsed header therefore has to carry the answer, not just a
+ * name. "Growth" tells you nothing; "13 external · 0 activated" is the
+ * whole section for most visits.
+ *
+ * Open state is real state rather than a `defaultOpen` attribute React
+ * would re-apply on every render. The Admin refetches when it comes back
+ * into view, and a refresh silently reopening a section you had closed
+ * is the same class of bug as a dialog re-marking its siblings.
+ */
+function SecondarySection({
+  title,
+  meta,
+  metaTone = "muted",
+  initialOpen = false,
+  children,
+}: {
+  title: string;
+  meta: string;
+  /** Amber when the header is reporting something that wants acting on. */
+  metaTone?: "muted" | "attention";
+  initialOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(initialOpen);
+
+  return (
+    <Card variant="elevated" className="overflow-hidden">
+      <details
+        open={open}
+        onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+        className="group"
+      >
+        <summary className="flex min-h-[56px] cursor-pointer list-none flex-wrap items-baseline gap-x-3 gap-y-1 p-5 transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
+          <h2 className="text-h3">{title}</h2>
+          <p
+            className={`font-mono text-xs ${
+              metaTone === "attention" ? "text-status-pending" : "text-text-muted"
+            }`}
+          >
+            {meta}
+          </p>
+          <ChevronDown
+            size={16}
+            aria-hidden
+            className="ml-auto shrink-0 self-center text-text-muted transition group-open:rotate-180"
+          />
+        </summary>
+        <div className="border-t border-white/5">{children}</div>
+      </details>
+    </Card>
+  );
+}
 
 export default function OverviewView({
   rows,
@@ -111,6 +180,17 @@ export default function OverviewView({
           mountedAt - new Date(d.created_at).getTime() < 7 * 86_400_000
       ),
     [djs, mountedAt]
+  );
+
+  /*
+   * Signups from this week that nobody has written anything about yet -
+   * the same "no crm_contact" test the New signups inbox in Contacts
+   * uses. This is the one thing in either secondary section that wants
+   * acting on, so it decides whether the section opens itself.
+   */
+  const unreconciledThisWeek = useMemo(
+    () => newThisWeek.filter((d) => !rowsByDj.get(d.id)?.contact).length,
+    [newThisWeek, rowsByDj]
   );
 
   const readyStep = funnel.steps.find((s) => s.key === "onboarded");
@@ -343,15 +423,21 @@ export default function OverviewView({
         </p>
       </Card>
 
-      <Card variant="elevated" className="overflow-hidden">
+      {/*
+        Collapsed by default. The header carries the two numbers that
+        matter - how many external DJs there are and how many have ever
+        taken a paid request - so the section only needs opening when you
+        want the breakdown behind them.
+      */}
+      <SecondarySection
+        title="Growth"
+        meta={`${funnel.total} external · ${activatedStep?.count ?? 0} activated`}
+        metaTone={(activatedStep?.count ?? 0) === 0 ? "attention" : "muted"}
+      >
         <div className="p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-h3">Growth</h2>
-            <p className="font-mono text-xs text-text-muted">
-              {funnel.total} external · {funnel.internalExcluded} internal
-              excluded
-            </p>
-          </div>
+          <p className="font-mono text-xs text-text-muted">
+            {funnel.internalExcluded} internal excluded
+          </p>
 
           <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
             {funnel.steps.map((step) => (
@@ -382,7 +468,16 @@ export default function OverviewView({
           )}
         </div>
 
-        <MoreDetails title="Funnel detail">
+        {/*
+          Flattened out of a nested <details>. Opening Growth is already
+          the deliberate act; making the funnel a second disclosure
+          inside it meant two taps to reach the only detail the section
+          has.
+        */}
+        <div className="border-t border-white/5 p-5">
+          <p className="mb-4 font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
+            Funnel detail
+          </p>
           <ol className="space-y-3">
             {funnel.steps.map((step, index) => {
               const width = Math.max((step.count / maxCount) * 100, 2);
@@ -418,14 +513,27 @@ export default function OverviewView({
               );
             })}
           </ol>
-        </MoreDetails>
-      </Card>
+        </div>
+      </SecondarySection>
 
+      {/*
+        Collapsed when every recent signup is already in the CRM, and
+        open on arrival when one is not. An account nobody has written
+        anything about is the only thing here you can act on, so it is
+        the only thing that earns the screen space unasked - and the
+        count says so in the header either way.
+      */}
       {newThisWeek.length > 0 && (
-        <Card variant="elevated" className="overflow-hidden">
-          <div className="border-b border-white/5 p-5">
-            <h2 className="text-h3">Signed up this week</h2>
-          </div>
+        <SecondarySection
+          title="Signed up this week"
+          meta={
+            unreconciledThisWeek > 0
+              ? `${newThisWeek.length} · ${unreconciledThisWeek} not in your CRM`
+              : `${newThisWeek.length} · all in your CRM`
+          }
+          metaTone={unreconciledThisWeek > 0 ? "attention" : "muted"}
+          initialOpen={unreconciledThisWeek > 0}
+        >
           <ul className="divide-y divide-white/5">
             {newThisWeek.map((d) => {
               /*
@@ -462,7 +570,7 @@ export default function OverviewView({
               );
             })}
           </ul>
-        </Card>
+        </SecondarySection>
       )}
     </div>
   );
