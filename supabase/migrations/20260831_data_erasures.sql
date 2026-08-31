@@ -93,18 +93,35 @@ create table if not exists public.data_erasures (
     check (classification in ('preserve', 'never_charged', 'unknown')),
 
   /*
-   * How the request arrived, as a short internal reference: a ticket id,
-   * a date, "email request". NOT the guest's email address and NOT their
-   * message.
+   * The operational privacy-request reference, and nothing else.
    *
-   * The CHECK enforces that structurally rather than trusting whoever
-   * fills it in. An address cannot be stored here even by accident,
-   * because an erasure log is exactly the place a well-meaning person
-   * would paste one "for context". Drop the constraint if a legitimate
-   * reference ever needs an @ in it.
+   * Constrained to the format rather than merely screened for an @,
+   * because "does not contain an @" still leaves a free-text field, and
+   * a free-text field on an erasure log is exactly where a well-meaning
+   * person pastes a name, a phone number, or the very message that was
+   * just erased. A closed format cannot hold any of them.
+   *
+   *   PR-2026-001
+   *   ^^ literal   ^^^^ year   ^^^ sequence, three digits or more
+   *
+   * The pattern subsumes the previous rule: an address cannot match it,
+   * so the separate !~ '@' check is gone rather than kept alongside as a
+   * second expression saying less than this one already does.
+   *
+   * The API must validate the same shape before it writes. This is the
+   * backstop, not the only guard - a constraint that rejects a bad value
+   * at the last moment produces a 23514 the admin cannot act on, so the
+   * readable error belongs in the route and this exists so no other
+   * writer can bypass it.
+   *
+   * Nullable on purpose: a request that arrives without a reference is
+   * better recorded with none than given a made-up one.
    */
   request_reference text
-    check (request_reference is null or request_reference !~ '@'),
+    check (
+      request_reference is null
+      or request_reference ~ '^PR-[0-9]{4}-[0-9]{3,}$'
+    ),
 
   /* Which admin ran it. An operator identity from the allowlist, not a
      data subject. */
