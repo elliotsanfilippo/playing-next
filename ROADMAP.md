@@ -335,6 +335,14 @@ current beta.
       against the Production project ref with no override. Destructive
       behaviour is never to be tested against Production.
 
+      **Test environment approved 2026-08-31:** a second Supabase Free
+      project, `test-environment/erasure/`. It verifies the erasure
+      transaction only and proves nothing about Production, because its
+      source tables are inferred from the PostgREST description, which
+      exposes no CHECK constraints, RLS, grants, triggers or indexes.
+      Production security was verified separately against Production.
+      Synthetic fixtures only; Production data must never be loaded there.
+
       Guest access and export remain unbuilt. See
       [DATA_AUDIT.md](DATA_AUDIT.md) §5.
 - [ ] **Database backups and recovery.** Needs the Supabase Pro upgrade.
@@ -580,7 +588,7 @@ Do not silently turn a roadmap idea into a Pro entitlement.
 | Sentry | ~98 KB on every route, ~1.1s of the critical path. `enableLogs: true` with zero `Sentry.logger` calls anywhere |
 | Three definitions of "a night" | `session_started_at` drives the recap, the browser-local calendar day drives Tonight and Earnings, the active event drives pricing |
 | Migrations vs Production | Applied by hand in the Supabase SQL editor; no migration tooling or DB credentials available to the repo |
-| **Schema is not reproducible from the repo** | Only 5 of 13 tables have a `create table` in `supabase/migrations`. `song_requests`, `tips`, `dj_profiles`, `qr_box_orders`, `chargeback_disputes`, `push_subscriptions` and `dj_events` predate the checked-in migrations and exist only in Production. This is what stops a second database being stood up from source, and it is the same reason there is no way to recreate Production if it were lost |
+| **Schema is not reproducible from the repo** | Only 5 of 13 tables have a `create table` in `supabase/migrations`. **Not solved by `test-environment/erasure/schema.test-only.sql`** — those definitions are inferred, incomplete by construction, and must never be promoted into `supabase/migrations`. Inferred definitions presented as history would be worse than the honest absence. `song_requests`, `tips`, `dj_profiles`, `qr_box_orders`, `chargeback_disputes`, `push_subscriptions` and `dj_events` predate the checked-in migrations and exist only in Production. This is what stops a second database being stood up from source, and it is the same reason there is no way to recreate Production if it were lost |
 | **Dashboard CLS 0.5494** | Found during Tier 3a verification, **pre-existing and not introduced by it**. One layout shift at 766ms on the authenticated dashboard: the `DashboardSkeleton` to real-content swap, with `DIV.flex.min-w-0` jumping from top 393 to top 0. Measured at 390x1340 with 5 pending. Good is under 0.1. The guest page measures 0, so this is specific to the skeleton architecture here. Fixing it means either reserving the real layout's dimensions in the skeleton or holding the swap until content is ready. Not attempted |
 | ~~Growth pipeline is a markdown file~~ | **Resolved 2026-08-29.** The 23-person pipeline migrated into `crm_contacts`; 7 linked to real profiles, 16 left unlinked. The Admin CRM joins to `dj_profiles` and `song_requests` automatically, so no hand reconciliation remains. `GROWTH_CRM.md` is now historical |
 

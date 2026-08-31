@@ -27,6 +27,32 @@ if (URL_.includes(PRODUCTION_REF)) {
   process.exit(2);
 }
 
+/*
+ * Printed every run, not buried in a file, because a green result from
+ * this suite is easy to over-read. It proves the transaction. It proves
+ * nothing about Production.
+ */
+console.log(`
+═══════════════════════════════════════════════════════════════
+ ERASURE WRITE-PATH SUITE · isolated test project
+ ${URL_}
+
+ PROVES     the erase_personal_fields transaction, its rollback,
+            and the contents of the audit record. Those two objects
+            are the real canonical definitions from
+            supabase/migrations/, not copies.
+
+ PROVES NOT anything about Production. The fixture source tables are
+            inferred from the PostgREST description, which does not
+            expose CHECK constraints, RLS, grants, triggers or
+            indexes. Production security was verified separately,
+            against Production, read-only, on 2026-08-31.
+
+ DATA       synthetic fixtures only, removed at the end. Production
+            data must never be loaded here.
+═══════════════════════════════════════════════════════════════
+`);
+
 const H = { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=representation" };
 type Row = Record<string, unknown>;
 /* Row values are unknown by design; ids are read through this so a typo
@@ -172,6 +198,31 @@ async function main() {
     const all = await api("data_erasures?select=row_deleted");
     assert.ok(all.body.every((a) => a.row_deleted === false));
   });
+
+  /*
+   * Remove every fixture this run created. data_erasures is append-only
+   * by design, so its rows cannot be deleted here - which is correct,
+   * and is why this project is disposable rather than long-lived.
+   */
+  console.log("\nCLEANUP");
+  for (const [table, rowId] of [
+    ["not_played_reports", id(rep)],
+    ["song_requests", id(sr)],
+    ["song_requests", id(rb)],
+    ["tips", id(tip)],
+    ["qr_box_orders", id(abandoned)],
+    ["qr_box_orders", id(paid)],
+  ] as [string, string][]) {
+    await api(`${table}?id=eq.${rowId}`, { method: "DELETE" });
+  }
+  const leftovers = await Promise.all(
+    ["song_requests", "tips", "not_played_reports", "qr_box_orders"].map(
+      async (t) => `${t}=${(await api(`${t}?select=id`)).body.length}`
+    )
+  );
+  console.log("  remaining fixture rows: " + leftovers.join(" "));
+  const audit = await api("data_erasures?select=id");
+  console.log(`  data_erasures rows: ${audit.body.length} (append-only, retained deliberately)`);
 
   console.log(`\n${pass} passed, ${fails.length} failed`);
   if (fails.length) { console.log("FAILED:\n  " + fails.join("\n  ")); process.exit(1); }
