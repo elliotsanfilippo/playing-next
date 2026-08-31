@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Clock, RotateCcw } from "lucide-react";
+import { Check, Clock, Pencil, RotateCcw } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import {
@@ -234,10 +234,12 @@ export default function TasksView({
                 Complete
               </Button>
               {/*
-                Named for what it does to THIS task. An undated task is
-                not being rescheduled, it is being given a date for the
-                first time, and calling that Reschedule is what made
-                giving one feel like a correction. Same sheet, same
+                Named for what it does to THIS task. The sheet edits the
+                title and the date together, so "Edit" is the honest name
+                for a dated task - "Reschedule" promised only half of it.
+                An undated task keeps "Schedule", because giving a task
+                its first date is a distinct and useful thing to be
+                offered, not a correction. Same sheet either way, same
                 Today / Tomorrow / Next week / Pick date / Unscheduled
                 choices.
               */}
@@ -247,8 +249,15 @@ export default function TasksView({
                 className="min-h-[44px]"
                 onClick={() => onReschedule(item.task)}
               >
-                <Clock size={14} className="mr-1.5" />
-                {item.tier === "unscheduled" ? "Schedule" : "Reschedule"}
+                {/* A clock for giving a date, a pencil for editing one
+                    that exists. Same button, same sheet; the icon just
+                    stops promising the wrong half of it. */}
+                {item.tier === "unscheduled" ? (
+                  <Clock size={14} className="mr-1.5" />
+                ) : (
+                  <Pencil size={14} className="mr-1.5" />
+                )}
+                {item.tier === "unscheduled" ? "Schedule" : "Edit"}
               </Button>
             </>
           )}
@@ -299,7 +308,9 @@ export default function TasksView({
         )}
       </div>
 
-      <div className="p-4">
+      {/* pt trimmed against the header's own padding; the group heading
+          below carries its own breathing room. */}
+      <div className="px-4 pb-4 pt-2.5">
         {visible.length === 0 ? (
           <p className="p-6 text-center text-sm text-text-muted">
             {filter === "open"
@@ -316,7 +327,11 @@ export default function TasksView({
                   <span className="font-mono text-[0.66rem] font-semibold uppercase tracking-[0.13em] text-white">
                     {GROUP_LABELS[g]}
                   </span>
-                  <span className="font-mono text-[0.66rem] font-bold text-accent">
+                  {/* Muted, not accent. Green means "this is selected"
+                      on the filter chips and "this is the primary
+                      action" on Complete; spending it on a count that is
+                      neither dilutes both. */}
+                  <span className="font-mono text-[0.66rem] font-bold text-text-muted">
                     {counts[g]}
                   </span>
                 </h3>
