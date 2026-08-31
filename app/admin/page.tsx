@@ -15,6 +15,7 @@ import OverviewView from "@/src/components/admin/OverviewView";
 import ContactsView from "@/src/components/admin/ContactsView";
 import ReportsView from "@/src/components/admin/ReportsView";
 import RetentionPanel from "@/src/components/admin/RetentionPanel";
+import PrivacyPanel from "@/src/components/admin/PrivacyPanel";
 import TasksView from "@/src/components/admin/TasksView";
 import TaskSheet from "@/src/components/admin/TaskSheet";
 import FreshnessIndicator from "@/src/components/admin/FreshnessIndicator";
@@ -602,6 +603,7 @@ export default function AdminPage() {
               resolvingId={resolvingId}
               onResolve={resolveReport}
             />
+            <PrivacyPanel rows={rows} />
             <RetentionPanel />
           </div>
         )}

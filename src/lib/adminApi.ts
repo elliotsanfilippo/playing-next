@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser } from "@/src/lib/adminAuth";
 
@@ -46,6 +46,31 @@ export async function requireAdmin(
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
   return null;
+}
+
+/*
+ * The same guard, but handing back who passed it.
+ *
+ * Separate from requireAdmin rather than a change to it, because every
+ * existing caller wants the "null means allowed" shape and rewriting
+ * them to unpack a union would be a lot of churn for one new need.
+ *
+ * The erasure route is that need: an audit record has to say who
+ * performed the erasure, and the only trustworthy source for that is the
+ * verified session on the server. It must never come from the request
+ * body, where the actor could name anyone.
+ */
+export async function requireAdminUser(
+  request: NextRequest
+): Promise<{ denied: NextResponse; user: null } | { denied: null; user: User }> {
+  const user = await getAdminUser(supabaseAuth, request);
+  if (!user) {
+    return {
+      denied: NextResponse.json({ error: "Not authorized." }, { status: 403 }),
+      user: null,
+    };
+  }
+  return { denied: null, user };
 }
 
 /** Consistent shape for the failures the CRM UI has to tell apart. */
