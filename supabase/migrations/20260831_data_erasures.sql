@@ -61,14 +61,33 @@ create table if not exists public.data_erasures (
    */
   fields_cleared text[] not null default '{}',
 
-  /* True only where the whole row was removed, which the design permits
-     for a positively-established never-charged row and nothing else. */
+  /*
+   * Whether the whole row was removed rather than a field cleared.
+   *
+   * MANUAL ERASURE NEVER SETS THIS TRUE. Decided 2026-08-31: clearing a
+   * field satisfies an erasure request, because once the personal field
+   * is null the row holds no personal data. Removing the row would be
+   * minimisation, which is a different obligation with a different gate.
+   *
+   * The column exists for the future automatic rule (R4) so that, if it
+   * is ever built and armed, its deletions are recorded in the same
+   * place by the same shape. It is false for everything the manual
+   * workflow can do.
+   */
   row_deleted boolean not null default false,
 
   /*
    * The payment classification at the moment of the action, so the
    * decision can be explained later even after the row it described has
    * changed or gone. Mirrors src/lib/retention.ts exactly.
+   *
+   * A qr_box_order uses the same three values on the same evidence: an
+   * abandoned claim with no PaymentIntent is never_charged, which is the
+   * only state whose address the manual workflow may clear. A paid order
+   * is preserve, and PN Admin does not offer erasure on it at all -
+   * fulfilment, delivery failure, replacement, returns and courier
+   * support can each still need the address, and no column in this
+   * database can currently prove otherwise.
    */
   classification text not null
     check (classification in ('preserve', 'never_charged', 'unknown')),
