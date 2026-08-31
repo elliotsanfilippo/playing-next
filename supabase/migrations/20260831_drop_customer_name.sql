@@ -1,0 +1,41 @@
+-- ============================================================
+-- Drop song_requests.customer_name
+--
+-- Why
+-- ---
+-- The column is named for personal data, holds none, and is touched by
+-- nothing. Under data minimisation a field that could collect a guest's
+-- name but never does should not exist: it is a latent collection point
+-- that any future write path could start filling without anyone
+-- deciding to.
+--
+-- Proof gathered 2026-08-31 against Production:
+--
+--   song_requests rows                          176
+--   customer_name IS NOT NULL                     0
+--   customer_name non-empty after trim            0
+--   distinct values present                  [null]
+--   reads or writes anywhere in the repository    0
+--
+-- The last line was a search of the whole tree excluding node_modules,
+-- .next and .git. The only occurrences of the string are prose in
+-- DATA_AUDIT.md describing the column.
+--
+-- RE-RUN BEFORE APPLYING. The proof above is a measurement, not a
+-- guarantee about the moment you run this:
+--
+--   select count(*) from public.song_requests where customer_name is not null;
+--   -- expect 0. If it is not 0, STOP: something began writing this
+--   -- column after 2026-08-31 and this migration would destroy data.
+--
+-- Rollback
+-- --------
+-- alter table public.song_requests add column customer_name text;
+--
+-- Because the column holds no data, restoring it restores the complete
+-- prior state. This is the only fully reversible destructive change in
+-- the retention work.
+-- ============================================================
+
+alter table public.song_requests
+  drop column if exists customer_name;
