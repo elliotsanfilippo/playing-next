@@ -1,12 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Clock, RotateCcw, Pencil } from "lucide-react";
+import { Check, Clock, RotateCcw } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import {
   buildTaskQueue,
-  classifyTask,
   taskDueLabel,
   type TaskTier,
 } from "@/src/lib/crmQueue";
@@ -22,6 +21,11 @@ import type { CrmTask, PipelineRow } from "@/src/components/admin/crmTypes";
  * because the five migrated tasks all live there. A task without a date
  * is not less real, and it must never be findable only by scrolling.
  */
+/*
+ * Every filter is derived from due_at and completed_at. There is no
+ * status column and deliberately never will be: two fields describing
+ * one thing is how they drift apart.
+ */
 const FILTERS = [
   "open",
   "overdue",
@@ -32,8 +36,13 @@ const FILTERS = [
 ] as const;
 type Filter = (typeof FILTERS)[number];
 
+/*
+ * "All" rather than "Open", because the heading already says how many
+ * are open and a chip repeating it reads as a different number until you
+ * work out that it is the same one.
+ */
 const FILTER_LABELS: Record<Filter, string> = {
-  open: "Open",
+  open: "All",
   overdue: "Overdue",
   today: "Today",
   upcoming: "Upcoming",
@@ -41,41 +50,32 @@ const FILTER_LABELS: Record<Filter, string> = {
   done: "Done",
 };
 
-const FILTER_HINTS: Record<Filter, string> = {
-  open: "Everything still to do, dated or not.",
-  overdue: "Was due before today.",
-  today: "Due today.",
-  upcoming: "Due after today.",
-  unscheduled: "No date yet. Still yours to do.",
-  done: "Completed. Kept as history.",
-};
+/*
+ * The explanatory sentence under the filters is gone. It said the same
+ * thing every visit for a list whose grouping now says it structurally -
+ * a heading reading "UNSCHEDULED · 4" needs no caption. The one genuinely
+ * unfamiliar idea is that a task without a date is still real work, so
+ * that single hint survives and only where it applies.
+ */
+const UNSCHEDULED_HINT =
+  "No date yet. Still yours to do, and it stays here until you give it one.";
 
 /*
  * Urgency lives in the LEFT edge only, and every edge is declared
  * explicitly so nothing can inherit a colour it was not given.
  *
- * The original bug: `border-status-pending` sets border colour on all
- * four sides, and Tailwind's `divide-y` draws the row separator as a
- * bottom border, so the divider between two Today rows inherited the
- * accent. Three consecutive Today tasks rendered as three amber
- * L-shapes. It broke the neutral tiers in the other direction too -
- * `border-transparent` made their separator invisible, so urgent rows
- * had a coloured divider and calm rows had none.
- *
- * `divide-y` is gone rather than worked around. Each row now names its
- * own bottom border and its own left border, as separate longhand
- * properties that cannot collide: `border-b-white/5` sets bottom colour,
- * `border-l-*` below sets left colour, and neither can reach the other.
- * A future tier colour cannot leak sideways again.
- *
- * Transparent rather than absent on the calm tiers, so every row keeps
- * the same 2px inset and the text never shifts between them.
+ * Rows are separated by space rather than by a rule. With flush rows and
+ * a divider, three consecutive Today accents met end to end and read as
+ * one continuous amber line down the page instead of three tasks; the
+ * gap is what makes each accent belong to its own object. It also means
+ * there is no horizontal border to inherit a tier colour, which is the
+ * bug that produced the amber L-shapes in the first place.
  */
 const edge: Record<TaskTier, string> = {
   overdue: "border-l-status-declined",
   today: "border-l-status-pending",
-  upcoming: "border-l-transparent",
-  unscheduled: "border-l-transparent",
+  upcoming: "border-l-white/10",
+  unscheduled: "border-l-white/10",
 };
 
 const dueText: Record<TaskTier, string> = {
@@ -85,6 +85,16 @@ const dueText: Record<TaskTier, string> = {
   unscheduled: "text-text-muted",
 };
 
+/* The order the default list groups into. Empty groups are not drawn. */
+const GROUPS: TaskTier[] = ["overdue", "today", "upcoming", "unscheduled"];
+
+const GROUP_LABELS: Record<TaskTier, string> = {
+  overdue: "Overdue",
+  today: "Today",
+  upcoming: "Upcoming",
+  unscheduled: "Unscheduled",
+};
+
 export default function TasksView({
   tasks,
   rows,
@@ -92,15 +102,23 @@ export default function TasksView({
   onComplete,
   onReopen,
   onReschedule,
-  onEdit,
 }: {
   tasks: CrmTask[];
   rows: PipelineRow[];
   onOpenContact: (key: string) => void;
   onComplete: (task: CrmTask) => void;
   onReopen: (task: CrmTask) => void;
+  /*
+   * One handler, because there is one sheet. Reschedule and Edit were
+   * two buttons wired to the same function opening the same sheet, which
+   * edits both the title and the date - so the third button cost every
+   * row a second line of controls and offered nothing the second did
+   * not. An overflow menu was considered and rejected for the same
+   * reason: it would have held a single item duplicating the button
+   * beside it, and a nested popover over a list is real complexity to
+   * buy nothing.
+   */
   onReschedule: (task: CrmTask) => void;
-  onEdit: (task: CrmTask) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("open");
 
@@ -126,142 +144,190 @@ export default function TasksView({
     done: done.length,
   };
 
+  const doneItems = done.map((task) => ({
+    task,
+    row: rowByContact.get(task.contact_id) ?? null,
+    tier: "unscheduled" as TaskTier,
+    dueLabel: "",
+    rank: 0,
+  }));
+
   const visible =
     filter === "done"
-      ? done.map((task) => ({
-          task,
-          row: rowByContact.get(task.contact_id) ?? null,
-          tier: "unscheduled" as TaskTier,
-          dueLabel: "",
-          rank: 0,
-        }))
+      ? doneItems
       : filter === "open"
         ? open
         : open.filter((t) => t.tier === filter);
+
+  /*
+   * Grouped only on the unfiltered list. A filter has already narrowed
+   * to one tier, so a heading naming that tier would repeat the chip you
+   * just pressed.
+   */
+  const grouped = filter === "open";
+
+  const renderRow = (item: (typeof open)[number]) => {
+    const completed = !!item.task.completed_at;
+    const contact = item.row ? rowLabel(item.row) : "Contact removed";
+    const due = completed
+      ? `Completed ${new Date(item.task.completed_at!).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+      : item.tier === "unscheduled"
+        ? "No due date"
+        : taskDueLabel(item.task);
+
+    return (
+      <li
+        key={item.task.id}
+        className={`rounded-control border-l-2 p-3.5 ${
+          completed
+            ? "border-l-white/10 bg-white/[0.015] opacity-60"
+            : `bg-white/[0.03] ${edge[item.tier]}`
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => item.row && onOpenContact(item.row.key)}
+          disabled={!item.row}
+          className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          <span
+            className={`block font-semibold ${completed ? "text-text-muted line-through" : "text-white"}`}
+          >
+            {item.task.title}
+          </span>
+          {/*
+            Contact and due state share one line. They were two, which
+            cost every row a whole line to say two short things that are
+            read together anyway.
+          */}
+          <span className="mt-0.5 block truncate font-mono text-xs text-text-muted">
+            {contact}
+            <span aria-hidden> · </span>
+            <span className={completed ? "text-text-muted" : dueText[item.tier]}>
+              {due}
+            </span>
+          </span>
+        </button>
+
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {completed ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-[44px]"
+              onClick={() => onReopen(item.task)}
+            >
+              <RotateCcw size={14} className="mr-1.5" />
+              Reopen
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="min-h-[44px]"
+                onClick={() => onComplete(item.task)}
+              >
+                <Check size={14} className="mr-1.5" />
+                Complete
+              </Button>
+              {/*
+                Named for what it does to THIS task. An undated task is
+                not being rescheduled, it is being given a date for the
+                first time, and calling that Reschedule is what made
+                giving one feel like a correction. Same sheet, same
+                Today / Tomorrow / Next week / Pick date / Unscheduled
+                choices.
+              */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="min-h-[44px]"
+                onClick={() => onReschedule(item.task)}
+              >
+                <Clock size={14} className="mr-1.5" />
+                {item.tier === "unscheduled" ? "Schedule" : "Reschedule"}
+              </Button>
+            </>
+          )}
+        </div>
+      </li>
+    );
+  };
 
   return (
     <Card variant="elevated" className="overflow-hidden">
       <div className="space-y-3 border-b border-white/5 p-5">
         <h2 className="text-h3">
-          Tasks <span className="text-text-muted">· {counts.open} open</span>
+          Tasks{" "}
+          <span className="font-mono text-sm text-text-muted">
+            {counts.open} open
+          </span>
         </h2>
 
+        {/*
+          A chip only where there is something behind it. All always
+          shows; the rest appear when they have a count, so the row stays
+          short on an ordinary day and grows only when it has something
+          to report.
+        */}
         <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
+          {FILTERS.filter((f) => f === "open" || counts[f] > 0).map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
               aria-pressed={filter === f}
-              disabled={counts[f] === 0 && f !== "open" && f !== "unscheduled"}
-              /* Open and Unscheduled always render, even at zero: they
-                 are the two a person needs to understand the model. */
-              className={`${counts[f] === 0 && f !== "open" && f !== "unscheduled" ? "hidden md:inline-block" : ""} min-h-[44px] rounded-full border px-4 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-35 ${
+              className={`min-h-[44px] rounded-full border px-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                 filter === f
                   ? "border-accent/40 bg-accent/10 text-accent"
                   : "border-white/10 bg-white/5 text-text-muted hover:text-white"
               }`}
             >
-              {FILTER_LABELS[f]} {counts[f]}
+              {FILTER_LABELS[f]}
+              {f !== "open" && (
+                <span className="ml-1.5 opacity-70">{counts[f]}</span>
+              )}
             </button>
           ))}
         </div>
 
-        <p className="text-sm text-text-muted">{FILTER_HINTS[filter]}</p>
+        {filter === "unscheduled" && (
+          <p className="text-sm text-text-muted">{UNSCHEDULED_HINT}</p>
+        )}
       </div>
 
-      <div>
+      <div className="p-4">
         {visible.length === 0 ? (
-          <p className="p-8 text-center text-sm text-text-muted">
+          <p className="p-6 text-center text-sm text-text-muted">
             {filter === "open"
               ? "Nothing to do. Open a contact and add a task."
               : filter === "done"
                 ? "Nothing completed yet."
                 : "Nothing in this group."}
           </p>
+        ) : grouped ? (
+          <div className="space-y-5">
+            {GROUPS.filter((g) => counts[g] > 0).map((g) => (
+              <section key={g}>
+                <h3 className="flex items-baseline gap-2 px-0.5 pb-2">
+                  <span className="font-mono text-[0.66rem] font-semibold uppercase tracking-[0.13em] text-white">
+                    {GROUP_LABELS[g]}
+                  </span>
+                  <span className="font-mono text-[0.66rem] font-bold text-accent">
+                    {counts[g]}
+                  </span>
+                </h3>
+                <ul className="space-y-2">
+                  {open.filter((t) => t.tier === g).map(renderRow)}
+                </ul>
+              </section>
+            ))}
+          </div>
         ) : (
-          visible.map((item) => {
-            const completed = !!item.task.completed_at;
-            return (
-              <div
-                key={item.task.id}
-                className={`border-b border-b-white/5 border-l-2 p-4 last:border-b-0 ${
-                  completed ? "border-l-transparent" : edge[item.tier]
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => item.row && onOpenContact(item.row.key)}
-                  disabled={!item.row}
-                  className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                >
-                  <span
-                    className={`block font-semibold ${completed ? "text-text-muted line-through" : "text-white"}`}
-                  >
-                    {item.task.title}
-                  </span>
-                  <span className="mt-1 block text-sm text-text-muted">
-                    {item.row ? rowLabel(item.row) : "Contact removed"}
-                  </span>
-                  <span
-                    className={`mt-1.5 block font-mono text-xs ${completed ? "text-text-muted" : dueText[item.tier]}`}
-                  >
-                    {completed
-                      ? `Completed ${new Date(item.task.completed_at!).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
-                      : taskDueLabel(item.task)}
-                  </span>
-                </button>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {completed ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="min-h-[44px]"
-                      onClick={() => onReopen(item.task)}
-                    >
-                      <RotateCcw size={14} className="mr-1.5" />
-                      Reopen
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="min-h-[44px]"
-                        onClick={() => onComplete(item.task)}
-                      >
-                        <Check size={14} className="mr-1.5" />
-                        Complete
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-[44px]"
-                        onClick={() => onReschedule(item.task)}
-                      >
-                        <Clock size={14} className="mr-1.5" />
-                        Reschedule
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-[44px]"
-                        onClick={() => onEdit(item.task)}
-                      >
-                        <Pencil size={14} className="mr-1.5" />
-                        Edit
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })
+          <ul className="space-y-2">{visible.map(renderRow)}</ul>
         )}
       </div>
     </Card>
   );
 }
-
-export { classifyTask };

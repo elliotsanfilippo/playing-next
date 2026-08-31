@@ -585,7 +585,6 @@ export default function AdminPage() {
             onComplete={completeTask}
             onReopen={reopenTask}
             onReschedule={openTaskSheet}
-            onEdit={openTaskSheet}
           />
         )}
 
