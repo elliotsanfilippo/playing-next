@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, AlertTriangle, ChevronDown } from "lucide-react";
 import Card from "@/src/components/ui/Card";
+import { useIsDesktop } from "@/src/lib/useIsDesktop";
 import Badge from "@/src/components/ui/Badge";
 import Button from "@/src/components/ui/Button";
 import { FUNNEL_STAGES, LIFECYCLE_LABELS, type LifecycleStage } from "@/src/lib/djLifecycle";
@@ -44,22 +45,6 @@ import type {
  * external system, it must not cause a second render on mount, and it
  * gives a stable server snapshot so hydration cannot mismatch.
  */
-const DESKTOP = "(min-width: 768px)";
-
-function subscribe(callback: () => void) {
-  const query = window.matchMedia(DESKTOP);
-  query.addEventListener("change", callback);
-  return () => query.removeEventListener("change", callback);
-}
-
-function useIsDesktop() {
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(DESKTOP).matches,
-    () => true
-  );
-}
-
 type View = "list" | "pipeline";
 
 /*

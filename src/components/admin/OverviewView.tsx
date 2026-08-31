@@ -10,6 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import Card from "@/src/components/ui/Card";
+import { useIsDesktop } from "@/src/lib/useIsDesktop";
 import Button from "@/src/components/ui/Button";
 import ContactIdentity from "@/src/components/admin/ContactIdentity";
 import { buildExternalFunnel } from "@/src/lib/crmFunnel";
@@ -66,64 +67,75 @@ const tierText: Record<TaskTier, string> = {
 };
 
 /*
- * A secondary section: real information, but not something Overview
- * should spend a screen on before you have asked for it.
+ * ── Every Overview section is a drawer now ────────────────────────
  *
- * Only two sections use this, deliberately. Overview is a command
- * centre, and a command centre that answers nothing until you tap it is
- * just a menu - so what you have to do, what is true and worth knowing,
- * and the bottleneck all stay open and unconditional. These two are
- * reference: you consult them, you do not monitor them.
+ * Overview answers "what deserves my attention", and the honest form of
+ * that answer is a list of headlines you can read in one screen, not
+ * five reports stacked vertically. So each section collapses to a header
+ * that carries its own answer - "Growth · 13 external · 0 activated" is
+ * the whole section on most visits - and opens only when you want the
+ * detail behind it.
  *
- * The collapsed header therefore has to carry the answer, not just a
- * name. "Growth" tells you nothing; "13 external · 0 activated" is the
- * whole section for most visits.
- *
- * Open state is real state rather than a `defaultOpen` attribute React
- * would re-apply on every render. The Admin refetches when it comes back
- * into view, and a refresh silently reopening a section you had closed
- * is the same class of bug as a dialog re-marking its siblings.
+ * Controlled rather than self-managing, because the accordion needs one
+ * place that knows what else is open. Open state lives in OverviewView
+ * and is not persisted: Overview unmounts when you switch destination,
+ * so coming back from Tasks resets to the headlines rather than
+ * restoring a reading position.
  */
-function SecondarySection({
+function Section({
+  id,
   title,
   meta,
   metaTone = "muted",
-  initialOpen = false,
+  open,
+  onToggle,
+  className = "",
   children,
 }: {
+  id: string;
   title: string;
   meta: string;
   /** Amber when the header is reporting something that wants acting on. */
   metaTone?: "muted" | "attention";
-  initialOpen?: boolean;
+  open: boolean;
+  onToggle: (id: string) => void;
+  className?: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(initialOpen);
-
   return (
-    <Card variant="elevated" className="overflow-hidden">
-      <details
-        open={open}
-        onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
-        className="group"
-      >
-        <summary className="flex min-h-[56px] cursor-pointer list-none flex-wrap items-baseline gap-x-3 gap-y-1 p-5 transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
-          <h2 className="text-h3">{title}</h2>
-          <p
+    <Card variant="elevated" className={`overflow-hidden ${className}`}>
+      {/*
+        A button rather than <details>/<summary>. The open state is owned
+        above, and a <details> element toggles itself on click before
+        React hears about it, so the two disagree for a frame every time
+        the accordion closes a different section.
+      */}
+      <h2>
+        <button
+          type="button"
+          onClick={() => onToggle(id)}
+          aria-expanded={open}
+          aria-controls={`section-${id}`}
+          className="flex min-h-[56px] w-full flex-wrap items-baseline gap-x-3 gap-y-1 p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+        >
+          <span className="text-h3">{title}</span>
+          <span
             className={`font-mono text-xs ${
               metaTone === "attention" ? "text-status-pending" : "text-text-muted"
             }`}
           >
             {meta}
-          </p>
+          </span>
           <ChevronDown
             size={16}
             aria-hidden
-            className="ml-auto shrink-0 self-center text-text-muted transition group-open:rotate-180"
+            className={`ml-auto shrink-0 self-center text-text-muted transition ${open ? "rotate-180" : ""}`}
           />
-        </summary>
-        <div className="border-t border-white/5">{children}</div>
-      </details>
+        </button>
+      </h2>
+      <div id={`section-${id}`} hidden={!open} className="border-t border-white/5">
+        {children}
+      </div>
     </Card>
   );
 }
@@ -206,6 +218,40 @@ export default function OverviewView({
     [newThisWeek, rowsByDj]
   );
 
+  /*
+   * The accordion. Everything closed on arrival, so Overview opens as
+   * five headlines rather than five reports.
+   *
+   * The one exception is genuine urgency: an overdue task is work that
+   * should already have happened, so To do opens itself. Tasks merely
+   * being due today does not qualify - that is the normal state of a
+   * working day, and a section that is always open is not a section, it
+   * is the page.
+   */
+  const isDesktop = useIsDesktop();
+  const [openSections, setOpenSections] = useState<Set<string>>(() =>
+    taskCounts.overdue > 0 ? new Set(["todo"]) : new Set()
+  );
+
+  const toggleSection = (id: string) =>
+    setOpenSections((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+        return next;
+      }
+      /*
+       * One at a time on a phone, where a second open section pushes the
+       * first off screen and you are scrolling a report again. A desktop
+       * column has the room to hold two open at once, so it does.
+       */
+      if (!isDesktop) next.clear();
+      next.add(id);
+      return next;
+    });
+
+  const isOpen = (id: string) => openSections.has(id);
+
   const readyStep = funnel.steps.find((s) => s.key === "onboarded");
   const activatedStep = funnel.steps.find((s) => s.key === "activated");
   const maxCount = Math.max(...funnel.steps.map((s) => s.count), 1);
@@ -213,11 +259,19 @@ export default function OverviewView({
   return (
     <div className="flex flex-col gap-6">
       {/* ── 1 · What I need to DO ──────────────────────────────── */}
-      <Card variant="elevated" className="overflow-hidden">
+      <Section
+        id="todo"
+        title="To do"
+        meta={
+          taskCounts.overdue > 0
+            ? `${todo.length} · ${taskCounts.overdue} overdue`
+            : `${todo.length}`
+        }
+        metaTone={taskCounts.overdue > 0 ? "attention" : "muted"}
+        open={isOpen("todo")}
+        onToggle={toggleSection}
+      >
         <div className="space-y-3 border-b border-white/5 p-5">
-          <h2 className="text-h3">
-            To do <span className="text-text-muted">· {todo.length}</span>
-          </h2>
           <p className="text-sm text-text-muted">
             Things you have to do. Everything else on this page is context.
           </p>
@@ -338,36 +392,29 @@ export default function OverviewView({
             </button>
           )}
         </div>
-      </Card>
+      </Section>
 
       {/*
         ── 2 · Business context ───────────────────────────────────
-        Directly under To do, so everything that is permanently open sits
-        together at the top rather than with a collapsed section wedged
-        between them.
-
-        Stays open and never collapses - it is the one number the whole
-        beta turns on - but it does not need a third of a phone screen to
-        say it. The figure and the label now share a line, and the
-        explanation is one sentence rather than three.
+        The number the whole beta turns on, so it keeps its amber tint
+        and sits second. Collapsed like everything else, because the
+        figure IS the section - the header carries "0 of 4" and the body
+        only explains what the two numbers mean.
       */}
-      <Card
-        variant="elevated"
-        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05] p-4"
+      <Section
+        id="bottleneck"
+        title="The bottleneck"
+        meta={`${activatedStep?.count ?? 0} of ${readyStep?.count ?? 0}`}
+        metaTone="attention"
+        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05]"
+        open={isOpen("bottleneck")}
+        onToggle={toggleSection}
       >
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
-            The bottleneck
-          </p>
-          <p className="text-h3 text-status-pending">
-            {activatedStep?.count ?? 0} of {readyStep?.count ?? 0}
-          </p>
-        </div>
-        <p className="mt-1 text-xs leading-relaxed text-text-muted">
+        <p className="p-5 text-sm leading-relaxed text-text-muted">
           Onboarded, payments-ready DJs who have taken a paid request.
-          What is missing is a gig.
+          Every technical blocker is cleared. What is missing is a gig.
         </p>
-      </Card>
+      </Section>
 
       {/*
         ── 3 · What is TRUE and worth knowing ─────────────────────
@@ -378,7 +425,13 @@ export default function OverviewView({
         only sometimes.
       */}
       {states.length > 0 && (
-        <SecondarySection title="Worth knowing" meta={`${states.length}`}>
+        <Section
+          id="worth-knowing"
+          title="Worth knowing"
+          meta={`${states.length}`}
+          open={isOpen("worth-knowing")}
+          onToggle={toggleSection}
+        >
           <p className="border-b border-white/5 p-5 pt-4 text-sm text-text-muted">
             Not tasks. These are true right now, and change when the
             person or the product does.
@@ -447,7 +500,7 @@ export default function OverviewView({
               </button>
             )}
           </div>
-        </SecondarySection>
+        </Section>
       )}
 
       {/*
@@ -456,10 +509,13 @@ export default function OverviewView({
         taken a paid request - so the section only needs opening when you
         want the breakdown behind them.
       */}
-      <SecondarySection
+      <Section
+        id="growth"
         title="Growth"
         meta={`${funnel.total} external · ${activatedStep?.count ?? 0} activated`}
         metaTone={(activatedStep?.count ?? 0) === 0 ? "attention" : "muted"}
+        open={isOpen("growth")}
+        onToggle={toggleSection}
       >
         <div className="p-5">
           <p className="font-mono text-xs text-text-muted">
@@ -541,7 +597,7 @@ export default function OverviewView({
             })}
           </ol>
         </div>
-      </SecondarySection>
+      </Section>
 
       {/*
         Collapsed when every recent signup is already in the CRM, and
@@ -551,7 +607,8 @@ export default function OverviewView({
         count says so in the header either way.
       */}
       {newThisWeek.length > 0 && (
-        <SecondarySection
+        <Section
+          id="new-signups"
           title="Signed up this week"
           meta={
             unreconciledThisWeek > 0
@@ -559,7 +616,8 @@ export default function OverviewView({
               : `${newThisWeek.length} · all in your CRM`
           }
           metaTone={unreconciledThisWeek > 0 ? "attention" : "muted"}
-          initialOpen={unreconciledThisWeek > 0}
+          open={isOpen("new-signups")}
+          onToggle={toggleSection}
         >
           <ul className="divide-y divide-white/5">
             {newThisWeek.map((d) => {
@@ -597,7 +655,7 @@ export default function OverviewView({
               );
             })}
           </ul>
-        </SecondarySection>
+        </Section>
       )}
     </div>
   );
