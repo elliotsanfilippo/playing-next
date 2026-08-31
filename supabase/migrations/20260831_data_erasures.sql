@@ -161,9 +161,16 @@ create index if not exists data_erasures_performed_idx
 -- PUBLIC is a different grantee from either. That assumption took the
 -- guest request page down.
 --
--- No UPDATE or DELETE grant, for anyone. An audit record that can be
--- edited or removed is not evidence. Corrections are made by writing a
--- further row, never by rewriting history.
+-- Corrections are made by writing a further row, never by rewriting
+-- history.
+--
+-- NOTE, added 2026-08-31 after applying this migration: naming SELECT
+-- and INSERT in the GRANT below does NOT withhold UPDATE and DELETE.
+-- Supabase's default privileges had already granted service_role
+-- everything on this table, and a grant statement describes what is
+-- added, never what is excluded. Verified in Production: UPDATE and
+-- DELETE both returned 200 rather than 42501. The revoke that actually
+-- makes this table append-only is in 20260831_data_erasures_revoke.sql.
 -- ============================================================
 alter table public.data_erasures enable row level security;
 
