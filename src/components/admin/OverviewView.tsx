@@ -328,7 +328,36 @@ export default function OverviewView({
       </Card>
 
       {/*
-        ── 2 · What is TRUE and worth knowing ─────────────────────
+        ── 2 · Business context ───────────────────────────────────
+        Directly under To do, so everything that is permanently open sits
+        together at the top rather than with a collapsed section wedged
+        between them.
+
+        Stays open and never collapses - it is the one number the whole
+        beta turns on - but it does not need a third of a phone screen to
+        say it. The figure and the label now share a line, and the
+        explanation is one sentence rather than three.
+      */}
+      <Card
+        variant="elevated"
+        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05] p-4"
+      >
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
+            The bottleneck
+          </p>
+          <p className="text-h3 text-status-pending">
+            {activatedStep?.count ?? 0} of {readyStep?.count ?? 0}
+          </p>
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-text-muted">
+          Onboarded, payments-ready DJs who have taken a paid request.
+          What is missing is a gig.
+        </p>
+      </Card>
+
+      {/*
+        ── 3 · What is TRUE and worth knowing ─────────────────────
         Collapsed. These are states, not actions: true right now, and
         changing when the person or the product changes rather than when
         you do something. The count is the part you need on arrival; the
@@ -407,31 +436,6 @@ export default function OverviewView({
           </div>
         </SecondarySection>
       )}
-
-      {/* ── 3 · Business context ───────────────────────────────── */}
-      {/*
-        Stays open and never collapses - it is the one number the whole
-        beta turns on - but it does not need a third of a phone screen to
-        say it. The figure and the label now share a line, and the
-        explanation is one sentence rather than three.
-      */}
-      <Card
-        variant="elevated"
-        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05] p-4"
-      >
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
-            The bottleneck
-          </p>
-          <p className="text-h3 text-status-pending">
-            {activatedStep?.count ?? 0} of {readyStep?.count ?? 0}
-          </p>
-        </div>
-        <p className="mt-1 text-xs leading-relaxed text-text-muted">
-          Onboarded, payments-ready DJs who have taken a paid request.
-          What is missing is a gig.
-        </p>
-      </Card>
 
       {/*
         Collapsed by default. The header carries the two numbers that
