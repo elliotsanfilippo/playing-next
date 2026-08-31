@@ -34,14 +34,30 @@ create table if not exists public.data_erasures (
   /* Which kind of row was acted on, and which row. The internal UUID is
      ours, not the subject's - it identifies a record, not a person, and
      without the row it points at it identifies nothing. */
+  /*
+   * qr_box_order was added on 2026-08-31 after a sweep of all 13
+   * Production tables found that qr_box_orders holds a full postal
+   * address - recipient_name, address_line1, address_line2, city,
+   * postcode, country. It is the most sensitive personal data in the
+   * database and had appeared in no previous audit. The sweep happened
+   * because the first inventory, built from three tables we already knew
+   * about, turned out to be incomplete.
+   */
   object_type text not null
-    check (object_type in ('song_request', 'tip', 'not_played_report')),
+    check (object_type in (
+      'song_request',
+      'tip',
+      'not_played_report',
+      'qr_box_order'
+    )),
   object_id uuid not null,
 
   /*
-   * The names of the fields cleared - 'message', 'reason' - never their
-   * values. An array so a single action against one row can record more
-   * than one field honestly.
+   * The names of the fields cleared - 'message', 'reason',
+   * 'address_line1' - never their values. An array because a single
+   * action against one row genuinely clears several fields: erasing a
+   * QR box address clears up to six at once, and recording that as one
+   * vague event would be less honest than listing them.
    */
   fields_cleared text[] not null default '{}',
 
