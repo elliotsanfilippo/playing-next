@@ -28,10 +28,11 @@ if (URL_.includes(PRODUCTION_REF)) {
 }
 
 const H = { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=representation" };
+type Row = Record<string, unknown>;
 const api = async (path: string, init: RequestInit = {}) => {
   const r = await fetch(`${URL_}/rest/v1/${path}`, { ...init, headers: { ...H, ...(init.headers ?? {}) } });
   const t = await r.text(); let j: unknown = null; try { j = JSON.parse(t); } catch {}
-  return { status: r.status, ok: r.ok, body: j as never };
+  return { status: r.status, ok: r.ok, body: (Array.isArray(j) ? j : []) as Row[], raw: j };
 };
 const rpc = (fn: string, args: Record<string, unknown>) =>
   api(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args) });
@@ -44,28 +45,28 @@ const check = async (name: string, fn: () => Promise<void>) => {
 
 /* Snapshot every column so "nothing else changed" is provable, not asserted. */
 const snapshot = async (table: string, id: string) =>
-  (await api(`${table}?id=eq.${id}&select=*`)).body[0] as Record<string, unknown>;
+  (await api(`${table}?id=eq.${id}&select=*`)).body[0] as Row;
 
 const diff = (before: Record<string, unknown>, after: Record<string, unknown>) =>
   Object.keys(before).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
 
 const audits = async (objectId: string) =>
-  (await api(`data_erasures?object_id=eq.${objectId}&select=*`)).body as Record<string, unknown>[];
+  (await api(`data_erasures?object_id=eq.${objectId}&select=*`)).body;
 
 async function main() {
-  const DJ = (await api("dj_profiles?select=id&limit=1")).body[0]?.id;
+  const DJ = (await api("dj_profiles?select=id&limit=1")).body[0]?.id as string | undefined;
   assert.ok(DJ, "the Preview database needs at least one dj_profile");
 
   console.log("\nSONG REQUEST · message");
   const sr = (await api("song_requests", { method: "POST", body: JSON.stringify({
     dj_profile_id: DJ, song_title: "Test", artist: "Test", message: "erase me",
     request_status: "played", stripe_fee: 20, stripe_payment_intent_id: "pi_test_preserve",
-  })})).body[0];
+  })})).body[0] as Row;
 
   await check("preserve: clears message, changes nothing else, one audit row", async () => {
     const before = await snapshot("song_requests", sr.id);
     const r = await rpc("erase_personal_fields", { p_object_type: "song_request", p_object_id: sr.id, p_classification: "preserve", p_performed_by: "test@example.com", p_request_reference: "PR-2026-001" });
-    assert.ok(r.ok, `rpc failed: ${JSON.stringify(r.body)}`);
+    assert.ok(r.ok, `rpc failed: ${JSON.stringify(r.raw)}`);
     const after = await snapshot("song_requests", sr.id);
     assert.deepEqual(diff(before, after), ["message"], "only message may change");
     assert.equal(after.message, null);
@@ -96,7 +97,7 @@ async function main() {
   const rb = (await api("song_requests", { method: "POST", body: JSON.stringify({
     dj_profile_id: DJ, song_title: "Rollback", artist: "T", message: "must survive",
     request_status: "expired",
-  })})).body[0];
+  })})).body[0] as Row;
   await check("invalid reference violates the CHECK, so the message survives", async () => {
     const r = await rpc("erase_personal_fields", { p_object_type: "song_request", p_object_id: rb.id, p_classification: "never_charged", p_performed_by: "test@example.com", p_request_reference: "NOT A REFERENCE" });
     assert.equal(r.ok, false, "should fail on the reference CHECK");
@@ -106,7 +107,7 @@ async function main() {
   });
 
   console.log("\nTIP · message");
-  const tip = (await api("tips", { method: "POST", body: JSON.stringify({ dj_profile_id: DJ, message: "tip note", status: "succeeded", amount: 500 })})).body[0];
+  const tip = (await api("tips", { method: "POST", body: JSON.stringify({ dj_profile_id: DJ, message: "tip note", status: "succeeded", amount: 500 })})).body[0] as Row;
   await check("tip message cleared, money untouched, one audit row", async () => {
     const before = await snapshot("tips", tip.id);
     const r = await rpc("erase_personal_fields", { p_object_type: "tip", p_object_id: tip.id, p_classification: "preserve", p_performed_by: "test@example.com", p_request_reference: null });
@@ -118,7 +119,7 @@ async function main() {
   });
 
   console.log("\nNOT-PLAYED REPORT · reason");
-  const rep = (await api("not_played_reports", { method: "POST", body: JSON.stringify({ song_request_id: sr.id, dj_profile_id: DJ, reason: "never played it", resolution: "denied" })})).body[0];
+  const rep = (await api("not_played_reports", { method: "POST", body: JSON.stringify({ song_request_id: sr.id, dj_profile_id: DJ, reason: "never played it", resolution: "denied" })})).body[0] as Row;
   await check("reason cleared, report and outcome preserved", async () => {
     const before = await snapshot("not_played_reports", rep.id);
     const r = await rpc("erase_personal_fields", { p_object_type: "not_played_report", p_object_id: rep.id, p_classification: "preserve", p_performed_by: "test@example.com", p_request_reference: null });
@@ -130,11 +131,11 @@ async function main() {
   });
 
   console.log("\nQR BOX ORDER");
-  const abandoned = (await api("qr_box_orders", { method: "POST", body: JSON.stringify({ dj_profile_id: DJ, recipient_name: "A Person", address_line1: "1 Test St", city: "Glasgow", postcode: "G1 1AA", country: "GB", status: "pending_payment", shipping_amount: 399 })})).body[0];
+  const abandoned = (await api("qr_box_orders", { method: "POST", body: JSON.stringify({ dj_profile_id: DJ, recipient_name: "A Person", address_line1: "1 Test St", city: "Glasgow", postcode: "G1 1AA", country: "GB", status: "pending_payment", shipping_amount: 399 })})).body[0] as Row;
   await check("abandoned order: all present address fields cleared", async () => {
     const before = await snapshot("qr_box_orders", abandoned.id);
     const r = await rpc("erase_personal_fields", { p_object_type: "qr_box_order", p_object_id: abandoned.id, p_classification: "never_charged", p_performed_by: "test@example.com", p_request_reference: "PR-2026-003" });
-    assert.ok(r.ok, JSON.stringify(r.body));
+    assert.ok(r.ok, JSON.stringify(r.raw));
     const after = await snapshot("qr_box_orders", abandoned.id);
     assert.deepEqual(diff(before, after).sort(), ["address_line1","city","country","postcode","recipient_name"]);
     assert.equal(after.shipping_amount, before.shipping_amount, "financial field changed");
@@ -145,7 +146,7 @@ async function main() {
     assert.ok(!JSON.stringify(a[0]).match(/Test St|Glasgow|G1 1AA|A Person/), "address leaked into the audit row");
   });
 
-  const paid = (await api("qr_box_orders", { method: "POST", body: JSON.stringify({ dj_profile_id: DJ, recipient_name: "Paid Person", address_line1: "2 Test St", city: "Glasgow", postcode: "G2 2BB", country: "GB", status: "paid", stripe_payment_intent_id: "pi_test_paid", shipping_amount: 399 })})).body[0];
+  const paid = (await api("qr_box_orders", { method: "POST", body: JSON.stringify({ dj_profile_id: DJ, recipient_name: "Paid Person", address_line1: "2 Test St", city: "Glasgow", postcode: "G2 2BB", country: "GB", status: "paid", stripe_payment_intent_id: "pi_test_paid", shipping_amount: 399 })})).body[0] as Row;
   await check("PAID order: refused by the database, address intact, no audit row", async () => {
     const before = await snapshot("qr_box_orders", paid.id);
     const r = await rpc("erase_personal_fields", { p_object_type: "qr_box_order", p_object_id: paid.id, p_classification: "preserve", p_performed_by: "test@example.com", p_request_reference: "PR-2026-004" });
@@ -165,8 +166,8 @@ async function main() {
     assert.equal(r.ok, false);
   });
   await check("no audit row anywhere claims row_deleted", async () => {
-    const all = (await api("data_erasures?select=row_deleted")).body as { row_deleted: boolean }[];
-    assert.ok(all.every((a) => a.row_deleted === false));
+    const all = await api("data_erasures?select=row_deleted");
+    assert.ok(all.body.every((a) => a.row_deleted === false));
   });
 
   console.log(`\n${pass} passed, ${fails.length} failed`);
