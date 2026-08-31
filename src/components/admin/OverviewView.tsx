@@ -327,18 +327,20 @@ export default function OverviewView({
         </div>
       </Card>
 
-      {/* ── 2 · What is TRUE and worth knowing ─────────────────── */}
+      {/*
+        ── 2 · What is TRUE and worth knowing ─────────────────────
+        Collapsed. These are states, not actions: true right now, and
+        changing when the person or the product changes rather than when
+        you do something. The count is the part you need on arrival; the
+        thirteen names behind it are a screen and a half you asked for
+        only sometimes.
+      */}
       {states.length > 0 && (
-        <Card variant="elevated" className="overflow-hidden">
-          <div className="border-b border-white/5 p-5">
-            <h2 className="text-h3">
-              Worth knowing <span className="text-text-muted">· {states.length}</span>
-            </h2>
-            <p className="mt-1.5 text-sm text-text-muted">
-              Not tasks. These are true right now, and change when the
-              person or the product does.
-            </p>
-          </div>
+        <SecondarySection title="Worth knowing" meta={`${states.length}`}>
+          <p className="border-b border-white/5 p-5 pt-4 text-sm text-text-muted">
+            Not tasks. These are true right now, and change when the
+            person or the product does.
+          </p>
 
           <div className="divide-y divide-white/5">
             {shownStates.map((item) => {
@@ -403,23 +405,31 @@ export default function OverviewView({
               </button>
             )}
           </div>
-        </Card>
+        </SecondarySection>
       )}
 
       {/* ── 3 · Business context ───────────────────────────────── */}
+      {/*
+        Stays open and never collapses - it is the one number the whole
+        beta turns on - but it does not need a third of a phone screen to
+        say it. The figure and the label now share a line, and the
+        explanation is one sentence rather than three.
+      */}
       <Card
         variant="elevated"
-        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05] p-5"
+        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05] p-4"
       >
-        <p className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
-          The bottleneck
-        </p>
-        <p className="mt-2 text-h2 text-status-pending">
-          {activatedStep?.count ?? 0} of {readyStep?.count ?? 0}
-        </p>
-        <p className="mt-1.5 text-sm text-text-muted">
-          DJs who finished onboarding have taken a paid request. Every
-          technical blocker is cleared. What is missing is a gig.
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
+            The bottleneck
+          </p>
+          <p className="text-h3 text-status-pending">
+            {activatedStep?.count ?? 0} of {readyStep?.count ?? 0}
+          </p>
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-text-muted">
+          Onboarded, payments-ready DJs who have taken a paid request.
+          What is missing is a gig.
         </p>
       </Card>
 
@@ -528,7 +538,7 @@ export default function OverviewView({
           title="Signed up this week"
           meta={
             unreconciledThisWeek > 0
-              ? `${newThisWeek.length} · ${unreconciledThisWeek} not in your CRM`
+              ? `${newThisWeek.length} · ${unreconciledThisWeek} need CRM`
               : `${newThisWeek.length} · all in your CRM`
           }
           metaTone={unreconciledThisWeek > 0 ? "attention" : "muted"}

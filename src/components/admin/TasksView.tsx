@@ -51,22 +51,25 @@ const FILTER_HINTS: Record<Filter, string> = {
 };
 
 /*
- * Urgency lives in the LEFT edge only.
+ * Urgency lives in the LEFT edge only, and every edge is declared
+ * explicitly so nothing can inherit a colour it was not given.
  *
- * These used to be `border-status-pending` and friends, which set border
- * colour on all four sides. Tailwind's `divide-y` draws the separator
- * between rows as a bottom border, so it inherited that colour: three
- * consecutive Today tasks rendered as three amber L-shapes, amber down
- * the left and amber along the bottom, which is what read as unfinished.
+ * The original bug: `border-status-pending` sets border colour on all
+ * four sides, and Tailwind's `divide-y` draws the row separator as a
+ * bottom border, so the divider between two Today rows inherited the
+ * accent. Three consecutive Today tasks rendered as three amber
+ * L-shapes. It broke the neutral tiers in the other direction too -
+ * `border-transparent` made their separator invisible, so urgent rows
+ * had a coloured divider and calm rows had none.
  *
- * It broke the neutral rows too, in the other direction. `border-
- * transparent` made their separator transparent, so upcoming and
- * unscheduled rows had no divider at all while urgent ones had a
- * coloured one. Measured on Production at the stacked-Today state.
+ * `divide-y` is gone rather than worked around. Each row now names its
+ * own bottom border and its own left border, as separate longhand
+ * properties that cannot collide: `border-b-white/5` sets bottom colour,
+ * `border-l-*` below sets left colour, and neither can reach the other.
+ * A future tier colour cannot leak sideways again.
  *
- * Naming the side keeps the separator on `divide-white/5` where it
- * belongs. Transparent rather than absent on the neutral tiers so every
- * row keeps the same 2px inset and text never shifts between them.
+ * Transparent rather than absent on the calm tiers, so every row keeps
+ * the same 2px inset and the text never shifts between them.
  */
 const edge: Record<TaskTier, string> = {
   overdue: "border-l-status-declined",
@@ -167,7 +170,7 @@ export default function TasksView({
         <p className="text-sm text-text-muted">{FILTER_HINTS[filter]}</p>
       </div>
 
-      <div className="divide-y divide-white/5">
+      <div>
         {visible.length === 0 ? (
           <p className="p-8 text-center text-sm text-text-muted">
             {filter === "open"
@@ -182,7 +185,9 @@ export default function TasksView({
             return (
               <div
                 key={item.task.id}
-                className={`border-l-2 p-4 ${completed ? "border-l-transparent" : edge[item.tier]}`}
+                className={`border-b border-b-white/5 border-l-2 p-4 last:border-b-0 ${
+                  completed ? "border-l-transparent" : edge[item.tier]
+                }`}
               >
                 <button
                   type="button"
