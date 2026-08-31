@@ -38,11 +38,24 @@ import type {
 
 const PREVIEW = 5;
 
+/*
+ * The same left-edge-only rule as the Tasks destination, and it has to
+ * live in both places because Overview renders its own task rows rather
+ * than reusing that list.
+ *
+ * That duplication is what made the first attempt at this look like it
+ * had failed: TasksView was fixed and Overview was not, so the amber
+ * horizontal line was still there on the screen the app opens on.
+ *
+ * All-sides colour plus a divide-y bottom border is what produced it -
+ * see the longer note in TasksView. Bottom colour and left colour are
+ * now separate longhands that cannot collide.
+ */
 const tierEdge: Record<TaskTier, string> = {
-  overdue: "border-status-declined",
-  today: "border-status-pending",
-  upcoming: "border-transparent",
-  unscheduled: "border-transparent",
+  overdue: "border-l-status-declined",
+  today: "border-l-status-pending",
+  upcoming: "border-l-transparent",
+  unscheduled: "border-l-transparent",
 };
 
 const tierText: Record<TaskTier, string> = {
@@ -244,7 +257,7 @@ export default function OverviewView({
           </div>
         </div>
 
-        <div className="divide-y divide-white/5">
+        <div>
           {pending.length > 0 && (
             <button
               type="button"
@@ -270,7 +283,7 @@ export default function OverviewView({
             visibleTasks.map((item) => (
               <div
                 key={item.task.id}
-                className={`border-l-2 p-4 ${tierEdge[item.tier]}`}
+                className={`border-b border-b-white/5 border-l-2 p-4 last:border-b-0 ${tierEdge[item.tier]}`}
               >
                 <button
                   type="button"
