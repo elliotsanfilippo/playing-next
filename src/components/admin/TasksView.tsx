@@ -188,7 +188,9 @@ export default function TasksView({
           type="button"
           onClick={() => item.row && onOpenContact(item.row.key)}
           disabled={!item.row}
-          className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          /* The row-opening target. Full width, but a single-line title
+             left it 40px tall, so it carries its own minimum. */
+          className="flex min-h-[44px] w-full flex-col justify-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <span
             className={`block font-semibold ${completed ? "text-text-muted line-through" : "text-white"}`}
@@ -257,7 +259,7 @@ export default function TasksView({
 
   return (
     <Card variant="elevated" className="overflow-hidden">
-      <div className="space-y-3 border-b border-white/5 p-5">
+      <div className="space-y-2.5 border-b border-white/5 p-4">
         <h2 className="text-h3">
           Tasks{" "}
           <span className="font-mono text-sm text-text-muted">
