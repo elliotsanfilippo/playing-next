@@ -15,8 +15,22 @@
 import { strict as assert } from "node:assert";
 
 const PRODUCTION_REF = "bxryfvyzbxnmwicqdmag";
-const URL_ = process.env.TEST_SUPABASE_URL ?? "";
-const KEY = process.env.TEST_SERVICE_ROLE_KEY ?? "";
+/*
+ * Normalised, because the Supabase dashboard shows several URL forms and
+ * the REST endpoint is the one sitting next to the API keys you came for.
+ * Pasting "https://<ref>.supabase.co/rest/v1/" makes every request
+ * "/rest/v1//rest/v1/..." and returns PGRST125 "Invalid path", which
+ * reads like a missing table rather than a malformed base URL.
+ *
+ * Stripping a trailing slash and a trailing /rest/v1 cannot weaken the
+ * Production guard below: that tests for the project ref inside the
+ * host, which normalisation does not touch.
+ */
+const URL_ = (process.env.TEST_SUPABASE_URL ?? "")
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/rest\/v1$/, "");
+const KEY = (process.env.TEST_SERVICE_ROLE_KEY ?? "").trim();
 
 if (!URL_ || !KEY) {
   console.error("Set TEST_SUPABASE_URL and TEST_SERVICE_ROLE_KEY to a Preview or branch database.");
@@ -83,8 +97,20 @@ const audits = async (objectId: string) =>
   (await api(`data_erasures?object_id=eq.${objectId}&select=*`)).body;
 
 async function main() {
-  const DJ = (await api("dj_profiles?select=id&limit=1")).body[0]?.id as string | undefined;
-  assert.ok(DJ, "the Preview database needs at least one dj_profile");
+  /*
+   * The suite creates its own DJ rather than requiring one. A test that
+   * needs the database seeded by hand first is a test that will be run
+   * against whatever happens to be lying around, which for this project
+   * should be nothing at all.
+   */
+  const existing = (await api("dj_profiles?select=id&limit=1")).body[0];
+  const createdDj = existing
+    ? null
+    : (await api("dj_profiles", { method: "POST", body: JSON.stringify({
+        dj_name: "Erasure Suite Fixture", slug: "erasure-suite-fixture",
+      })})).body[0];
+  const DJ = (existing ?? createdDj)?.id as string | undefined;
+  assert.ok(DJ, "could not create a fixture dj_profile");
 
   console.log("\nSONG REQUEST · message");
   const sr = (await api("song_requests", { method: "POST", body: JSON.stringify({
@@ -120,6 +146,38 @@ async function main() {
     assert.equal(r.ok, false, "second call should refuse");
     const a = await audits(id(sr));
     assert.equal(a.length, 1, "a repeat must not add an audit row");
+  });
+
+  console.log("\nCLASSIFICATIONS · unknown and never_charged recorded truthfully");
+  /* played with no stripe_fee: the case that must never read as unpaid. */
+  const unk = (await api("song_requests", { method: "POST", body: JSON.stringify({
+    dj_profile_id: DJ, song_title: "Unknown", artist: "T", message: "unknown class",
+    request_status: "played", stripe_payment_intent_id: "pi_test_unknown",
+  })})).body[0] as Row;
+  await check("unknown: message cleared, classification recorded as unknown", async () => {
+    const before = await snapshot("song_requests", id(unk));
+    const r = await rpc("erase_personal_fields", { p_object_type: "song_request", p_object_id: id(unk), p_classification: "unknown", p_performed_by: "test@example.com", p_request_reference: "PR-2026-010" });
+    assert.ok(r.ok, JSON.stringify(r.raw));
+    const after = await snapshot("song_requests", id(unk));
+    assert.deepEqual(diff(before, after), ["message"]);
+    assert.equal(after.stripe_payment_intent_id, before.stripe_payment_intent_id);
+    const a = await audits(id(unk));
+    assert.equal(a.length, 1);
+    assert.equal(a[0].classification, "unknown");
+  });
+
+  const nc = (await api("song_requests", { method: "POST", body: JSON.stringify({
+    dj_profile_id: DJ, song_title: "NeverCharged", artist: "T", message: "never charged class",
+    request_status: "expired",
+  })})).body[0] as Row;
+  await check("never_charged: message cleared, classification recorded, row kept", async () => {
+    const r = await rpc("erase_personal_fields", { p_object_type: "song_request", p_object_id: id(nc), p_classification: "never_charged", p_performed_by: "test@example.com", p_request_reference: "PR-2026-011" });
+    assert.ok(r.ok, JSON.stringify(r.raw));
+    const a = await audits(id(nc));
+    assert.equal(a.length, 1);
+    assert.equal(a[0].classification, "never_charged");
+    assert.equal(a[0].row_deleted, false);
+    assert.equal((await api(`song_requests?id=eq.${id(nc)}&select=id`)).body.length, 1, "row must survive");
   });
 
   console.log("\nROLLBACK · a failing audit insert must undo the clear");
@@ -198,6 +256,20 @@ async function main() {
     const all = await api("data_erasures?select=row_deleted");
     assert.ok(all.body.every((a) => a.row_deleted === false));
   });
+  await check("no erased value appears anywhere in the audit log", async () => {
+    const all = JSON.stringify((await api("data_erasures?select=*")).body);
+    for (const secret of ["erase me", "must survive", "tip note", "never played it",
+                          "A Person", "1 Test St", "Glasgow", "G1 1AA",
+                          "unknown class", "never charged class"]) {
+      assert.ok(!all.includes(secret), `audit log leaked a value`);
+    }
+  });
+  await check("every audit row names only real field names", async () => {
+    const allowed = new Set(["message","reason","recipient_name","address_line1","address_line2","city","postcode","country"]);
+    for (const a of (await api("data_erasures?select=fields_cleared")).body)
+      for (const f of a.fields_cleared as string[])
+        assert.ok(allowed.has(f), `unexpected field name in audit: ${f}`);
+  });
 
   /*
    * Remove every fixture this run created. data_erasures is append-only
@@ -209,12 +281,16 @@ async function main() {
     ["not_played_reports", id(rep)],
     ["song_requests", id(sr)],
     ["song_requests", id(rb)],
+    ["song_requests", id(unk)],
+    ["song_requests", id(nc)],
     ["tips", id(tip)],
     ["qr_box_orders", id(abandoned)],
     ["qr_box_orders", id(paid)],
   ] as [string, string][]) {
     await api(`${table}?id=eq.${rowId}`, { method: "DELETE" });
   }
+  /* Only if this run created it; never remove something already there. */
+  if (createdDj) await api(`dj_profiles?id=eq.${id(createdDj)}`, { method: "DELETE" });
   const leftovers = await Promise.all(
     ["song_requests", "tips", "not_played_reports", "qr_box_orders"].map(
       async (t) => `${t}=${(await api(`${t}?select=id`)).body.length}`
