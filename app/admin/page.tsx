@@ -13,9 +13,7 @@ import type { LifecycleStage } from "@/src/lib/djLifecycle";
 
 import OverviewView from "@/src/components/admin/OverviewView";
 import ContactsView from "@/src/components/admin/ContactsView";
-import ReportsView from "@/src/components/admin/ReportsView";
-import RetentionPanel from "@/src/components/admin/RetentionPanel";
-import PrivacyPanel from "@/src/components/admin/PrivacyPanel";
+import ReportsDestination from "@/src/components/admin/ReportsDestination";
 import TasksView from "@/src/components/admin/TasksView";
 import TaskSheet from "@/src/components/admin/TaskSheet";
 import FreshnessIndicator from "@/src/components/admin/FreshnessIndicator";
@@ -591,21 +589,12 @@ export default function AdminPage() {
         )}
 
         {destination === "reports" && (
-          /*
-           * Retention sits under Reports rather than becoming a fifth
-           * destination: it is a compliance surface consulted a handful
-           * of times a year, and a fifth tab would crowd the mobile bar
-           * permanently for something used rarely.
-           */
-          <div className="flex flex-col gap-6">
-            <ReportsView
-              reports={reports}
-              resolvingId={resolvingId}
-              onResolve={resolveReport}
-            />
-            <PrivacyPanel rows={rows} />
-            <RetentionPanel />
-          </div>
+          <ReportsDestination
+            reports={reports}
+            rows={rows}
+            resolvingId={resolvingId}
+            onResolve={resolveReport}
+          />
         )}
       </div>
 

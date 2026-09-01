@@ -10,6 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import Card from "@/src/components/ui/Card";
+import AccordionSection from "@/src/components/admin/AccordionSection";
 import { useIsDesktop } from "@/src/lib/useIsDesktop";
 import Button from "@/src/components/ui/Button";
 import ContactIdentity from "@/src/components/admin/ContactIdentity";
@@ -65,80 +66,6 @@ const tierText: Record<TaskTier, string> = {
   upcoming: "text-text-muted",
   unscheduled: "text-text-muted",
 };
-
-/*
- * ── Every Overview section is a drawer now ────────────────────────
- *
- * Overview answers "what deserves my attention", and the honest form of
- * that answer is a list of headlines you can read in one screen, not
- * five reports stacked vertically. So each section collapses to a header
- * that carries its own answer - "Growth · 13 external · 0 activated" is
- * the whole section on most visits - and opens only when you want the
- * detail behind it.
- *
- * Controlled rather than self-managing, because the accordion needs one
- * place that knows what else is open. Open state lives in OverviewView
- * and is not persisted: Overview unmounts when you switch destination,
- * so coming back from Tasks resets to the headlines rather than
- * restoring a reading position.
- */
-function Section({
-  id,
-  title,
-  meta,
-  metaTone = "muted",
-  open,
-  onToggle,
-  className = "",
-  children,
-}: {
-  id: string;
-  title: string;
-  meta: string;
-  /** Amber when the header is reporting something that wants acting on. */
-  metaTone?: "muted" | "attention";
-  open: boolean;
-  onToggle: (id: string) => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card variant="elevated" className={`overflow-hidden ${className}`}>
-      {/*
-        A button rather than <details>/<summary>. The open state is owned
-        above, and a <details> element toggles itself on click before
-        React hears about it, so the two disagree for a frame every time
-        the accordion closes a different section.
-      */}
-      <h2>
-        <button
-          type="button"
-          onClick={() => onToggle(id)}
-          aria-expanded={open}
-          aria-controls={`section-${id}`}
-          className="flex min-h-[56px] w-full flex-wrap items-baseline gap-x-3 gap-y-1 p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
-        >
-          <span className="text-h3">{title}</span>
-          <span
-            className={`font-mono text-xs ${
-              metaTone === "attention" ? "text-status-pending" : "text-text-muted"
-            }`}
-          >
-            {meta}
-          </span>
-          <ChevronDown
-            size={16}
-            aria-hidden
-            className={`ml-auto shrink-0 self-center text-text-muted transition ${open ? "rotate-180" : ""}`}
-          />
-        </button>
-      </h2>
-      <div id={`section-${id}`} hidden={!open} className="border-t border-white/5">
-        {children}
-      </div>
-    </Card>
-  );
-}
 
 export default function OverviewView({
   rows,
@@ -259,7 +186,7 @@ export default function OverviewView({
   return (
     <div className="flex flex-col gap-6">
       {/* ── 1 · What I need to DO ──────────────────────────────── */}
-      <Section
+      <AccordionSection
         id="todo"
         title="To do"
         meta={
@@ -392,7 +319,7 @@ export default function OverviewView({
             </button>
           )}
         </div>
-      </Section>
+      </AccordionSection>
 
       {/*
         ── 2 · Business context ───────────────────────────────────
@@ -401,7 +328,7 @@ export default function OverviewView({
         figure IS the section - the header carries "0 of 4" and the body
         only explains what the two numbers mean.
       */}
-      <Section
+      <AccordionSection
         id="bottleneck"
         title="The bottleneck"
         meta={`${activatedStep?.count ?? 0} of ${readyStep?.count ?? 0}`}
@@ -414,7 +341,7 @@ export default function OverviewView({
           Onboarded, payments-ready DJs who have taken a paid request.
           Every technical blocker is cleared. What is missing is a gig.
         </p>
-      </Section>
+      </AccordionSection>
 
       {/*
         ── 3 · What is TRUE and worth knowing ─────────────────────
@@ -425,7 +352,7 @@ export default function OverviewView({
         only sometimes.
       */}
       {states.length > 0 && (
-        <Section
+        <AccordionSection
           id="worth-knowing"
           title="Worth knowing"
           meta={`${states.length}`}
@@ -500,7 +427,7 @@ export default function OverviewView({
               </button>
             )}
           </div>
-        </Section>
+        </AccordionSection>
       )}
 
       {/*
@@ -509,7 +436,7 @@ export default function OverviewView({
         taken a paid request - so the section only needs opening when you
         want the breakdown behind them.
       */}
-      <Section
+      <AccordionSection
         id="growth"
         title="Growth"
         meta={`${funnel.total} external · ${activatedStep?.count ?? 0} activated`}
@@ -597,7 +524,7 @@ export default function OverviewView({
             })}
           </ol>
         </div>
-      </Section>
+      </AccordionSection>
 
       {/*
         Collapsed when every recent signup is already in the CRM, and
@@ -607,7 +534,7 @@ export default function OverviewView({
         count says so in the header either way.
       */}
       {newThisWeek.length > 0 && (
-        <Section
+        <AccordionSection
           id="new-signups"
           title="Signed up this week"
           meta={
@@ -655,7 +582,7 @@ export default function OverviewView({
               );
             })}
           </ul>
-        </Section>
+        </AccordionSection>
       )}
     </div>
   );

@@ -120,10 +120,9 @@ export default function PrivacyPanel({ rows }: { rows: PipelineRow[] }) {
     "h-12 w-full rounded-control border border-white/10 bg-black/30 px-3 text-base text-white outline-none placeholder:text-zinc-600 focus:border-accent/40 md:h-11 md:text-sm";
 
   return (
-    <Card variant="elevated" className="overflow-hidden">
+    <>
       <div className="border-b border-white/5 p-5">
-        <h2 className="text-h3">Privacy requests</h2>
-        <p className="mt-1.5 text-sm text-text-muted">
+        <p className="text-sm text-text-muted">
           Find what Playing Next holds about someone, and erase the
           personal parts of it.
         </p>
@@ -383,6 +382,6 @@ export default function PrivacyPanel({ rows }: { rows: PipelineRow[] }) {
           )}
         </div>
       )}
-    </Card>
+    </>
   );
 }

@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ShieldCheck, AlertTriangle } from "lucide-react";
-import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
-import { adminFetch, adminJson } from "@/src/lib/adminFetch";
+import type { RetentionReport } from "@/src/lib/useRetentionReport";
 import {
   CLASS_LABELS,
   RULE_LABELS,
@@ -32,13 +30,6 @@ import {
  * screen that proposes erasing that text, and showing it here would put
  * the data on one more surface for no reason.
  */
-type Payload = {
-  executionEnabled: boolean;
-  executorExists: boolean;
-  plan: RetentionPlan;
-  scanned: { requests: number; tips: number; reports: number };
-};
-
 const RULES: RuleId[] = ["R1", "R2", "R3", "R4"];
 
 const CLASS_TONE: Record<PaymentClass, string> = {
@@ -47,29 +38,13 @@ const CLASS_TONE: Record<PaymentClass, string> = {
   unknown: "text-status-pending",
 };
 
-export default function RetentionPanel() {
-  const [data, setData] = useState<Payload | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const response = await adminFetch("/api/admin/retention");
-      setData(await adminJson<Payload>(response));
-      setFailed(false);
-    } catch {
-      /* A failed report must never render as "nothing to do". */
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
+export default function RetentionPanel({
+  report,
+}: {
+  /* Fetched by the parent so the collapsed header and the body agree. */
+  report: RetentionReport;
+}) {
+  const { data, failed, loading, reload: load } = report;
   const plan = data?.plan;
   const soonest = plan?.notYetDue
     .filter((n) => n.daysUntilDue >= 0)
@@ -77,10 +52,9 @@ export default function RetentionPanel() {
   const dueWithinWeek = soonest?.filter((n) => n.daysUntilDue <= 7).length ?? 0;
 
   return (
-    <Card variant="elevated" className="overflow-hidden">
+    <>
       <div className="border-b border-white/5 p-5">
-        <h2 className="text-h3">Data retention</h2>
-        <p className="mt-1.5 text-sm text-text-muted">
+        <p className="text-sm text-text-muted">
           What the retention rules would do. Nothing here runs anything.
         </p>
 
@@ -218,6 +192,6 @@ export default function RetentionPanel() {
           </div>
         </>
       )}
-    </Card>
+    </>
   );
 }

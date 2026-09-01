@@ -19,16 +19,17 @@ export default function ReportsView({
   const resolved = reports.filter((r) => r.resolution !== "pending");
 
   return (
-    <Card variant="elevated" className="overflow-hidden">
+    <>
       <div className="border-b border-white/5 p-5">
-        <h2 className="text-h3">
-          Not Played Reports{" "}
-          {pending.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-status-pending">
+        <p className="text-sm text-text-muted">
+          {pending.length > 0 ? (
+            <span className="font-semibold text-status-pending">
               {pending.length} awaiting a decision
             </span>
+          ) : (
+            "Nothing awaiting a decision."
           )}
-        </h2>
+        </p>
         <p className="mt-1.5 text-sm text-text-muted">
           A guest paid for a song and says it was never played. Each one is
           money owed back or a claim to deny.
@@ -110,6 +111,6 @@ export default function ReportsView({
           ))
         )}
       </div>
-    </Card>
+    </>
   );
 }
