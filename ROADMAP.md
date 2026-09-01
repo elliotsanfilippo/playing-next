@@ -28,14 +28,16 @@ a small DJ beta as a sole trader.
   `/admin`**; [GROWTH_CRM.md](GROWTH_CRM.md) is the history and the growth
   strategy behind it.
 - **The current constraint is activation, not acquisition.** Contact to
-  signup works. Signup to first use is **0 of 13** external accounts
-  (16 profiles less the three internal ones).
+  signup works. Signup to first use is **0 of 14** external accounts
+  (17 profiles less the three internal ones).
 - **Current phase**: none. Phase 6A (Dashboard and live gig operations),
   6B (Admin redesign and CRM), 6C (CRM operating model) and 6D (data
   retention and erasure) are complete as far as they can go and verified
   against Production. 6D's destructive half is deliberately blocked; see
   §5.
-- **Deployed commit**: `a76bdeb`, 2026-09-01. Working tree clean.
+- **Deployed commit**: `a76bdeb`, 2026-09-01 — the last commit that
+  changed application code. Anything after it on `main` is documentation.
+  Working tree clean.
 
 The product is feature-complete for the beta. The open work is legal and
 compliance, QA that needs a real DJ login, growth instrumentation, and
