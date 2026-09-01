@@ -521,6 +521,52 @@ not "after the beta ends"; it is "after we can measure it".
 
 ## 8. Future / scale
 
+### Venue Mode / DJ check-in
+
+A stated future mode for the platform, recorded 2026-09-01. Not approved
+work and not scheduled; written down so the shape is not re-derived.
+
+**The core idea.** A DJ checks in to the venue they are playing.
+Playing Next associates that venue with the currently active DJ. A guest
+can then find their venue and reach whoever is playing there, instead of
+having to identify the DJ by name or scan that DJ's personal QR.
+
+**Why it is interesting.** Every route to a guest today runs through the
+individual DJ - their slug, their QR, their printed card. That works when
+the guest already knows who is playing and is standing near the booth. A
+venue is the thing a guest actually knows they are in. It also makes the
+QR a property of the room rather than of the person, which is what makes
+a permanent fixture possible.
+
+**Longer-term potential**, in rough order of dependency:
+
+- a permanent venue QR, printed once and left in place
+- venue pages and venue accounts
+- resident-DJ management, so a venue can say who plays there
+- venue-approved requests
+- venue-level analytics, and a B2B offering built on it
+
+**Relationship to existing decisions.** The venue/promoter B2B accounts
+workstream stays **parked** (§9) - this does not un-park it. Venue Mode
+is the DJ-side capability that would have to exist first, and it is the
+half that needs no venue to sign anything.
+
+It also connects to the only activation blocker anyone has actually
+reported: on 2026-08-28 a club's management refused permission for
+Playing Next to be used at a set. If venue permission turns out to be a
+pattern rather than one case, a mode where the venue is a participant
+rather than an obstacle stops being a scale idea and becomes the answer
+to the thing blocking activation. That is a reason to keep watching the
+blocker data, not a reason to build this yet.
+
+**Dependencies worth naming before anyone starts.** There is no venue
+entity in the schema at all; `dj_events` exists, holds an event `name`,
+and has **zero rows**, so even the nearest existing concept is unadopted.
+"Currently playing here" needs a durable notion of an active session,
+which today is `session_started_at` and is cleared when a DJ pauses -
+one of the three competing definitions of "a night" already logged as
+technical debt in §11.
+
 - [ ] **Events gig-day semantics.** An event is the right boundary for
       "which night is this" because it survives midnight. Migrating Tonight,
       Earnings Today and Analytics onto it needs real adoption (the table
