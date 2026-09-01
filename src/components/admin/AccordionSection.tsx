@@ -28,6 +28,7 @@ export default function AccordionSection({
   id,
   title,
   meta,
+  subMeta,
   metaTone = "muted",
   open,
   onToggle,
@@ -37,6 +38,13 @@ export default function AccordionSection({
   id: string;
   title: string;
   meta: string;
+  /*
+   * A second summary line, on its own row. For a standing condition that
+   * belongs in the collapsed state rather than only inside the section -
+   * "report only, execution disabled" is true whether or not you open it,
+   * and a reader deciding whether to bother should see it first.
+   */
+  subMeta?: string;
   /** Amber when the header is reporting something that wants acting on. */
   metaTone?: "muted" | "attention";
   open: boolean;
@@ -73,6 +81,11 @@ export default function AccordionSection({
             aria-hidden
             className={`ml-auto shrink-0 self-center text-text-muted transition ${open ? "rotate-180" : ""}`}
           />
+          {subMeta && (
+            <span className="w-full font-mono text-xs text-text-muted">
+              {subMeta}
+            </span>
+          )}
         </button>
       </h2>
       <div id={`section-${id}`} hidden={!open} className="border-t border-white/5">

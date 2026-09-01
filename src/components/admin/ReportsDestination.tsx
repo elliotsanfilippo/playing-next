@@ -85,11 +85,28 @@ export default function ReportsDestination({
 
   const isOpen = (id: string) => open.has(id);
 
+  /*
+   * "Eligible", not "due". Due reads as a task with a deadline someone is
+   * expected to meet; nothing here is anyone's to do, because execution
+   * is deliberately disabled. Eligible says what is true - these rows now
+   * meet the rule's age condition - without implying an action.
+   */
   const retentionMeta = report.failed
     ? "Report unavailable"
     : !report.data
       ? "Loading..."
-      : `${summary.dueNow} due now · ${summary.dueWithin7} due within 7 days`;
+      : `${summary.dueNow} eligible now · ${summary.dueWithin7} within 7 days`;
+
+  /*
+   * Kept in the collapsed state rather than only inside the section: it
+   * is the fact that makes the counts above safe to read calmly, and a
+   * reader deciding whether to open this should have it first.
+   */
+  const retentionSubMeta = report.data
+    ? summary.executionEnabled
+      ? "Execution ENABLED"
+      : "Report only · execution disabled"
+    : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,6 +139,7 @@ export default function ReportsDestination({
         id="retention"
         title="Data retention"
         meta={retentionMeta}
+        subMeta={retentionSubMeta}
         metaTone={report.failed ? "attention" : "muted"}
         open={isOpen("retention")}
         onToggle={toggle}
