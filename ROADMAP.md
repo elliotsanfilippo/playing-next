@@ -397,21 +397,31 @@ current beta.
       and server-authoritative classification. `data_erasures` is applied
       and append-only; `customer_name` is dropped.
 
-      **Blocked — requires a safe non-Production database and backups
-      before Production execution can be enabled.** Nothing destructive
-      can run: `ERASURE_EXECUTION_ENABLED` and
-      `RETENTION_EXECUTION_ENABLED` are both unset, no automatic executor
-      exists, `erase_personal_fields` is drafted but unapplied to
-      Production, and Production erasure returns 503.
+      **Blocked — requires backups before Production execution can be
+      enabled.** Nothing destructive can run:
+      `ERASURE_EXECUTION_ENABLED` and `RETENTION_EXECUTION_ENABLED` are
+      both unset, and no automatic executor exists.
+
+      **`erase_personal_fields` is applied to Production**
+      (`20260831_erase_atomically.sql`, 2026-08-31) and was verified
+      afterwards read-only: the function exists with the expected
+      signature, is SECURITY INVOKER, and its guards are enforced in the
+      database rather than in the route. **Applying it did not arm
+      anything.** `ERASURE_EXECUTION_ENABLED` remains unset, so
+      `POST /api/admin/privacy/erase` returns **503 before it reads the
+      request body** and Production manual erasure cannot execute. No
+      erasure has ever been run against Production and `data_erasures`
+      holds 0 rows.
 
       **Verification status:** the pure-logic suite passes **46 of 46**
       (`scripts/erasure-rules.test.mts`) covering classification,
       eligibility, references, proofs and the field map. The database
-      write-path suite (`scripts/erasure-writepath.test.mts`) is written,
-      typechecks, and is **ready but unexecuted** - it covers the
-      transaction, rollback and audit contents, and refuses to run
-      against the Production project ref with no override. Destructive
-      behaviour is never to be tested against Production.
+      write-path suite passes **15 of 15**
+      (`scripts/erasure-writepath.test.mts`) against the isolated
+      Playing Next Test project, covering the transaction, rollback and
+      audit contents; it refuses to run against the Production project
+      ref with no override. Destructive behaviour is never to be tested
+      against Production.
 
       **Test environment approved 2026-08-31:** a second Supabase Free
       project, `test-environment/erasure/`. It verifies the erasure
@@ -733,8 +743,19 @@ solicitor review of all four documents, VAT and accounting advice,
 trademark.
 
 **Product or code implication:**
-- Data retention and erasure has **no mechanism at all**. Both data
-  minimisation and the right to erasure are UK GDPR requirements.
+- **Data retention and erasure: mechanism built, execution disabled.**
+  Both data minimisation and the right to erasure are UK GDPR
+  requirements, and as of 2026-08-31 Playing Next has a mechanism for
+  each rather than none. A manual privacy-request workflow can locate a
+  subject's records, verify ownership, classify them server-side and
+  clear the personal fields in one transaction with an append-only audit
+  record; the retention rules R1-R4 exist as a report. What is **not**
+  in place is any of it running: both execution flags are unset, there
+  is no automatic executor, and Production erasure returns 503. The
+  compliance position is therefore that a request could be answered by a
+  deliberate act, not that data is being minimised automatically.
+  Arming either half waits on database backups (§5). Guest self-service
+  access and export remain unbuilt.
 - Notification permission wording
 - Advertising consent must exist in the UI before ad measurement is legal
 
@@ -771,10 +792,18 @@ what was approved.**
 
 ## 13. Open decisions for Elliot
 
-1. **Data retention policy.** Nothing exists; GDPR requires it. Options:
-   time-based deletion of guest message text, anonymisation, or
-   manual-request-only. Recommendation: time-based deletion plus a
-   documented erasure route.
+1. **Financial-record retention period.** The retention policy itself is
+   settled and built (90 days for guest message text, erasure by
+   anonymisation, R1-R4 as rules). The one piece still undecided is how
+   long records that carry money must be kept before anything may touch
+   them. It is deliberately **not** an application constant: no such
+   figure exists anywhere in the code, and none should be invented here.
+   It depends on UK tax and accounting obligations and on the company
+   structure decision below, so it needs accounting or professional
+   advice rather than a product decision. Until it is settled, every
+   money-bearing row classifies as `preserve` and is never eligible for
+   anything destructive, which is the correct behaviour while the answer
+   is unknown.
 2. **Company structure.** Sole trader or Ltd. Gates several other items.
 3. **Ad landing destination.** Signup or marketing page.
 4. **Paid optimisation event.** Which single event spend is judged on.
