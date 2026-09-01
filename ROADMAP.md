@@ -19,9 +19,9 @@ a small DJ beta as a sole trader.
 
 - **Production**: `playingnextapp.com` (apex), `www` redirects, Vercel
   functions pinned to `lhr1` beside the London Supabase instance.
-- **Beta**: a 23-person outreach pipeline has produced 8 signups and 16 DJ
-  profiles, 4 of which are onboarded and payments-ready. **Zero external
-  DJs have activated.** An activated DJ is one who has accepted a first
+- **Beta**: a 23-person outreach pipeline has produced 8 signups and, as
+  at 2026-09-01, **17 DJ profiles — 14 external**, 5 of which are
+  onboarded and payments-ready. **Zero external DJs have activated.** An activated DJ is one who has accepted a first
   paid request; account creation, onboarding and Stripe connection are
   explicitly not activation. The only two accounts that have ever received
   a request are Elliot's own. **The live pipeline is the Admin CRM at
@@ -31,8 +31,11 @@ a small DJ beta as a sole trader.
   signup works. Signup to first use is **0 of 13** external accounts
   (16 profiles less the three internal ones).
 - **Current phase**: none. Phase 6A (Dashboard and live gig operations),
-  6B (Admin redesign and CRM) and 6C (CRM operating model) are all
-  complete and verified against production.
+  6B (Admin redesign and CRM), 6C (CRM operating model) and 6D (data
+  retention and erasure) are complete as far as they can go and verified
+  against Production. 6D's destructive half is deliberately blocked; see
+  §5.
+- **Deployed commit**: `a76bdeb`, 2026-09-01. Working tree clean.
 
 The product is feature-complete for the beta. The open work is legal and
 compliance, QA that needs a real DJ login, growth instrumentation, and
@@ -82,6 +85,66 @@ These are settled. Changing one is a deliberate decision, not a detail.
 ---
 
 ## 3. Recently completed — 6A Dashboard, 6B Admin and CRM, 6C CRM operating model
+
+### Phase 6D — Data retention and erasure. Built; destructive half BLOCKED, 2026-09-01.
+
+Playing Next had no retention policy and no deletion mechanism of any
+kind. It now has both, built and verified, with everything destructive
+deliberately disabled. Full detail in §5; the state that must survive a
+context reset is here.
+
+**Applied to Production**, in this order, each verified after applying:
+`20260831_drop_customer_name.sql` (dead column, 0 of 176 populated, 0
+code references), `20260831_data_erasures.sql`, then
+`20260831_data_erasures_revoke.sql`, then
+`20260831_erase_atomically.sql`.
+
+**The revoke exists because a GRANT does not withhold.** The first
+migration granted service_role SELECT and INSERT and claimed in its own
+comment that nothing held UPDATE or DELETE. Verified against Production
+immediately after applying: both returned 200, not 42501, because
+Supabase's default privileges had already granted everything. Same class
+of error as 2026-08-28 in the opposite direction. **Privileges have to be
+revoked to be absent.** `data_erasures` is now genuinely append-only,
+re-verified.
+
+**Built and live, all non-destructive:** a payment classification that
+fails closed (`src/lib/retention.ts`, zero I/O), R1-R4 as a report-only
+panel, and a manual privacy-request workflow with Stripe and attribute
+lookup, ownership verification and server-authoritative classification.
+
+**The safety gates, all still closed:**
+
+| Gate | State |
+| --- | --- |
+| `ERASURE_EXECUTION_ENABLED` | **unset** — erase route returns 503 |
+| `RETENTION_EXECUTION_ENABLED` | **unset** |
+| Automatic executor for R1-R4 | **does not exist**; 0 callers of the guard |
+| `/api/admin/retention` | GET only; 0 mutating verbs |
+| `src/lib/retention.ts` | 0 writes; no I/O at all |
+| Manual erasure | never deletes a row; `row_deleted` is a literal false |
+| `data_erasures` in Production | 0 rows |
+
+**Verification split, recorded honestly.** Pure logic passes **46/46**
+(`scripts/erasure-rules.test.mts`, no database). The database write path
+passes **15/15** (`scripts/erasure-writepath.test.mts`) against an
+isolated second Supabase Free project, never against Production.
+
+**Test environment.** `test-environment/erasure/` holds a fixture schema
+that is **not a migration** and must never be promoted into
+`supabase/migrations/`. Its source tables are inferred from the
+PostgREST description, which exposes no CHECK constraints, RLS, grants,
+triggers or indexes, so it proves the transaction and **nothing about
+Production**. Production security was verified separately, against
+Production, read-only. Synthetic fixtures only; Production personal data
+must never be loaded there.
+
+**Standing rule from this phase:** Production verification is read-only.
+No INSERT probes into `data_erasures`, no destructive tests against
+Production. Probe a permission by aiming a verb at a condition matching
+no rows — 42501 means the grant is absent, 200 with zero rows means it is
+present — which works for UPDATE and DELETE and is why INSERT testing
+must happen elsewhere.
 
 ### Phase 6C — CRM operating model. COMPLETE, 2026-08-30.
 
@@ -292,11 +355,24 @@ current beta.
       - Breakpoint checks at 320 / 430 / 768 / 1440. 390 is measured and
         clean; Chrome's minimum window width is 500px, so the others need
         the DevTools device toolbar set per width
-- [ ] **The activation problem.** 13 external signups, **zero activated**.
-      Four DJs are onboarded and payments-ready and have never taken a
-      request. Two have since said they would try it at a real gig —
-      Sweenz this weekend, Steve at his sports-bar sets — and those two
-      attempts are the next real input. The first known blocker is **not the product**:
+- [ ] **The activation problem.** 14 external signups, **zero activated**.
+      Five DJs are onboarded and payments-ready and have never taken a
+      request.
+
+      **Updated 2026-09-01.** Sweenz said he would try it over the
+      weekend and Steve said he would test it at his sports-bar sets.
+      **No song request has been created since 28 August.** Neither
+      attempt produced one, and the three follow-up tasks — Sweenz, Cammy
+      Birse and Ben Phillips, all due 31 August — are overdue and
+      unanswered. Asking those two what actually stopped them is the
+      highest-value action available and is not engineering work.
+
+      **Also 2026-09-01:** `djbadja` signed up on 31 August and completed
+      onboarding *and* connected Stripe the same day — the first DJ to do
+      the entire technical journey unprompted, from a cold prospect with
+      no recorded status. How they found Playing Next is unknown and
+      unknowable: there is no acquisition-source column and no
+      attribution of any kind. The first known blocker is **not the product**:
       one DJ asked a club for permission to use Playing Next and management
       refused. Treated as a single case, not a pattern, until others report
       back. See [GROWTH_CRM.md](GROWTH_CRM.md)
@@ -345,7 +421,11 @@ current beta.
 
       Guest access and export remain unbuilt. See
       [DATA_AUDIT.md](DATA_AUDIT.md) §5.
-- [ ] **Database backups and recovery.** Needs the Supabase Pro upgrade.
+- [ ] **Database backups and recovery.** Needs the Supabase Pro upgrade,
+      **which Elliot declined on 2026-08-31 as unjustifiable right now.**
+      This is the single gate on arming any destructive retention or
+      erasure. Do not work around it, and do not weaken the safety
+      requirements to avoid it.
 - [ ] Rate limiting shared across instances
 - [ ] Signed subscription webhook delivery QA via the Stripe CLI
 - [ ] One Preview Free to Pro checkout in a browser
@@ -663,6 +743,30 @@ and the request status lifecycle in Guest Terms.
 
 ---
 
+## 12a. Proposed next workstream — NOT audited, NOT approved
+
+**Automated onboarding-recovery emails.** Proposed 2026-09-01 as the next
+thing to look at. **No audit has been done, no design exists, nothing is
+approved and nothing must be built.**
+
+The shape of the idea: a DJ signs up and stalls before Ready to activate,
+and today nothing reaches out to them. Of 14 external DJs, 9 are not
+payments-ready, and several have sat untouched for weeks — `bookings` is
+the oldest stalled signup. An automated, well-judged recovery email at
+the right point in the lifecycle might convert some of them without
+Elliot chasing each one by hand.
+
+**Why it is only a proposal.** It touches DJs' inboxes, which is
+outward-facing and unforgiving; the lifecycle resolver would decide who
+is "stalled", which makes a wrong rule into a wrong email; and the email
+design system it would sit inside does not exist yet (§7). It also
+overlaps the CRM's whole reason for existing, so it needs to be clear
+what a machine sends and what Elliot sends.
+
+Follow the standing sequence when it is picked up: **audit and measure
+first, report with evidence, wait for explicit approval, implement only
+what was approved.**
+
 ## 13. Open decisions for Elliot
 
 1. **Data retention policy.** Nothing exists; GDPR requires it. Options:
@@ -772,6 +876,30 @@ and zinc-600 2.35-2.59:1. Do not reintroduce either for dashboard text.
 - Save changes writes only the fields its form displays: never tasks,
   `last_contact_at`, notes, lifecycle, or the legacy columns.
 
+**Retention and erasure invariants** (Phase 6D, 2026-09-01):
+
+- **Nothing destructive may run without an explicit decision.** Both
+  execution flags must be present AND exactly `"true"`; every other value
+  and their absence mean disabled. There is no reading that fails open.
+- **Backups gate arming.** No automatic retention rule and no Production
+  erasure is enabled until database backups exist and Elliot approves.
+- **Never delete a row to satisfy an erasure request.** Clearing the
+  personal field satisfies it; removing the row is minimisation, a
+  different obligation with its own gate.
+- **A missing `stripe_fee` never means unpaid.** It is written
+  conditionally on capture; 51 of 65 `played` rows carry none. Never use
+  `stripe_fee`, `total_amount`, request status or PaymentIntent presence
+  individually as proof of payment state.
+- **Locating a record never authorises erasing it.** DJ, date and song
+  identify a row and prove nothing about who is asking.
+- **The audit log records field names, never values**, and holds no guest
+  identifier. It is append-only and must stay that way.
+- **Production verification is read-only.** Destructive and write-path
+  testing happens in the Playing Next Test project, on synthetic data
+  only. Production personal data must never be loaded there.
+- **Never store a guest email in Supabase to make erasure easier.** The
+  bridge is Stripe, and it stays there.
+
 **Financial invariants:** stored snapshots are never recomputed; Dashboard
 Tonight equals Earnings Today on the same local-day basis; Accept captures
 exactly once; Decline never captures; a full queue never captures.
@@ -820,6 +948,14 @@ timestamp columns (`20260830`), Overview / Contacts / Tasks / Reports, the
 PN Admin PWA, the mobile UX pass, tasks made authoritative (`15a116d`),
 one scheduling model everywhere (`34c6a2c`), and refresh-on-return with a
 freshness indicator (`03d24c5`). The 23-person pipeline migrated.
+
+**Phase 6D — Data retention and erasure** — the classification and
+report-only rules (`9de5dac`), the privacy-request workflow (`f7e9ecb`),
+`data_erasures` made genuinely append-only after a GRANT was found not to
+withhold (`91c3ac3`), the clear and its audit made one transaction
+(`930526f`), the test-only fixture schema (`f3c8450`), and the write-path
+suite completed to 15/15 (`6391ec6`). Three migrations applied to
+Production and verified; everything destructive left disabled.
 
 **Phase 6C — CRM operating model** — the **+ Task** P0 and the two dialog
 bugs its verification exposed (`7a60147`, `49c9fd8`), optional Next gig
