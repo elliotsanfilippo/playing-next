@@ -252,9 +252,14 @@ export function renderRecoveryEmail(options: RenderOptions): RenderedEmail {
     profileComplete(profile) ? "/dj/settings/payments?from=onboarding" : "/dj/settings?from=onboarding"
   }`;
 
-  const ctaLabel = !profileComplete(profile)
-    ? `Add your ${profileGap(profile)}`
-    : "Finish connecting payouts";
+  /*
+   * State-aware and specific, approved 2026-09-02. "Continue setup" for
+   * A because two different things are outstanding and naming only one
+   * of them would be misleading; the other two states have exactly one
+   * thing left, so the button says what it is.
+   */
+  const ctaLabel =
+    state === "A" ? "Continue setup" : state === "B" ? "Finish connecting payouts" : "Finish your profile";
 
   /*
    * R2 offers a reply only when there is somewhere for it to land. An
@@ -276,6 +281,7 @@ export function renderRecoveryEmail(options: RenderOptions): RenderedEmail {
         };
 
   const content: EmailContent = {
+    logoUrl: `${baseUrl}/icons/icon-192.png`,
     preheader: PREHEADERS[template][state],
     heading: headingFor(template, state, profile),
     intro: introFor(template, state),
@@ -284,6 +290,19 @@ export function renderRecoveryEmail(options: RenderOptions): RenderedEmail {
     ctaHref: href,
     ctaNote: template === "recovery_1" ? "You can do this from your phone" : undefined,
     ...payoff,
+    /*
+     * Repeated on R1 only.
+     *
+     * R1 carries a five-row journey, so by the time the reader reaches
+     * the outcome block the button is well off screen on a phone and a
+     * second one catches them at the point of highest intent.
+     *
+     * R2 deliberately does not. It is three rows and its outcome block
+     * is the invitation to reply, so a second green button directly
+     * under "tell me what got in the way" would compete with the exact
+     * response that email is asking for.
+     */
+    repeatCta: template === "recovery_1",
     footerReason:
       template === "recovery_1"
         ? "You are receiving this because you created a Playing Next DJ account and have not finished setting it up. We will send one more reminder and then stop."

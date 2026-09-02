@@ -244,6 +244,43 @@ test("every variant carries a plain-text alternative and an unsubscribe link", (
   }
 });
 
+test("the CTA is state-aware and specific", () => {
+  assert.ok(render(base, "recovery_1").html.includes("Continue setup"));
+  assert.ok(render(withFields(complete), "recovery_1").html.includes("Finish connecting payouts"));
+  assert.ok(render(withFields({ stripe_connected: true }), "recovery_1").html.includes("Finish your profile"));
+});
+
+test("a repeated CTA is the same action, never a competing one", () => {
+  for (const v of everyVariant()) {
+    const hrefs = [...v.html.matchAll(/href="([^"]+)"/g)]
+      .map((m) => m[1])
+      .filter((h) => h.includes("/dj/"));
+    const labels = [...v.html.matchAll(/text-decoration:none;">([^<]+)<\/a>/g)].map((m) => m[1]);
+
+    assert.ok(hrefs.length >= 1, `${v.label} has no CTA`);
+    assert.equal(new Set(hrefs).size, 1, `${v.label} has competing destinations`);
+    assert.equal(new Set(labels).size, 1, `${v.label} has competing labels`);
+  }
+});
+
+test("R1 repeats the CTA, R2 does not", () => {
+  const count = (html: string) => [...html.matchAll(/\/dj\/settings/g)].length;
+  assert.equal(count(render(base, "recovery_1").html), 2);
+  assert.equal(count(render(base, "recovery_2").html), 1);
+});
+
+test("the header uses the real logo asset, not a reconstruction", () => {
+  const { html } = render(base, "recovery_1");
+  assert.ok(html.includes("/icons/icon-192.png"), "should use the shipped mark");
+  assert.ok(html.includes('alt="Playing Next"'), "needs alt text for blocked images");
+  assert.ok(!html.includes("border-radius:4px;\n"), "the old dot treatment is gone");
+});
+
+test("the CTA appears before the journey", () => {
+  const { html } = render(base, "recovery_1");
+  assert.ok(html.indexOf("Continue setup") < html.indexOf("Account created"));
+});
+
 test("the price shown is the DJ's real price", () => {
   const { text } = render(withFields({ request_price: 300 }), "recovery_1");
   assert.ok(text.includes("£3"), "should quote the real price");

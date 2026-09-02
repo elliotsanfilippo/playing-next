@@ -64,6 +64,8 @@ export type EmailStep = {
 };
 
 export type EmailContent = {
+  /** Absolute URL of the logo PNG. Must be absolute: email has no origin. */
+  logoUrl: string;
   /** Inbox preview line. Never repeat the subject here. */
   preheader: string;
   heading: string;
@@ -75,6 +77,9 @@ export type EmailContent = {
   ctaNote?: string;
   payoffTitle: string;
   payoffBody: string;
+  /* Repeat the identical primary CTA after the outcome block. Same
+     action and same destination, never a second competing one. */
+  repeatCta?: boolean;
   /** Why this email arrived, and what happens next. */
   footerReason: string;
   unsubscribeHref: string;
@@ -143,6 +148,24 @@ export function renderEmail(content: EmailContent): { html: string; text: string
     .map((step, i) => stepRow(step, i === content.steps.length - 1))
     .join("");
 
+  /*
+   * One button, rendered from one function, so the repeat at the bottom
+   * cannot drift into a different label or a different destination. A
+   * second CTA that says something else is a competing action, and this
+   * email has exactly one thing it wants the DJ to do.
+   */
+  const cta = (marginTop: number) => `<table role="presentation" cellpadding="0" cellspacing="0"
+             border="0" width="100%" style="width:100%;margin-top:${marginTop}px;">
+        <tr><td align="center" bgcolor="${ACCENT}"
+            style="background-color:${ACCENT};border-radius:9px;">
+          <a href="${escape(content.ctaHref)}"
+             style="display:block;padding:14px 20px;font-family:${FONT};font-size:15px;
+                    font-weight:700;color:${ACCENT_INK};text-decoration:none;">${escape(
+    content.ctaLabel
+  )}</a>
+        </td></tr>
+      </table>`;
+
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -164,16 +187,25 @@ export function renderEmail(content: EmailContent): { html: string; text: string
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
          style="max-width:480px;width:100%;">
 
-    <tr><td style="padding:4px 8px 18px 8px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td valign="middle" style="padding-right:8px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-            <td width="8" height="8" bgcolor="${ACCENT}"
-                style="width:8px;height:8px;background-color:${ACCENT};border-radius:4px;
-                       font-size:0;line-height:0;">&nbsp;</td></tr></table></td>
-        <td valign="middle" style="font-family:${FONT};font-size:11px;letter-spacing:2px;
-            text-transform:uppercase;color:${MUTED};font-weight:600;">Playing Next</td>
-      </tr></table>
+    <tr><td style="padding:4px 8px 16px 8px;">
+      <!--
+        The real mark, not a reconstruction. public/icons/icon-192.png is
+        the same asset the product uses in the navbar, the auth pages and
+        the manifest, and it is a PNG because SVG does not render in
+        Gmail or Outlook.
+
+        Sized at 28px: enough to establish who this is from, small enough
+        that it is a signature rather than a marketing header.
+
+        The alt text is styled, because most clients block images by
+        default and the fallback should read as the wordmark rather than
+        as a broken-image label.
+      -->
+      <img src="${escape(content.logoUrl)}" width="28" height="28" alt="Playing Next"
+           style="display:block;border:0;outline:none;text-decoration:none;
+                  width:28px;height:28px;border-radius:7px;font-family:${FONT};
+                  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+                  color:${MUTED};font-weight:600;">
     </td></tr>
 
     <tr><td bgcolor="${SURFACE}"
@@ -185,22 +217,12 @@ export function renderEmail(content: EmailContent): { html: string; text: string
       <div style="font-family:${FONT};font-size:15px;line-height:22px;color:${MUTED};
                   margin:0 0 4px 0;">${escape(content.intro)}</div>
 
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
-             style="width:100%;margin-top:18px;border-top:1px solid ${HAIRLINE};">
-        ${steps}
-      </table>
-
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
-             style="width:100%;margin-top:24px;">
-        <tr><td align="center" bgcolor="${ACCENT}"
-            style="background-color:${ACCENT};border-radius:9px;">
-          <a href="${escape(content.ctaHref)}"
-             style="display:block;padding:14px 20px;font-family:${FONT};font-size:15px;
-                    font-weight:700;color:${ACCENT_INK};text-decoration:none;">${escape(
-    content.ctaLabel
-  )}</a>
-        </td></tr>
-      </table>
+      <!--
+        The button sits here, above the journey, because on a phone the
+        journey pushed it below the fold and a DJ who already knows what
+        they are doing had to scroll past five rows to act.
+      -->
+      ${cta(20)}
 
       ${
         content.ctaNote
@@ -208,6 +230,11 @@ export function renderEmail(content: EmailContent): { html: string; text: string
                          text-align:center;padding-top:10px;">${escape(content.ctaNote)}</div>`
           : ""
       }
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+             style="width:100%;margin-top:22px;border-top:1px solid ${HAIRLINE};">
+        ${steps}
+      </table>
 
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
              style="width:100%;margin-top:24px;">
@@ -222,6 +249,8 @@ export function renderEmail(content: EmailContent): { html: string; text: string
   )}</div>
         </td></tr>
       </table>
+
+      ${content.repeatCta ? cta(20) : ""}
 
     </td></tr>
 
@@ -260,10 +289,10 @@ ${content.heading}
 
 ${content.intro}
 
-${textSteps}
-
 ${content.ctaLabel}: ${content.ctaHref}
 ${content.ctaNote ? `${content.ctaNote}\n` : ""}
+${textSteps}
+
 ${content.payoffTitle.toUpperCase()}
 ${content.payoffBody}
 
