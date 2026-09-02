@@ -250,16 +250,43 @@ test("the CTA is state-aware and specific", () => {
   assert.ok(render(withFields({ stripe_connected: true }), "recovery_1").html.includes("Finish your profile"));
 });
 
-test("a repeated CTA is the same action, never a competing one", () => {
+test("every CTA in a variant points at one destination", () => {
+  /*
+   * The invariant is the destination, not the wording. The two R1
+   * buttons deliberately read differently - the first names the task,
+   * the second names the outcome - and that is a change of framing, not
+   * a competing action. What would be a competing action is a second
+   * button that went somewhere else, so that is what this asserts.
+   */
   for (const v of everyVariant()) {
     const hrefs = [...v.html.matchAll(/href="([^"]+)"/g)]
       .map((m) => m[1])
       .filter((h) => h.includes("/dj/"));
-    const labels = [...v.html.matchAll(/text-decoration:none;">([^<]+)<\/a>/g)].map((m) => m[1]);
 
     assert.ok(hrefs.length >= 1, `${v.label} has no CTA`);
     assert.equal(new Set(hrefs).size, 1, `${v.label} has competing destinations`);
-    assert.equal(new Set(labels).size, 1, `${v.label} has competing labels`);
+  }
+});
+
+test("the R1 buttons name the task, then the outcome", () => {
+  for (const state of ["A", "B", "C"] as const) {
+    const profile =
+      state === "A" ? base : state === "B" ? withFields(complete) : withFields({ stripe_connected: true });
+    const { html } = render(profile, "recovery_1");
+
+    const labels = [...html.matchAll(/text-decoration:none;">([^<]+)<\/a>/g)].map((m) => m[1]);
+
+    assert.equal(labels.length, 2, `state ${state} should have two buttons`);
+    assert.notEqual(labels[0], labels[1], `state ${state} repeats the same words`);
+    assert.equal(labels[1], "Get ready for your first request");
+  }
+});
+
+test("R2 has exactly one CTA, so it cannot compete with the reply", () => {
+  for (const profile of [base, withFields(complete), withFields({ stripe_connected: true })]) {
+    const { html } = render(profile, "recovery_2");
+    const labels = [...html.matchAll(/text-decoration:none;">([^<]+)<\/a>/g)].map((m) => m[1]);
+    assert.equal(labels.length, 1);
   }
 });
 
@@ -269,11 +296,19 @@ test("R1 repeats the CTA, R2 does not", () => {
   assert.equal(count(render(base, "recovery_2").html), 1);
 });
 
-test("the header uses the real logo asset, not a reconstruction", () => {
+test("the header is the real mark plus the real wordmark treatment", () => {
   const { html } = render(base, "recovery_1");
+
   assert.ok(html.includes("/icons/icon-192.png"), "should use the shipped mark");
-  assert.ok(html.includes('alt="Playing Next"'), "needs alt text for blocked images");
-  assert.ok(!html.includes("border-radius:4px;\n"), "the old dot treatment is gone");
+  /* Sentence case, bold, tight tracking: what Navbar.tsx and Footer.tsx
+     actually do. Not the uppercase letter-spaced eyebrow style, which is
+     a different thing in the design system. */
+  assert.ok(html.includes(">Playing Next<"), "the wordmark should be live text");
+  assert.ok(html.includes("letter-spacing:-0.02em"), "tracking-tight, as the product sets it");
+  assert.ok(!html.includes("text-transform:uppercase;\n            color"), "not the eyebrow style");
+  /* Empty alt, because the wordmark beside it already says the name. */
+  assert.ok(html.includes('alt=""'), "the mark must not duplicate the wordmark when blocked");
+  assert.ok(!/@font-face|fonts\.googleapis/.test(html), "no remote font loading in email");
 });
 
 test("the CTA appears before the journey", () => {
@@ -312,19 +347,28 @@ const db = createClient(url, testEnv.TEST_SERVICE_ROLE_KEY!, {
 
 let djId: string;
 
+/*
+ * A fresh synthetic DJ every run, never a reused one.
+ *
+ * The unique index is on (dj_profile_id, template_key), and this suite
+ * deliberately cannot delete what it writes, because DELETE is revoked
+ * from service_role and proving that is one of the things the schema is
+ * for. Reusing a profile therefore made the second run collide with the
+ * first and fail for a reason that had nothing to do with the code.
+ *
+ * Rows accumulate in the test project and are cleared with owner SQL.
+ * That is the correct division: the suite proves it cannot delete, and
+ * cleanup happens with the privileges that can.
+ */
 before(async () => {
-  const { data } = await db.from("dj_profiles").select("id").limit(1).maybeSingle();
-  if (data) {
-    djId = data.id;
-    return;
-  }
-  const { data: made, error } = await db
+  const { data, error } = await db
     .from("dj_profiles")
-    .insert({ dj_name: "Fixture DJ", slug: `fixture-${Date.now()}` })
+    .insert({ dj_name: "Fixture DJ", slug: `fixture-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
     .select("id")
     .single();
+
   if (error) throw error;
-  djId = made.id;
+  djId = data.id;
 });
 
 test("claim, settle to sent, and refuse to claim again", async () => {

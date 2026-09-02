@@ -73,6 +73,9 @@ export type EmailContent = {
   steps: EmailStep[];
   ctaLabel: string;
   ctaHref: string;
+  /* The repeated button's copy. Different words for a different moment;
+     the destination is shared and cannot diverge. */
+  ctaLabelRepeat?: string;
   /** Small reassurance under the button. Never a time estimate. */
   ctaNote?: string;
   payoffTitle: string;
@@ -154,14 +157,14 @@ export function renderEmail(content: EmailContent): { html: string; text: string
    * second CTA that says something else is a competing action, and this
    * email has exactly one thing it wants the DJ to do.
    */
-  const cta = (marginTop: number) => `<table role="presentation" cellpadding="0" cellspacing="0"
+  const cta = (marginTop: number, label: string) => `<table role="presentation" cellpadding="0" cellspacing="0"
              border="0" width="100%" style="width:100%;margin-top:${marginTop}px;">
         <tr><td align="center" bgcolor="${ACCENT}"
             style="background-color:${ACCENT};border-radius:9px;">
           <a href="${escape(content.ctaHref)}"
              style="display:block;padding:14px 20px;font-family:${FONT};font-size:15px;
                     font-weight:700;color:${ACCENT_INK};text-decoration:none;">${escape(
-    content.ctaLabel
+    label
   )}</a>
         </td></tr>
       </table>`;
@@ -189,23 +192,34 @@ export function renderEmail(content: EmailContent): { html: string; text: string
 
     <tr><td style="padding:4px 8px 16px 8px;">
       <!--
-        The real mark, not a reconstruction. public/icons/icon-192.png is
-        the same asset the product uses in the navbar, the auth pages and
-        the manifest, and it is a PNG because SVG does not render in
-        Gmail or Outlook.
+        The brand lockup, matching what the product actually uses.
+        Audited rather than assumed: Navbar.tsx and Footer.tsx both pair
+        /logo.svg with the words "Playing Next" set bold and
+        tracking-tight in Geist, in sentence case. There is no wordmark
+        image asset anywhere in the repo, only the mark.
 
-        Sized at 28px: enough to establish who this is from, small enough
-        that it is a signature rather than a marketing header.
+        So the mark is public/icons/icon-192.png, the same asset the
+        navbar, the auth pages and the manifest use, as a PNG because
+        Gmail and Outlook do not render SVG. The wordmark is live text,
+        because Geist is a web font and email cannot load one reliably;
+        the system stack at 700 with -0.02em tracking is the closest
+        robust reproduction of that treatment, and on the iPhone this is
+        mostly read on it resolves to SF Pro.
 
-        The alt text is styled, because most clients block images by
-        default and the fallback should read as the wordmark rather than
-        as a broken-image label.
+        The image carries an empty alt deliberately: the wordmark beside
+        it already says the name, and duplicating it would read as
+        "Playing Next Playing Next" whenever images are blocked.
       -->
-      <img src="${escape(content.logoUrl)}" width="28" height="28" alt="Playing Next"
-           style="display:block;border:0;outline:none;text-decoration:none;
-                  width:28px;height:28px;border-radius:7px;font-family:${FONT};
-                  font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                  color:${MUTED};font-weight:600;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="middle" style="padding-right:10px;">
+          <img src="${escape(content.logoUrl)}" width="28" height="28" alt=""
+               style="display:block;border:0;outline:none;text-decoration:none;
+                      width:28px;height:28px;border-radius:7px;">
+        </td>
+        <td valign="middle" style="font-family:${FONT};font-size:16px;font-weight:700;
+            letter-spacing:-0.02em;color:${TEXT};line-height:20px;
+            white-space:nowrap;">Playing Next</td>
+      </tr></table>
     </td></tr>
 
     <tr><td bgcolor="${SURFACE}"
@@ -222,7 +236,7 @@ export function renderEmail(content: EmailContent): { html: string; text: string
         journey pushed it below the fold and a DJ who already knows what
         they are doing had to scroll past five rows to act.
       -->
-      ${cta(20)}
+      ${cta(20, content.ctaLabel)}
 
       ${
         content.ctaNote
@@ -250,7 +264,7 @@ export function renderEmail(content: EmailContent): { html: string; text: string
         </td></tr>
       </table>
 
-      ${content.repeatCta ? cta(20) : ""}
+      ${content.repeatCta ? cta(20, content.ctaLabelRepeat ?? content.ctaLabel) : ""}
 
     </td></tr>
 

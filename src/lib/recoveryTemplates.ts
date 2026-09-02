@@ -303,6 +303,15 @@ export function renderRecoveryEmail(options: RenderOptions): RenderedEmail {
      * response that email is asking for.
      */
     repeatCta: template === "recovery_1",
+    /*
+     * The two buttons sit at different moments and should not read as
+     * the same sentence twice. The first is the task: it follows a
+     * paragraph about what is outstanding. The second follows "Ready for
+     * your next set" and belongs to that frame, so it names the outcome
+     * instead. Same destination, enforced by the layout rendering both
+     * from one href.
+     */
+    ctaLabelRepeat: "Get ready for your first request",
     footerReason:
       template === "recovery_1"
         ? "You are receiving this because you created a Playing Next DJ account and have not finished setting it up. We will send one more reminder and then stop."
