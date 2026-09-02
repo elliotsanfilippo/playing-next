@@ -46,11 +46,49 @@ export type ActivityEntry = {
   /* Set only where an entry needs to be noticed: a failed or uncertain
      send. Everything else is history and reads as history. */
   tone?: "attention";
+  /* Present on lifecycle-email entries. One email is ONE item: its
+     subject, the state the DJ was in when it went, and every delivery
+     fact on a single line. Three separate cards for one message would
+     treble the timeline and bury the only interesting part, which is
+     the gap between sending and coming back. */
+  email?: EmailActivity;
   /** Sort key. Undated events sink to the bottom. */
   sortAt: number;
 };
 
 const UNDATED = -Infinity;
+
+/** A stamp with no time renders as its label alone, never as a blank. */
+export type ActivityStamp = { label: string; at: string | null };
+
+export type EmailActivity = {
+  /** Exactly what the DJ received. Null only for rows sent before it was stored. */
+  subject: string | null;
+  /** Human language. The stored A/B/C never reaches a screen. */
+  stateLabel: string;
+  stamps: ActivityStamp[];
+  /** Said plainly when a fact is unknowable rather than absent. */
+  note?: string;
+};
+
+/*
+ * The public names for things stored as identifiers. Every one of these
+ * mappings exists so that recovery_1, recovery_2, A, B and C stay
+ * internal: they are how the rules are written, not how anyone talks
+ * about a DJ.
+ */
+const EMAIL_NAMES: Record<string, string> = {
+  recovery_1: "Setup email",
+  recovery_2: "Setup follow-up",
+};
+
+const STATE_LABELS: Record<string, string> = {
+  A: "Profile + payouts incomplete",
+  B: "Payouts incomplete",
+  C: "Profile incomplete",
+};
+
+const capitalise = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 export function buildActivity(
   row: PipelineRow,
@@ -133,49 +171,55 @@ export function buildActivity(
   }
 
   for (const email of dj?.lifecycle_emails ?? []) {
-    const which =
-      email.template_key === "recovery_1" ? "Setup reminder" : "Final setup reminder";
+    const name = EMAIL_NAMES[email.template_key] ?? "Lifecycle email";
 
     const [title, at] =
       email.status === "sent"
-        ? [`${which} sent`, email.sent_at]
+        ? [`${name} sent`, email.sent_at]
         : email.status === "failed"
-          ? [`${which} failed to send`, email.last_error_at ?? email.created_at]
-          : [`${which} delivery uncertain`, email.created_at];
+          ? [`${name} failed to send`, email.last_error_at ?? email.created_at]
+          : [`${name} delivery uncertain`, email.created_at];
+
+    /*
+     * Only facts we hold. A missing delivery or return produces no
+     * stamp at all rather than an empty one, because "Returned —" reads
+     * as a measured nothing and we may simply not know.
+     */
+    const stamps: ActivityStamp[] = [];
+
+    if (email.sent_at) stamps.push({ label: "Sent", at: email.sent_at });
+
+    if (email.delivery_state === "delivered") {
+      /* at may be null: Resend reports the state for the historical
+         nine but not the moment, so this renders as "Delivered". */
+      stamps.push({ label: "Delivered", at: email.delivery_state_at });
+    } else if (email.delivery_state) {
+      stamps.push({ label: capitalise(email.delivery_state), at: email.delivery_state_at });
+    }
+
+    if (email.returned_at) {
+      stamps.push({ label: "Returned to Playing Next", at: email.returned_at });
+    }
 
     entries.push({
       id: `email:${email.template_key}`,
       kind: "email",
       tone: email.status === "sent" ? undefined : "attention",
       title,
-      detail:
-        email.status === "claimed"
-          ? "Claimed but never confirmed by the provider. Not retried automatically."
-          : email.attempts > 1
-            ? `Attempt ${email.attempts}`
-            : undefined,
       at,
       sortAt: at ? new Date(at).getTime() : UNDATED,
+      email: {
+        subject: email.subject_at_send,
+        stateLabel: STATE_LABELS[email.state_at_send] ?? "",
+        stamps,
+        note:
+          email.status === "claimed"
+            ? "Claimed but never confirmed by the provider. Not retried automatically."
+            : !email.return_tracked
+              ? "Return tracking was not in place for this email"
+              : undefined,
+      },
     });
-
-    /*
-     * A separate entry rather than a detail on the send, because it is a
-     * separate event with its own date: we did something, and then some
-     * time later they did something. Collapsing them would lose the gap,
-     * which is the only interesting part.
-     */
-    if (email.returned_at) {
-      entries.push({
-        id: `email-return:${email.template_key}`,
-        kind: "email",
-        title: `Came back from the ${
-          email.template_key === "recovery_1" ? "setup reminder" : "final setup reminder"
-        }`,
-        detail: "Signed in and reached the setup page the email pointed at",
-        at: email.returned_at,
-        sortAt: new Date(email.returned_at).getTime(),
-      });
-    }
   }
 
   /*
@@ -205,5 +249,19 @@ export function activityDate(entry: ActivityEntry): string {
       new Date(entry.at).getFullYear() === new Date().getFullYear()
         ? undefined
         : "numeric",
+  });
+}
+
+/**
+ * The clock on a delivery stamp, in the reader's own timezone.
+ *
+ * Formatted here rather than baked into the string when the entry is
+ * built, so "Sent 21:57" means 21:57 where the person reading it is,
+ * which is the only reading of it anybody wants.
+ */
+export function activityTime(at: string): string {
+  return new Date(at).toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }

@@ -71,34 +71,107 @@ test("labels are the human ones, never the internal funnel language", () => {
   assert.ok(t.includes("Ready to activate"));
 });
 
-test("no internal identifier reaches a timeline title", () => {
+const email = (over: Record<string, unknown> = {}) => ({
+  template_key: "recovery_1",
+  state_at_send: "A",
+  status: "sent",
+  attempts: 1,
+  created_at: "2026-09-02T20:57:00Z",
+  sent_at: "2026-09-02T20:57:45Z",
+  last_error_at: null,
+  returned_at: null,
+  return_tracked: true,
+  subject_at_send: "Two steps from your first paid request",
+  delivery_state: null,
+  delivery_state_at: null,
+  ...over,
+});
+
+const emailEntry = (over: Record<string, unknown> = {}) =>
+  buildActivity(row({ lifecycle_emails: [email(over)] }), [], []).find((e) => e.kind === "email")!;
+
+test("an email is one item, not three", () => {
+  const entries = buildActivity(
+    row({ lifecycle_emails: [email({ delivery_state: "delivered", delivery_state_at: "2026-09-02T20:57:47Z", returned_at: "2026-09-03T09:12:00Z" })] }),
+    [],
+    []
+  );
+  assert.equal(entries.filter((e) => e.kind === "email").length, 1);
+});
+
+test("recovery_1 and recovery_2 are named for people", () => {
+  assert.equal(emailEntry().title, "Setup email sent");
+  assert.equal(emailEntry({ template_key: "recovery_2" }).title, "Setup follow-up sent");
+});
+
+test("the stored state letter becomes human language", () => {
+  assert.equal(emailEntry({ state_at_send: "A" }).email!.stateLabel, "Profile + payouts incomplete");
+  assert.equal(emailEntry({ state_at_send: "B" }).email!.stateLabel, "Payouts incomplete");
+  assert.equal(emailEntry({ state_at_send: "C" }).email!.stateLabel, "Profile incomplete");
+});
+
+test("the historical subject is shown, not a rebuilt one", () => {
+  assert.equal(
+    emailEntry({ subject_at_send: "Your Playing Next page cannot take payment yet" }).email!.subject,
+    "Your Playing Next page cannot take payment yet"
+  );
+});
+
+test("a delivered state with no time renders as a label with no clock", () => {
+  const stamps = emailEntry({ delivery_state: "delivered", delivery_state_at: null }).email!.stamps;
+  const delivered = stamps.find((s) => s.label === "Delivered")!;
+  assert.ok(delivered, "should be present");
+  assert.equal(delivered.at, null, "and carry no invented time");
+});
+
+test("unknown facts produce no stamp at all", () => {
+  const stamps = emailEntry().email!.stamps;
+  assert.deepEqual(stamps.map((s) => s.label), ["Sent"]);
+  assert.ok(!stamps.some((s) => s.label.startsWith("Returned")), "never an empty Returned");
+});
+
+test("all three stamps appear once everything is known", () => {
+  const stamps = emailEntry({
+    delivery_state: "delivered",
+    delivery_state_at: "2026-09-02T20:57:47Z",
+    returned_at: "2026-09-03T09:12:00Z",
+  }).email!.stamps;
+
+  assert.deepEqual(stamps.map((s) => s.label), ["Sent", "Delivered", "Returned to Playing Next"]);
+  assert.ok(stamps.every((s) => s.at), "each carries its real time");
+});
+
+test("an untracked email says so, and never implies zero returns", () => {
+  const e = emailEntry({ return_tracked: false, delivery_state: "delivered" }).email!;
+  assert.equal(e.note, "Return tracking was not in place for this email");
+  assert.ok(!e.stamps.some((s) => s.label.startsWith("Returned")));
+});
+
+test("no internal identifier reaches a timeline title or subtext", () => {
   const entries = buildActivity(
     row({
       profile_completed_at: "2026-09-12T14:00:00Z",
       onboarding_complete: true,
       stripe_connected: true,
       lifecycle_emails: [
-        {
-          template_key: "recovery_1",
-          status: "sent",
-          attempts: 1,
-          created_at: "2026-09-02T20:57:00Z",
-          sent_at: "2026-09-02T20:57:00Z",
-          last_error_at: null,
-          returned_at: "2026-09-03T09:00:00Z",
-          return_tracked: true,
-        },
+        email({ delivery_state: "delivered", delivery_state_at: "2026-09-02T20:57:47Z", returned_at: "2026-09-03T09:12:00Z" }),
       ],
     }),
     [],
     []
   );
 
-  const text = entries.map((e) => `${e.title} ${e.detail ?? ""}`).join(" | ");
+  const text = entries
+    .map((e) => [e.title, e.detail, e.email?.subject, e.email?.stateLabel, e.email?.note,
+                 ...(e.email?.stamps ?? []).map((s) => s.label)].filter(Boolean).join(" "))
+    .join(" | ");
 
-  for (const internal of ["recovery_1", "recovery_2"]) {
+  for (const internal of ["recovery_1", "recovery_2", "state_at_send"]) {
     assert.ok(!text.includes(internal), `${internal} must never be shown`);
   }
-  assert.ok(text.includes("Setup reminder sent"));
-  assert.ok(text.includes("Came back from the setup reminder"));
+  /* A, B and C as bare state letters must not appear as labels either. */
+  assert.ok(!/\bstate [ABC]\b/i.test(text));
+
+  assert.ok(text.includes("Setup email sent"));
+  assert.ok(text.includes("Returned to Playing Next"));
 });

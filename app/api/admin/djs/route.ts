@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
            stage - see the note in crmActivity.ts. */
         supabaseAdmin
           .from("dj_lifecycle_emails")
-          .select("dj_profile_id, template_key, status, attempts, created_at, sent_at, last_error_at, returned_at, return_tracked"),
+          .select("dj_profile_id, template_key, state_at_send, status, attempts, created_at, sent_at, last_error_at, returned_at, return_tracked, subject_at_send, delivery_state, delivery_state_at"),
       ]);
 
     if (djProfilesResult.error) {
@@ -291,6 +291,7 @@ export async function GET(request: NextRequest) {
           .filter((e) => e.dj_profile_id === dj.id)
           .map((e) => ({
             template_key: e.template_key,
+            state_at_send: e.state_at_send,
             status: e.status,
             attempts: e.attempts,
             created_at: e.created_at,
@@ -298,6 +299,9 @@ export async function GET(request: NextRequest) {
             last_error_at: e.last_error_at,
             returned_at: e.returned_at,
             return_tracked: e.return_tracked,
+            subject_at_send: e.subject_at_send,
+            delivery_state: e.delivery_state,
+            delivery_state_at: e.delivery_state_at,
           })),
         lifecycle_stage: resolveLifecycleStage(
           profileForLifecycle,

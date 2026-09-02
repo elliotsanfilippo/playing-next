@@ -37,7 +37,7 @@ import LogInteractionForm, {
   type LogPayload,
 } from "@/src/components/admin/LogInteractionForm";
 import { MoreDetails, SectionLabel } from "@/src/components/admin/DrawerSections";
-import { buildActivity, activityDate } from "@/src/lib/crmActivity";
+import { buildActivity, activityDate, activityTime } from "@/src/lib/crmActivity";
 import { taskDueLabel, classifyTask } from "@/src/lib/crmQueue";
 
 import type {
@@ -863,7 +863,52 @@ export default function DjDetailDrawer({
                             entry.title
                           )}
                         </p>
-                        {entry.kind !== "task" && entry.detail && (
+
+                        {/* One email, one item. The subject the DJ
+                            actually received, the state they were in
+                            when it went, and every delivery fact on a
+                            single line. */}
+                        {entry.email && (
+                          <>
+                            {entry.email.subject && (
+                              <p className="mt-1 text-sm italic text-zinc-300">
+                                &ldquo;{entry.email.subject}&rdquo;
+                              </p>
+                            )}
+
+                            {entry.email.stateLabel && (
+                              <p className="mt-0.5 text-xs text-text-muted">
+                                {entry.email.stateLabel}
+                              </p>
+                            )}
+
+                            {entry.email.stamps.length > 0 && (
+                              <p className="mt-1.5 font-mono text-xs text-text-muted">
+                                {entry.email.stamps.map((stamp, i) => (
+                                  <span key={stamp.label}>
+                                    {i > 0 && <span className="text-zinc-600"> · </span>}
+                                    <span
+                                      className={
+                                        stamp.label.startsWith("Returned")
+                                          ? "text-accent"
+                                          : undefined
+                                      }
+                                    >
+                                      {stamp.label}
+                                      {stamp.at ? ` ${activityTime(stamp.at)}` : ""}
+                                    </span>
+                                  </span>
+                                ))}
+                              </p>
+                            )}
+
+                            {entry.email.note && (
+                              <p className="mt-1 text-xs text-zinc-600">{entry.email.note}</p>
+                            )}
+                          </>
+                        )}
+
+                        {entry.kind !== "task" && !entry.email && entry.detail && (
                           <p className="mt-0.5 text-xs text-text-muted">{entry.detail}</p>
                         )}
                         <p className="mt-0.5 font-mono text-xs text-text-muted">

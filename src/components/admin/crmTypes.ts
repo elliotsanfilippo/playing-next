@@ -38,6 +38,9 @@ export type DjStat = {
 /** One row of dj_lifecycle_emails, as the admin API reports it. */
 export type LifecycleEmailRecord = {
   template_key: "recovery_1" | "recovery_2";
+  /* Internal only. Translated to human language before it is rendered;
+     A, B and C never reach a screen. */
+  state_at_send: "A" | "B" | "C";
   status: "claimed" | "sent" | "failed";
   attempts: number;
   created_at: string;
@@ -48,6 +51,12 @@ export type LifecycleEmailRecord = {
      which, and the two must never be added together. */
   returned_at: string | null;
   return_tracked: boolean;
+  /* Exactly what the DJ received. Null for rows sent before it was
+     stored, and backfilled from the provider rather than reconstructed
+     from current template code. */
+  subject_at_send: string | null;
+  delivery_state: "delayed" | "delivered" | "bounced" | "failed" | "complained" | null;
+  delivery_state_at: string | null;
 };
 
 export type CrmContact = {
