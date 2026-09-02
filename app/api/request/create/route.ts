@@ -8,6 +8,12 @@ import {
 } from "@/src/lib/pricing";
 import { isEffectivelyTakingRequests } from "@/src/lib/djActivity";
 import {
+  CONNECT_NOT_READY_MESSAGE,
+  CONNECT_SELECT,
+  logConnectNotReady,
+  resolveConnectAccount,
+} from "@/src/lib/stripeEnvironment";
+import {
   MESSAGE_REJECTED_COPY,
   messageNeedsRewording,
 } from "@/src/lib/messageModeration";
@@ -107,7 +113,7 @@ export async function POST(request: NextRequest) {
     const { data: djProfile, error: profileError } = await supabaseAdmin
       .from("dj_profiles")
       .select(
-        "id, request_status, last_active_at, auto_close_at, max_pending_requests, plan, stripe_subscription_status"
+        `id, request_status, last_active_at, auto_close_at, max_pending_requests, plan, stripe_subscription_status, ${CONNECT_SELECT}`
       )
       .eq("slug", djSlug)
       .maybeSingle();
@@ -122,6 +128,39 @@ export async function POST(request: NextRequest) {
     if (!isEffectivelyTakingRequests(djProfile)) {
       return NextResponse.json(
         { error: "This DJ is not taking requests right now." },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * Refuse before the row exists, rather than after the guest has
+     * chosen a song and written a message.
+     *
+     * stripe/checkout already blocks this case, correctly, but it blocks
+     * it one step too late: by then this route has already written a
+     * checkout_pending row, and that row can never complete. It holds a
+     * reservation slot against the pending cap and then has to be swept
+     * up by the expiry job, so the cost of finding out late is a piece
+     * of permanent litter for every guest who tries.
+     *
+     * Guest availability deliberately does not consider payments
+     * (isEffectivelyTakingRequests reads request_status, last_active_at
+     * and auto_close_at only), so a DJ who has not finished Connect
+     * still presents a working request page. Until that is addressed on
+     * the guest page itself, this is the boundary where a request that
+     * could never be paid stops.
+     *
+     * Same resolution and the same gate as tips/checkout, using the same
+     * shared exports: blocked only when a destination transfer genuinely
+     * cannot land, not when bank payouts are merely paused.
+     */
+    const connect = resolveConnectAccount(djProfile);
+
+    if (!connect.accountId || !connect.connected) {
+      logConnectNotReady("request/create", djSlug);
+
+      return NextResponse.json(
+        { error: CONNECT_NOT_READY_MESSAGE },
         { status: 409 }
       );
     }
