@@ -834,21 +834,38 @@ export default function DjDetailDrawer({
                       <li key={entry.id} className="relative">
                         {/* A dot per source, not a rainbow: green for
                             things you did, blue for things the product
-                            did. */}
+                            did, amber only where something needs
+                            noticing. */}
                         <span
                           aria-hidden
                           className={`absolute -left-[1.32rem] top-1.5 h-2 w-2 rounded-full ${
-                            entry.kind === "product"
-                              ? "bg-status-playing"
-                              : "bg-accent"
+                            entry.tone === "attention"
+                              ? "bg-status-pending-dot"
+                              : entry.kind === "product"
+                                ? "bg-status-playing"
+                                : "bg-accent"
                           }`}
                         />
+                        {/* Render the title, except for a task, whose
+                            detail IS the sentence and whose title is the
+                            prefix. Reading `detail ?? title` worked only
+                            while tasks were the sole entries carrying a
+                            detail; an email entry has both, and would
+                            have shown its footnote instead of what
+                            happened. */}
                         <p className="text-sm text-zinc-200">
-                          {entry.kind === "task" && (
-                            <span className="text-text-muted">Task completed: </span>
+                          {entry.kind === "task" ? (
+                            <>
+                              <span className="text-text-muted">Task completed: </span>
+                              {entry.detail}
+                            </>
+                          ) : (
+                            entry.title
                           )}
-                          {entry.detail ?? entry.title}
                         </p>
+                        {entry.kind !== "task" && entry.detail && (
+                          <p className="mt-0.5 text-xs text-text-muted">{entry.detail}</p>
+                        )}
                         <p className="mt-0.5 font-mono text-xs text-text-muted">
                           {activityDate(entry)}
                         </p>

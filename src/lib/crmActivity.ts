@@ -18,9 +18,23 @@ import type {
  * date, because onboarding, payments and Pro were booleans before the
  * lifecycle stamps existed. Those render as "before tracking began".
  * Nothing here ever substitutes today's date for an unknown one.
+ *
+ * The fourth kind, added 2026-09-02, is email delivery history. It is
+ * kept deliberately separate from "product" because it is a different
+ * sort of fact: a product event is something the DJ did, and an email
+ * event is something we did to them. It is read from
+ * dj_lifecycle_emails and is NEVER an input to lifecycle stage, the
+ * funnel, or a Contacts group. A DJ who received two reminders and
+ * ignored them is in exactly the same state as one who received none.
+ *
+ * A "claimed" row is reported as uncertain rather than resolved in
+ * either direction. It means the process died between claiming the send
+ * and hearing back from the provider, so we genuinely do not know
+ * whether it arrived, and guessing would either hide a missed DJ or
+ * invite a duplicate.
  */
 
-export type ActivityKind = "manual" | "task" | "product";
+export type ActivityKind = "manual" | "task" | "product" | "email";
 
 export type ActivityEntry = {
   id: string;
@@ -29,6 +43,9 @@ export type ActivityEntry = {
   detail?: string;
   /** Null means it happened, but the date predates tracking. */
   at: string | null;
+  /* Set only where an entry needs to be noticed: a failed or uncertain
+     send. Everything else is history and reads as history. */
+  tone?: "attention";
   /** Sort key. Undated events sink to the bottom. */
   sortAt: number;
 };
@@ -95,14 +112,43 @@ export function buildActivity(
     }
   }
 
+  for (const email of dj?.lifecycle_emails ?? []) {
+    const which =
+      email.template_key === "recovery_1" ? "Setup reminder" : "Final setup reminder";
+
+    const [title, at] =
+      email.status === "sent"
+        ? [`${which} sent`, email.sent_at]
+        : email.status === "failed"
+          ? [`${which} failed to send`, email.last_error_at ?? email.created_at]
+          : [`${which} delivery uncertain`, email.created_at];
+
+    entries.push({
+      id: `email:${email.template_key}`,
+      kind: "email",
+      tone: email.status === "sent" ? undefined : "attention",
+      title,
+      detail:
+        email.status === "claimed"
+          ? "Claimed but never confirmed by the provider. Not retried automatically."
+          : email.attempts > 1
+            ? `Attempt ${email.attempts}`
+            : undefined,
+      at,
+      sortAt: at ? new Date(at).getTime() : UNDATED,
+    });
+  }
+
   /*
-   * Newest first. Ties break manual, then task, then product, so an
-   * interaction sits above the event it caused rather than below it.
+   * Newest first. Ties break manual, then task, then email, then
+   * product, so an interaction sits above the event it caused rather
+   * than below it.
    */
   const kindRank: Record<ActivityKind, number> = {
     manual: 0,
     task: 1,
-    product: 2,
+    email: 2,
+    product: 3,
   };
 
   return entries.sort((a, b) => {

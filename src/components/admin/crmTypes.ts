@@ -27,6 +27,18 @@ export type DjStat = {
   onboarded_at: string | null;
   payments_ready_at: string | null;
   pro_since: string | null;
+  /* Delivery history for lifecycle email. Never a lifecycle input. */
+  lifecycle_emails: LifecycleEmailRecord[];
+};
+
+/** One row of dj_lifecycle_emails, as the admin API reports it. */
+export type LifecycleEmailRecord = {
+  template_key: "recovery_1" | "recovery_2";
+  status: "claimed" | "sent" | "failed";
+  attempts: number;
+  created_at: string;
+  sent_at: string | null;
+  last_error_at: string | null;
 };
 
 export type CrmContact = {

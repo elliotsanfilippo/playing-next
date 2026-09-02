@@ -100,7 +100,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
-    const [djProfilesResult, songRequestsResult, chargebacksResult, reportsResult] =
+    const [
+      djProfilesResult,
+      songRequestsResult,
+      chargebacksResult,
+      reportsResult,
+      lifecycleEmailsResult,
+    ] =
       await Promise.all([
         supabaseAdmin
           .from("dj_profiles")
@@ -114,6 +120,13 @@ export async function GET(request: NextRequest) {
           .select("dj_profile_id, disputed_amount, deduction_status")
           .eq("source_table", "song_requests"),
         supabaseAdmin.from("not_played_reports").select("song_request_id, resolution"),
+        /* Delivery history for the contact timeline. Read here rather
+           than in a second request from the drawer, so a DJ's row
+           arrives complete. It is never used to derive a lifecycle
+           stage - see the note in crmActivity.ts. */
+        supabaseAdmin
+          .from("dj_lifecycle_emails")
+          .select("dj_profile_id, template_key, status, attempts, created_at, sent_at, last_error_at"),
       ]);
 
     if (djProfilesResult.error) {
@@ -272,6 +285,16 @@ export async function GET(request: NextRequest) {
         onboarded_at: dj.onboarded_at,
         payments_ready_at: dj.payments_ready_at,
         pro_since: dj.pro_since,
+        lifecycle_emails: (lifecycleEmailsResult.data ?? [])
+          .filter((e) => e.dj_profile_id === dj.id)
+          .map((e) => ({
+            template_key: e.template_key,
+            status: e.status,
+            attempts: e.attempts,
+            created_at: e.created_at,
+            sent_at: e.sent_at,
+            last_error_at: e.last_error_at,
+          })),
         lifecycle_stage: resolveLifecycleStage(
           profileForLifecycle,
           lifecycleRequests
