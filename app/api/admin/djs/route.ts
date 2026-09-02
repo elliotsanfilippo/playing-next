@@ -46,6 +46,7 @@ type DjProfileRow = {
      Admin list, the funnel counts and the segments cannot disagree
      about where a DJ is. */
   onboarding_complete: boolean | null;
+  profile_completed_at: string | null;
   stripe_connected: boolean | null;
   stripe_subscription_status: string | null;
   /* Stamped by the dj_profiles trigger on the first transition into
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
       await Promise.all([
         supabaseAdmin
           .from("dj_profiles")
-          .select("id, dj_name, slug, plan, request_status, created_at, onboarding_complete, stripe_connected, stripe_subscription_status, onboarded_at, payments_ready_at, pro_since")
+          .select("id, dj_name, slug, plan, request_status, created_at, onboarding_complete, stripe_connected, stripe_subscription_status, profile_completed_at, onboarded_at, payments_ready_at, pro_since")
           .order("created_at", { ascending: false }),
         supabaseAdmin
           .from("song_requests")
@@ -282,6 +283,7 @@ export async function GET(request: NextRequest) {
           paidNights.length >= 2
             ? paidDates.find((d) => d.slice(0, 10) === paidNights[1]) ?? null
             : null,
+        profile_completed_at: dj.profile_completed_at,
         onboarded_at: dj.onboarded_at,
         payments_ready_at: dj.payments_ready_at,
         pro_since: dj.pro_since,

@@ -85,11 +85,31 @@ export function buildActivity(
   if (dj) {
     const product: [string, string | null, boolean][] = [
       ["Account created", dj.created_at, true],
+      /*
+       * Only ever shown WITH a date.
+       *
+       * Every other product event here can render undated as "before
+       * tracking began", because the entry still says something true:
+       * it happened, we cannot date it. This one is different, and
+       * Elliot drew the line on 2026-09-02: a chronological timeline
+       * should contain events with honest times, and an undated
+       * "Profile completed" is a fact the contact's own lifecycle state
+       * already communicates without pretending to be a moment.
+       *
+       * So the third element is the timestamp rather than a "did it
+       * happen" flag. Null omits the row entirely, which is the
+       * behaviour the five profiles completed before the column existed
+       * will get for ever.
+       */
+      ["Profile completed", dj.profile_completed_at, !!dj.profile_completed_at],
       /* known-to-have-happened flags decide whether an undated event is
          shown at all: a DJ who never onboarded gets no entry, one who
          onboarded before the stamps existed gets an undated one. */
-      ["Finished onboarding", dj.onboarded_at, dj.onboarding_complete],
-      ["Connected payments", dj.payments_ready_at, dj.stripe_connected],
+      /* onboarding_complete requires stripe_connected, so this stamp is
+         the moment the DJ became Ready to activate. The old label named
+         our funnel rather than their position. */
+      ["Ready to activate", dj.onboarded_at, dj.onboarding_complete],
+      ["Payouts connected", dj.payments_ready_at, dj.stripe_connected],
       ["First request received", dj.first_request_at, !!dj.first_request_at],
       [
         "First paid request accepted",

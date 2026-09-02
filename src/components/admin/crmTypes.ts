@@ -24,6 +24,10 @@ export type DjStat = {
   first_request_at: string | null;
   first_paid_at: string | null;
   repeat_night_at: string | null;
+  /* Null means "complete, but before tracking began" as often as it
+     means "not complete". The lifecycle stage says which, and the
+     timeline omits the event rather than dating it. */
+  profile_completed_at: string | null;
   onboarded_at: string | null;
   payments_ready_at: string | null;
   pro_since: string | null;
