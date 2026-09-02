@@ -1,5 +1,6 @@
 import { renderEmail, type EmailContent, type EmailStep } from "./emailLayout.ts";
 import {
+  nextStepHref,
   outstanding,
   payoutsReady,
   profileComplete,
@@ -248,9 +249,7 @@ export function renderRecoveryEmail(options: RenderOptions): RenderedEmail {
   const { profile, template, state, baseUrl, unsubscribeHref, repliesMonitored } = options;
 
   const steps = template === "recovery_1" ? r1Steps(profile, state) : r2Steps(profile, state);
-  const href = `${baseUrl}${
-    profileComplete(profile) ? "/dj/settings/payments?from=onboarding" : "/dj/settings?from=onboarding"
-  }`;
+  const href = `${baseUrl}${nextStepHref(profile, template)}`;
 
   /*
    * State-aware and specific, approved 2026-09-02. "Continue setup" for

@@ -112,10 +112,21 @@ export function outstanding(profile: RecoveryProfile): string[] {
  * payments is its own route. Pretending to deep-link to a field that has
  * no anchor would be a worse lie than landing on the page that has it.
  */
-export function nextStepHref(profile: RecoveryProfile): string {
+export function nextStepHref(
+  profile: RecoveryProfile,
+  /*
+   * The marker names which email the DJ arrived from, which is the whole
+   * basis of first-party return attribution. It has to differ from the
+   * in-product "onboarding" value, because four buttons on the Onboarding
+   * screen already produce that one and a shared marker cannot tell an
+   * email click from a tap inside the app. That ambiguity is exactly why
+   * the first nine sends can never be attributed.
+   */
+  from: RecoveryTemplate | "onboarding" = "onboarding"
+): string {
   return profileComplete(profile)
-    ? "/dj/settings/payments?from=onboarding"
-    : "/dj/settings?from=onboarding";
+    ? `/dj/settings/payments?from=${from}`
+    : `/dj/settings?from=${from}`;
 }
 
 const daysBetween = (from: string, now: Date) =>

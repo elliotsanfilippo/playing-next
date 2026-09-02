@@ -11,6 +11,7 @@ import type {
   ConnectState,
   UnreachableReason,
 } from "@/src/lib/connectHealth";
+import { useLifecycleEmailReturn } from "@/src/lib/useLifecycleEmailReturn";
 
 /*
  * Is my payout setup healthy, and where will my earnings go?
@@ -120,7 +121,17 @@ function Capability({ label, ok }: { label: string; ok: boolean }) {
 function PaymentsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const cameFromOnboarding = searchParams.get("from") === "onboarding";
+  /*
+   * A DJ arriving from a recovery email is arriving from setup, so the
+   * back-to-setup affordance must behave exactly as it did before. The
+   * marker changed only so that an email click is distinguishable from
+   * the Onboarding screen's own buttons; it did not change where the DJ
+   * is in the product.
+   */
+  const from = searchParams.get("from");
+  const cameFromOnboarding = from === "onboarding" || from === "recovery_1" || from === "recovery_2";
+
+  useLifecycleEmailReturn(from);
 
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);

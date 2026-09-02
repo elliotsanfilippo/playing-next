@@ -4,6 +4,8 @@ import { useState } from "react";
 import AccordionSection from "@/src/components/admin/AccordionSection";
 import ReportsView from "@/src/components/admin/ReportsView";
 import PrivacyPanel from "@/src/components/admin/PrivacyPanel";
+import RemindersPanel from "@/src/components/admin/RemindersPanel";
+import { reminderMeta, summariseReminders } from "@/src/lib/lifecycleEmailSummary";
 import RetentionPanel from "@/src/components/admin/RetentionPanel";
 import { useIsDesktop } from "@/src/lib/useIsDesktop";
 import {
@@ -58,6 +60,8 @@ export default function ReportsDestination({
   const summary = retentionSummary(report.data);
 
   const pending = reports.filter((r) => r.resolution === "pending").length;
+  const reminders = summariseReminders(rows);
+  const remindersMeta = reminderMeta(reminders);
 
   /*
    * Computed once, on mount. Not derived on every render: the retention
@@ -124,6 +128,18 @@ export default function ReportsDestination({
           onResolve={onResolve}
         />
       </AccordionSection>
+
+      {remindersMeta && (
+        <AccordionSection
+          id="reminders"
+          title="Setup reminders"
+          meta={remindersMeta}
+          open={isOpen("reminders")}
+          onToggle={toggle}
+        >
+          <RemindersPanel summary={reminders} />
+        </AccordionSection>
+      )}
 
       <AccordionSection
         id="privacy"

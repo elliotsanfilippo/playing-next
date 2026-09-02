@@ -39,6 +39,11 @@ export type LifecycleEmailRecord = {
   created_at: string;
   sent_at: string | null;
   last_error_at: string | null;
+  /* First time the DJ came back from this email's CTA. Null means either
+     "has not come back" or "cannot be known" - return_tracked says
+     which, and the two must never be added together. */
+  returned_at: string | null;
+  return_tracked: boolean;
 };
 
 export type CrmContact = {

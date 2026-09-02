@@ -316,6 +316,24 @@ test("the CTA appears before the journey", () => {
   assert.ok(html.indexOf("Continue setup") < html.indexOf("Account created"));
 });
 
+test("each template's CTA carries its own return marker", () => {
+  const r1 = render(base, "recovery_1").html;
+  const r2 = render(base, "recovery_2").html;
+
+  assert.ok(r1.includes("?from=recovery_1"), "R1 must be attributable to R1");
+  assert.ok(!r1.includes("?from=onboarding"), "the ambiguous marker must be gone");
+  assert.ok(r2.includes("?from=recovery_2"), "R2 must be attributable to R2");
+  assert.ok(!r2.includes("?from=recovery_1"), "the two must not be confusable");
+});
+
+test("the marker is never the one the in-app buttons produce", () => {
+  /* Onboarding.tsx pushes ?from=onboarding from four buttons. Sharing
+     that value is what made the first nine sends unattributable. */
+  for (const v of everyVariant()) {
+    assert.ok(!v.html.includes("from=onboarding"), `${v.label} reuses the ambiguous marker`);
+  }
+});
+
 test("the price shown is the DJ's real price", () => {
   const { text } = render(withFields({ request_price: 300 }), "recovery_1");
   assert.ok(text.includes("£3"), "should quote the real price");

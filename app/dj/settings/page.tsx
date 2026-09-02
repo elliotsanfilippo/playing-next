@@ -42,6 +42,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from "@/src/lib/push";
+import { useLifecycleEmailReturn } from "@/src/lib/useLifecycleEmailReturn";
 
 /*
  * Settings is where a DJ configures the night before it starts. The
@@ -153,7 +154,17 @@ const toPayload = (form: FormState) => ({
 function DJSettingsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const cameFromOnboarding = searchParams.get("from") === "onboarding";
+  /*
+   * A DJ arriving from a recovery email is arriving from setup, so the
+   * back-to-setup affordance must behave exactly as it did before. The
+   * marker changed only so that an email click is distinguishable from
+   * the Onboarding screen's own buttons; it did not change where the DJ
+   * is in the product.
+   */
+  const from = searchParams.get("from");
+  const cameFromOnboarding = from === "onboarding" || from === "recovery_1" || from === "recovery_2";
+
+  useLifecycleEmailReturn(from);
 
   const [profile, setProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);

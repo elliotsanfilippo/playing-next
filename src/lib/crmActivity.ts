@@ -137,6 +137,25 @@ export function buildActivity(
       at,
       sortAt: at ? new Date(at).getTime() : UNDATED,
     });
+
+    /*
+     * A separate entry rather than a detail on the send, because it is a
+     * separate event with its own date: we did something, and then some
+     * time later they did something. Collapsing them would lose the gap,
+     * which is the only interesting part.
+     */
+    if (email.returned_at) {
+      entries.push({
+        id: `email-return:${email.template_key}`,
+        kind: "email",
+        title: `Came back from the ${
+          email.template_key === "recovery_1" ? "setup reminder" : "final setup reminder"
+        }`,
+        detail: "Signed in and reached the setup page the email pointed at",
+        at: email.returned_at,
+        sortAt: new Date(email.returned_at).getTime(),
+      });
+    }
   }
 
   /*
