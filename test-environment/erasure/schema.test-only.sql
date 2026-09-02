@@ -128,3 +128,15 @@ create table if not exists public.qr_box_orders (
 --   20260831_data_erasures_revoke.sql
 --   20260831_erase_atomically.sql
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- Added 2026-09-02 so the profile_completed_at migration could be
+-- verified here. Both columns exist in Production already; this fixture
+-- was inferred from a narrower set of tables and did not carry them.
+--
+-- Still not a Production schema. This file remains an inferred,
+-- incomplete fixture whose only purpose is letting a migration and its
+-- triggers be exercised somewhere that is not Production.
+-- ------------------------------------------------------------
+alter table public.dj_profiles add column if not exists request_price integer;
+alter table public.dj_profiles add column if not exists profile_image_url text;

@@ -121,3 +121,181 @@ create trigger dj_lifecycle_emails_return_is_final
  * nothing at all for anon and authenticated, with RLS on and no
  * policies. Adding a column grants nobody anything.
  */
+
+-- ============================================================
+-- What the DJ actually received
+--
+-- template_key plus state_at_send can render TODAY's subject. It cannot
+-- render the one that was sent, and that difference is not theoretical:
+-- the R1 state A subject changed from "Your Playing Next page cannot
+-- take payment yet" to "Two steps from your first paid request" within
+-- three days of being written. Reconstructing from current code would
+-- quietly rewrite what nine real people saw in their inbox.
+--
+-- So the subject is stored as a fact rather than derived as a guess.
+-- The BODY is deliberately not stored: the subject is the line that
+-- identifies the message in a list, and keeping the body would turn a
+-- delivery record into a copy of our own mail.
+--
+-- It carries no personal data. Subjects are template-level copy,
+-- identical for every DJ in the same state, with no name, no address
+-- and nothing personalised in them.
+--
+-- Nullable because the nine sent on 2026-09-02 predate the column. They
+-- are backfilled from Resend's own record of each provider_message_id,
+-- which is what was really sent, not a reconstruction.
+-- ============================================================
+alter table public.dj_lifecycle_emails
+  add column if not exists subject_at_send text;
+
+comment on column public.dj_lifecycle_emails.subject_at_send is
+  'The exact subject line the DJ received. Stored rather than derived, '
+  'because template copy changes and history must not change with it. '
+  'Never the body.';
+
+-- ============================================================
+-- What the provider told us happened next
+--
+-- One state and one timestamp rather than an event-history table. At
+-- this scale a table of every webhook we have ever received would be
+-- more machinery than the question deserves, and the question is only
+-- ever "what is the latest thing we know about this message".
+--
+-- delivery_state_at is the PROVIDER's event time, taken from the
+-- signed webhook payload's top-level created_at, which Resend documents
+-- as when the event occurred. Our own receipt time would be wrong by
+-- however long the webhook took to arrive or be retried, and it is not
+-- the thing anybody means by "Delivered 21:57".
+--
+-- Both are null for the nine already sent. Resend's API reports their
+-- current status but not the moment of delivery, so those rows get the
+-- state and no time, and PN Admin renders "Delivered" without a clock
+-- rather than inventing one.
+-- ============================================================
+alter table public.dj_lifecycle_emails
+  add column if not exists delivery_state text
+    check (delivery_state is null or delivery_state in (
+      'delayed', 'delivered', 'bounced', 'failed', 'complained'
+    ));
+
+alter table public.dj_lifecycle_emails
+  add column if not exists delivery_state_at timestamptz;
+
+comment on column public.dj_lifecycle_emails.delivery_state is
+  'Latest provider outcome, ranked so a weaker or duplicate event can '
+  'never overwrite a stronger one. Set only by the verified Resend '
+  'webhook.';
+
+comment on column public.dj_lifecycle_emails.delivery_state_at is
+  'The provider event time from the signed payload, not our receipt '
+  'time. Null where the provider cannot tell us, which is not the same '
+  'as the event not happening.';
+
+-- ------------------------------------------------------------
+-- Deterministic precedence
+--
+-- Webhooks are at-least-once and can arrive out of order, so the same
+-- message may produce delayed after delivered, or delivered twice. The
+-- rank makes both harmless without a dedup table: a state may only move
+-- upward.
+--
+--   0  nothing known yet
+--   1  delayed      a temporary problem, still in flight
+--   2  delivered    accepted by the recipient's mail server
+--   3  bounced      permanently rejected
+--   3  failed       we could not send it at all
+--   4  complained   delivered, and then reported as spam
+--
+-- complained outranks delivered because it happens afterwards and is
+-- the more consequential fact about the relationship. bounced and
+-- failed share a rank: both are terminal and neither follows the other.
+-- ------------------------------------------------------------
+create or replace function public.delivery_state_rank(state text)
+returns int
+language sql
+immutable
+set search_path = ''
+as $$
+  /*
+   * NULL for an unrecognised value, and 0 for a genuinely absent one.
+   *
+   * That distinction is load-bearing. The comparison in the trigger is
+   * "rank(new) <= rank(old)", and NULL makes that expression NULL rather
+   * than true, so an unrecognised state is NOT coerced away and falls
+   * through to the check constraint, which rejects it properly with
+   * 23514. Returning 0 for everything unknown, as the first version did,
+   * silently rewrote a bad value to NULL and the constraint never saw
+   * it: a typo in a handler would have been swallowed instead of caught.
+   */
+  select case
+    when state is null        then 0
+    when state = 'delayed'    then 1
+    when state = 'delivered'  then 2
+    when state = 'bounced'    then 3
+    when state = 'failed'     then 3
+    when state = 'complained' then 4
+    else null
+  end;
+$$;
+
+comment on function public.delivery_state_rank(text) is
+  'Ordering for delivery_state so out-of-order or duplicate webhooks '
+  'cannot walk a message backwards.';
+
+/*
+ * This trigger COERCES rather than raising, which is the opposite of
+ * the two write-once guards on this table, and the difference is
+ * deliberate.
+ *
+ * Those protect facts a person would be wrong to change. This one
+ * absorbs a message a machine will legitimately send more than once. A
+ * webhook handler that returned an error for a duplicate would make
+ * Resend retry it, for ever, over an event we had already recorded
+ * correctly. So a weaker event is silently discarded and the handler
+ * can write unconditionally, which is what makes the whole path
+ * idempotent.
+ */
+create or replace function public.dj_lifecycle_emails_delivery_forward_only()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if public.delivery_state_rank(new.delivery_state)
+     <= public.delivery_state_rank(old.delivery_state) then
+    new.delivery_state := old.delivery_state;
+    new.delivery_state_at := old.delivery_state_at;
+  end if;
+
+  return new;
+end;
+$$;
+
+comment on function public.dj_lifecycle_emails_delivery_forward_only() is
+  'Keeps the higher-ranked delivery state. Discards duplicates and '
+  'out-of-order webhooks silently, because erroring would make the '
+  'provider retry an event we already handled.';
+
+drop trigger if exists dj_lifecycle_emails_delivery_forward_only on public.dj_lifecycle_emails;
+/*
+ * Fires once the row knows anything about delivery, rather than only
+ * when the state would change.
+ *
+ * The first version used "old.delivery_state is distinct from
+ * new.delivery_state", which looks right and is wrong for the commonest
+ * case there is: a duplicate webhook carries the SAME state, so the
+ * clause was false, the trigger never ran, and the later event time
+ * overwrote the real one. "Delivered 23:59" instead of "Delivered
+ * 21:57", from an event that told us nothing new. Caught against the
+ * test project rather than in Production.
+ *
+ * With this condition the equal-rank case reaches the function and is
+ * coerced back to the recorded values, which is what makes a repeat
+ * genuinely a no-op. The very first event, where old is null, still
+ * bypasses the trigger and is simply written.
+ */
+create trigger dj_lifecycle_emails_delivery_forward_only
+  before update on public.dj_lifecycle_emails
+  for each row
+  when (old.delivery_state is not null)
+  execute function public.dj_lifecycle_emails_delivery_forward_only();

@@ -38,19 +38,24 @@ const db = createClient(url, testEnv.TEST_SERVICE_ROLE_KEY!, {
 
 let djId: string;
 
+/*
+ * A fresh synthetic DJ every run. This used to reuse whatever profile it
+ * found first, which collided with dj_lifecycle_emails_once the moment
+ * any other suite had already written a row for that DJ, and failed for
+ * a reason that had nothing to do with the code under test.
+ */
 before(async () => {
-  const { data } = await db.from("dj_profiles").select("id").limit(1).maybeSingle();
-  if (data) {
-    djId = data.id;
-    return;
-  }
-  const { data: made, error } = await db
+  const { data, error } = await db
     .from("dj_profiles")
-    .insert({ dj_name: "Fixture DJ", slug: `fixture-${Date.now()}` })
+    .insert({
+      dj_name: "Fixture DJ",
+      slug: `fixture-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    })
     .select("id")
     .single();
+
   if (error) throw error;
-  djId = made.id;
+  djId = data.id;
 });
 
 test("service_role can INSERT a claim", async () => {
