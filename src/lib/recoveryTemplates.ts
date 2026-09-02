@@ -156,7 +156,7 @@ function r2Steps(profile: RecoveryProfile, state: RecoveryState): EmailStep[] {
 
 const SUBJECTS: Record<RecoveryTemplate, Record<Exclude<RecoveryState, "ready">, string>> = {
   recovery_1: {
-    A: "Your Playing Next page cannot take payment yet",
+    A: "Two steps from your first paid request",
     B: "One step between you and your first paid request",
     C: "One step left on your Playing Next setup",
   },
@@ -169,7 +169,7 @@ const SUBJECTS: Record<RecoveryTemplate, Record<Exclude<RecoveryState, "ready">,
 
 const PREHEADERS: Record<RecoveryTemplate, Record<Exclude<RecoveryState, "ready">, string>> = {
   recovery_1: {
-    A: "Two things left before a guest can pay you.",
+    A: "Your QR code is ready. Payouts are what is missing.",
     B: "Your profile is done. Payouts are the last piece.",
     C: "Payouts are connected. Your profile is the last thing.",
   },
@@ -191,37 +191,47 @@ function headingFor(
         ? "Two things left before your first request"
         : "Two steps from your first request";
     }
-    if (state === "B") return "Your page is ready. Payouts are not.";
+    if (state === "B") return "One step from your first paid request";
     return "Payouts are on. One step left.";
   }
 
-  if (state === "B") return "Your page is ready. Payouts are not.";
+  if (state === "B") return "One step from your first paid request";
   return "Your QR code is still waiting";
 }
 
+/*
+ * The opening leads with what is already done, then names what is
+ * blocking. Both halves matter: opening on the failure reads as a
+ * telling-off, and omitting it would hide the one fact the DJ most needs
+ * to know, which is that payouts are what stops a guest paying.
+ *
+ * The request page URL is deliberately not printed. Written out in full
+ * it becomes the loudest thing in the email, and mail clients auto-link
+ * bare URLs in their own browser blue, which is the one colour in the
+ * message nobody chose.
+ */
 function introFor(
   template: RecoveryTemplate,
-  state: Exclude<RecoveryState, "ready">,
-  profile: RecoveryProfile,
-  baseUrl: string
+  state: Exclude<RecoveryState, "ready">
 ): string {
-  const link = `${baseUrl.replace(/^https?:\/\//, "")}/request/${profile.slug ?? ""}`;
+  const blocked =
+    "Until payouts are connected, a guest who scans your code cannot pay you.";
 
   if (template === "recovery_1") {
     if (state === "A") {
-      return `Your request page is already live at ${link}. Right now a guest who scans it cannot pay you, because payouts are not connected yet.`;
+      return `Your request page is already live and your QR code is ready. Two things are still missing. ${blocked}`;
     }
     if (state === "B") {
-      return "Everything else is done. If a guest scanned your code tonight they would see your page, choose a song, and then hit a wall at payment.";
+      return `Your profile is finished and your QR code is ready. Payouts are the last piece. ${blocked}`;
     }
-    return 'You have done the hard part. Your page still shows "New DJ" though, so guests scanning your code will not know it is you.';
+    return 'Payouts are connected, so the hard part is done. Your page still shows "New DJ" though, so guests scanning your code will not know it is you.';
   }
 
   if (state === "B") {
-    return "Everything else is done. If a guest scanned your code tonight they would see your page, choose a song, and then hit a wall at payment.";
+    return `Everything else is done and your QR code is waiting. ${blocked}`;
   }
 
-  return "This is the last reminder we will send about setting up. Your page is live, and it is one short step from being able to take a request at your next set.";
+  return "This is the last reminder we will send about setting up. Your page is live, and it is one short step from taking a request at your next set.";
 }
 
 export type RenderOptions = {
@@ -260,7 +270,7 @@ export function renderRecoveryEmail(options: RenderOptions): RenderedEmail {
             "Reply to this email and it comes straight to me. If Stripe asked for something awkward, or you have decided Playing Next is not for you, I would genuinely rather know.",
         }
       : {
-          payoffTitle: "What finishing gets you",
+          payoffTitle: "Ready for your next set",
           payoffBody:
             "Display your QR code at your next set. Guests scan it, request a song and pay. You decide what gets played, and the money lands in your account.",
         };
@@ -268,7 +278,7 @@ export function renderRecoveryEmail(options: RenderOptions): RenderedEmail {
   const content: EmailContent = {
     preheader: PREHEADERS[template][state],
     heading: headingFor(template, state, profile),
-    intro: introFor(template, state, profile, baseUrl),
+    intro: introFor(template, state),
     steps,
     ctaLabel,
     ctaHref: href,

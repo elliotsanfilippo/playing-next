@@ -38,8 +38,17 @@ const CANVAS = "#08090a";
 const SURFACE = "#111417";
 const HAIRLINE = "#23272b";
 const TEXT = "#f4f4f5";
-const MUTED = "#9a9aa2";
-const DIM = "#6c6e76";
+/*
+ * Raised on 2026-09-02 after reading the first test on an iPhone. The
+ * previous pair (#9a9aa2 and #6c6e76) measured about 5.1:1 and 3.3:1
+ * against the card, and the second of those is below the 4.5:1 floor for
+ * body text. A phone held at arm's length in a dark room is the actual
+ * reading condition here, so secondary text now clears the floor with
+ * room to spare and the hierarchy is carried by weight and size instead
+ * of by making the quiet text quieter.
+ */
+const MUTED = "#b4b5bc";
+const DIM = "#8e9098";
 
 const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
@@ -216,7 +225,7 @@ export function renderEmail(content: EmailContent): { html: string; text: string
 
     </td></tr>
 
-    <tr><td style="padding:18px 10px 0 10px;">
+    <tr><td style="padding:12px 12px 0 12px;">
       <div style="font-family:${FONT};font-size:11px;line-height:17px;color:${DIM};">
         ${escape(content.footerReason)}
         <a href="${escape(content.unsubscribeHref)}"
