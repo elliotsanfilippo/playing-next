@@ -766,33 +766,71 @@ and the request status lifecycle in Guest Terms.
 
 ---
 
-## 12a. Proposed next workstream — NOT audited, NOT approved
+## 12a. Onboarding recovery emails. R1 SHIPPED, 2026-09-02.
 
-**Automated onboarding-recovery emails.** Proposed 2026-09-01 as the next
-thing to look at. **No audit has been done, no design exists, nothing is
-approved and nothing must be built.**
+Nine external DJs had created an account and stopped before they could
+take money. Nothing reached out to them. Now something does, once, and
+then once more, and then never again.
 
-The shape of the idea: a DJ signs up and stalls before Ready to activate,
-and today nothing reaches out to them. Of 14 external DJs, 9 are not
-payments-ready, and several have sat untouched for weeks — `bookings` is
-the oldest stalled signup. An automated, well-judged recovery email at
-the right point in the lifecycle might convert some of them without
-Elliot chasing each one by hand.
+**What is built and live**
 
-**Why it is only a proposal.** It touches DJs' inboxes, which is
-outward-facing and unforgiving; the lifecycle resolver would decide who
-is "stalled", which makes a wrong rule into a wrong email; and the email
-design system it would sit inside does not exist yet (§7). It also
-overlaps the CRM's whole reason for existing, so it needs to be clear
-what a machine sends and what Elliot sends.
+- A minimal shared email layout (`src/lib/emailLayout.ts`): presentation
+  tables, inline styles, a system font stack, a plain-text alternative
+  generated from the same content object, and the real brand lockup.
+  This is the foundation §7 asked for and is deliberately no more than
+  that.
+- **Six templates**: R1 and R2, each in three state-aware variants,
+  rendered from live product state rather than from a stored flag.
+- `src/lib/recoveryEligibility.ts`, pure and clock-injected. It computes
+  A/B/C from the profile fields directly, because `onboarding_complete`
+  includes `stripe_connected` and therefore cannot express "profile
+  finished, payouts missing" at all.
+- Claim, compare-and-swap retry and settle (`lifecycleEmails.ts`) over
+  `dj_lifecycle_emails`, plus category-scoped suppression with one-click
+  unsubscribe.
+- An admin-only test route whose recipient comes from the verified
+  session and which writes no delivery row.
+- A fourth PN Admin timeline kind for delivery history, never an input
+  to lifecycle.
 
-Follow the standing sequence when it is picked up: **audit and measure
-first, report with evidence, wait for explicit approval, implement only
-what was approved.**
+**The R1 backlog, sent 2026-09-02 20:57 UTC.** Nine DJs, six in state A,
+two in C, one in B. All nine claimed, sent and delivered: zero failures,
+zero uncertain rows, zero duplicates, every row at `attempts = 1`. Sent
+by `scripts/send-recovery-backlog.mts`, which is dry-run by default,
+refuses any argument other than `--execute`, cannot send R2, cannot name
+a recipient, and re-checks eligibility from Production immediately before
+each individual claim.
+
+**Deliverability gate, passed before sending.** SPF, DKIM and DMARC all
+confirmed PASS from the delivered message's own headers rather than from
+DNS configuration alone. Sender and Reply-To are
+`info@playingnextapp.com`, a monitored mailbox, so R2's offer to reply is
+true. No open or click tracking is enabled and every link in every
+variant resolves to `playingnextapp.com`.
+
+**Not done, deliberately**
+
+- **R2 has never been sent.** The templates exist and the rule is
+  written; the first R2 is not due until a recipient reaches day 10 and
+  six days past their R1.
+- **No cron is armed.** There is no scheduler at all, so nothing sends
+  without somebody running it.
+- The Ready-to-activate sequence is a separate future workstream and was
+  kept out of this one on purpose.
+- Engagement tracking is a live question, not a gap: see §13.
 
 ## 13. Open decisions for Elliot
 
-1. **Financial-record retention period.** The retention policy itself is
+1. **Email engagement tracking for lifecycle emails.** Audited
+   2026-09-02, nothing enabled. Resend's open tracking injects a 1x1
+   pixel; its click tracking rewrites every link through a tracking
+   subdomain and records IP address and user agent per click. Both are
+   off, and Resend's own guidance is to use tracking selectively so that
+   inbox providers do not mistake transactional mail for marketing.
+   Recommendation on file: **neither**, and measure the funnel from our
+   own authenticated return instead. Elliot to decide.
+
+2. **Financial-record retention period.** The retention policy itself is
    settled and built (90 days for guest message text, erasure by
    anonymisation, R1-R4 as rules). The one piece still undecided is how
    long records that carry money must be kept before anything may touch
@@ -804,15 +842,15 @@ what was approved.**
    money-bearing row classifies as `preserve` and is never eligible for
    anything destructive, which is the correct behaviour while the answer
    is unknown.
-2. **Company structure.** Sole trader or Ltd. Gates several other items.
-3. **Ad landing destination.** Signup or marketing page.
-4. **Paid optimisation event.** Which single event spend is judged on.
-5. **Sentry.** `enableLogs` is on with no logger calls. Recommendation:
+3. **Company structure.** Sole trader or Ltd. Gates several other items.
+4. **Ad landing destination.** Signup or marketing page.
+5. **Paid optimisation event.** Which single event spend is judged on.
+6. **Sentry.** `enableLogs` is on with no logger calls. Recommendation:
    drop it, keep tracing and error capture.
-6. **Annual Pro billing.** Defer until Pro has real subscribers.
-7. **Physical QR block.** Keep as a launch promotion, or promote to an
+7. **Annual Pro billing.** Defer until Pro has real subscribers.
+8. **Physical QR block.** Keep as a launch promotion, or promote to an
    entitlement.
-8. **Guest queue voting.** Post-launch or never.
+9. **Guest queue voting.** Post-launch or never.
 
 ---
 
@@ -979,6 +1017,13 @@ timestamp columns (`20260830`), Overview / Contacts / Tasks / Reports, the
 PN Admin PWA, the mobile UX pass, tasks made authoritative (`15a116d`),
 one scheduling model everywhere (`34c6a2c`), and refresh-on-return with a
 freshness indicator (`03d24c5`). The 23-person pipeline migrated.
+
+**Onboarding recovery emails** — the shared layout and six state-aware
+templates, eligibility and the claim/settle model (`b8ac585`), the
+contrast and copy pass after reading one on a phone (`67316ef`), the
+brand lockup and CTA hierarchy (`5e49bfe`), and the backlog script
+(`b49ef5e`). R1 sent to nine DJs on 2026-09-02; R2 and the scheduler
+deliberately do not exist yet.
 
 **Phase 6D — Data retention and erasure** — the classification and
 report-only rules (`9de5dac`), the privacy-request workflow (`f7e9ecb`),
