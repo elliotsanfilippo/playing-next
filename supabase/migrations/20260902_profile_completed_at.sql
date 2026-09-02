@@ -122,18 +122,30 @@ comment on function public.dj_profiles_stamp_profile_completed() is
   'are all present. Write-once via coalesce.';
 
 /*
- * UPDATE only, and only when one of the four fields actually changes.
+ * UPDATE, and only on a genuine TRANSITION into completeness.
  *
- * The WHEN clause matters for cost as much as tidiness: dj_profiles is
- * updated constantly by the last_active_at heartbeat, and without it
- * this function would run on every one of those. The
- * profile_completed_at is null condition also means the trigger stops
- * doing anything at all once the stamp is set.
+ * The second condition is the one that matters, and it was missing from
+ * the first version. Without it the trigger stamps the first time it
+ * NOTICES a complete profile rather than the first time one BECOMES
+ * complete, and those differ for exactly the rows this migration
+ * promised not to invent dates for.
  *
- * No INSERT branch, because bootstrap-profile creates every profile as
- * "New DJ" with no photo, so a row is never complete at birth. If that
- * ever changes this needs one, and OLD does not exist there, so it
- * cannot simply be bolted onto this trigger.
+ * The five DJs who are already complete keep NULL at migration time, as
+ * intended. But the moment any of them edited their name or swapped
+ * their photo, the old trigger would have fired and dated their profile
+ * completion to that edit: "Profile completed 20 Sep" for somebody who
+ * finished it on 15 August. That is the same fabrication the migration
+ * exists to avoid, just deferred until somebody touched the row.
+ *
+ * Requiring OLD to be incomplete fixes it. A row that was already
+ * complete can never trigger a stamp, however often it is edited, so it
+ * stays honestly unknown. This mirrors the transition checks in
+ * 20260830_lifecycle_timestamps.sql, which test the previous value for
+ * the same reason.
+ *
+ * The WHEN clause also matters for cost: dj_profiles is updated
+ * constantly by the last_active_at heartbeat, and without the
+ * field-change condition this would run on every one of those.
  */
 drop trigger if exists dj_profiles_stamp_profile_completed on public.dj_profiles;
 create trigger dj_profiles_stamp_profile_completed
@@ -141,6 +153,9 @@ create trigger dj_profiles_stamp_profile_completed
   for each row
   when (
     old.profile_completed_at is null
+    and not public.is_profile_complete(
+      old.dj_name, old.request_price, old.profile_image_url, old.slug
+    )
     and (
       old.dj_name is distinct from new.dj_name
       or old.request_price is distinct from new.request_price
@@ -148,6 +163,48 @@ create trigger dj_profiles_stamp_profile_completed
       or old.slug is distinct from new.slug
     )
   )
+  execute function public.dj_profiles_stamp_profile_completed();
+
+-- ------------------------------------------------------------
+-- And the same rule at INSERT
+--
+-- 20260830_lifecycle_timestamps.sql anticipated this exactly: "If
+-- signup ever creates a row already in one of these states, this needs
+-- an INSERT branch - OLD does not exist there, so it cannot simply be
+-- added to the same trigger." It needs a second trigger, but not a
+-- second function: the body reads only NEW, so both can share it.
+--
+-- Why this is not the same as inventing a historical date
+-- ------------------------------------------------------
+-- The five profiles that are already complete get nothing, because they
+-- already exist and an INSERT trigger cannot fire for a row that was
+-- inserted before it existed. Their completion date is genuinely
+-- unrecoverable and stays NULL.
+--
+-- A row created complete AFTER this ships is a different fact
+-- altogether. We are present at the moment it happens, and "this
+-- profile was complete when it was created" is something we observed
+-- rather than reconstructed. Refusing to record it would lose a date we
+-- actually have, which is the opposite failure to the one being avoided.
+--
+-- Nothing creates such a row today: bootstrap-profile inserts every
+-- profile as "New DJ" with no photo, so this branch is dormant. It
+-- exists so that the day something does - an admin-created account, an
+-- import, a signup flow that collects a name up front - the timeline is
+-- right without anybody remembering to come back here.
+--
+-- The coalesce matters more here than on the UPDATE path. A restore or
+-- a migration that re-inserts a row WITH its original
+-- profile_completed_at keeps that value; only a row arriving without one
+-- is stamped now(). A bulk re-insert that dropped the column would
+-- therefore date those rows to the restore, which is worth knowing
+-- before anybody attempts one.
+-- ------------------------------------------------------------
+drop trigger if exists dj_profiles_stamp_profile_completed_insert on public.dj_profiles;
+create trigger dj_profiles_stamp_profile_completed_insert
+  before insert on public.dj_profiles
+  for each row
+  when (new.profile_completed_at is null)
   execute function public.dj_profiles_stamp_profile_completed();
 
 /*

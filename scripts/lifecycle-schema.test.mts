@@ -259,20 +259,86 @@ test("clearing a field does not clear the stamp", async () => {
     "they did complete it once; removing the photo later does not un-happen that");
 });
 
-test("a profile that was already complete is never given an invented date", async () => {
-  /* Modelled directly: a row inserted complete, as the pre-existing
-     Production profiles effectively are, and never updated. The trigger
-     is UPDATE-only, so it keeps NULL rather than acquiring today. */
+test("a profile created already complete IS stamped, because we were there", async () => {
+  const before = Date.now();
+
   const { data } = await db
     .from("dj_profiles")
     .insert({
-      dj_name: "Already Complete",
-      slug: `pre-${Date.now()}`,
+      dj_name: "Born Complete",
+      slug: `born-${Date.now()}`,
       request_price: 500,
       profile_image_url: "https://x.invalid/p.jpg",
     })
     .select("profile_completed_at")
     .single();
 
-  assert.equal(data!.profile_completed_at, null, "unknown stays unknown");
+  assert.ok(data!.profile_completed_at, "a complete row created now has a knowable date");
+  const at = new Date(data!.profile_completed_at!).getTime();
+  assert.ok(at >= before - 5000 && at <= Date.now() + 5000, "and it is now, not something invented");
+});
+
+test("a profile created incomplete is not stamped at insert", async () => {
+  const { data } = await db
+    .from("dj_profiles")
+    .insert({ dj_name: "New DJ", slug: `bornish-${Date.now()}` })
+    .select("profile_completed_at")
+    .single();
+
+  assert.equal(data!.profile_completed_at, null);
+});
+
+test("an insert carrying its own date keeps it, so a restore is not re-dated", async () => {
+  const original = "2026-08-15T12:00:00.000Z";
+
+  const { data } = await db
+    .from("dj_profiles")
+    .insert({
+      dj_name: "Restored",
+      slug: `restored-${Date.now()}`,
+      request_price: 500,
+      profile_image_url: "https://x.invalid/p.jpg",
+      profile_completed_at: original,
+    })
+    .select("profile_completed_at")
+    .single();
+
+  assert.equal(new Date(data!.profile_completed_at!).toISOString(), original);
+});
+
+test("a historically complete profile is never stamped by a later edit", async () => {
+  /*
+   * The case the five existing Production profiles are in: complete, but
+   * completed before the column existed, so the date is unknown.
+   *
+   * Modelled by clearing the stamp an insert would set, which leaves
+   * exactly their shape. Editing such a row must NOT date their profile
+   * completion to the edit - that would be the same fabrication the
+   * migration exists to avoid, just deferred.
+   */
+  const slug = `legacy-${Date.now()}`;
+  const { data: made } = await db
+    .from("dj_profiles")
+    .insert({
+      dj_name: "Legacy Complete",
+      slug,
+      request_price: 500,
+      profile_image_url: "https://x.invalid/p.jpg",
+    })
+    .select("id")
+    .single();
+
+  await db.from("dj_profiles").update({ profile_completed_at: null }).eq("id", made!.id);
+
+  await db.from("dj_profiles").update({ dj_name: "Legacy Renamed" }).eq("id", made!.id);
+  await db.from("dj_profiles").update({ profile_image_url: "https://x.invalid/new.jpg" }).eq("id", made!.id);
+
+  const { data: after } = await db
+    .from("dj_profiles")
+    .select("profile_completed_at")
+    .eq("id", made!.id)
+    .single();
+
+  assert.equal(after!.profile_completed_at, null,
+    "they completed it before we were counting; an edit does not date that");
 });
