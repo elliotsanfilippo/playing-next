@@ -847,6 +847,15 @@ Verified against the deployed endpoint by watching a forged request move
 from 500 (no secret) to 400 (signature rejected), with the target row
 unchanged. **Nothing was emailed to test it.**
 
+**Where the nine stand, read live on 2026-09-03.** Nine emailed, nine
+delivered, and **0 setup completions since**: none has become Ready to
+activate and none carries a `profile_completed_at`, `payments_ready_at`
+or `onboarded_at` stamp. Whether any of them came *back* is a different
+question and is **not answerable for this cohort** at all, because their
+CTA used the ambiguous marker. Return tracking begins with the next
+lifecycle email sent; it is not retroactive, and a `returned_at` of zero
+here must never be read or reported as a measured zero.
+
 **Contact Activity, in human language.** One grouped item per email
 carrying the subject the DJ actually received, the state they were in
 when it went, and every known delivery fact on one line. `recovery_1`,
