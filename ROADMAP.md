@@ -35,9 +35,9 @@ a small DJ beta as a sole trader.
   retention and erasure) are complete as far as they can go and verified
   against Production. 6D's destructive half is deliberately blocked; see
   §5.
-- **Deployed commit**: `a76bdeb`, 2026-09-01 — the last commit that
-  changed application code. Anything after it on `main` is documentation.
-  Working tree clean.
+- **Deployed commit**: `44dffc7`, 2026-09-03. Onboarding-recovery emails
+  are built and R1 has been sent once to nine DJs; the delivery webhook
+  is live; no scheduler exists and R2 has never been sent. See §12a.
 
 The product is feature-complete for the beta. The open work is legal and
 compliance, QA that needs a real DJ login, growth instrumentation, and
@@ -808,29 +808,70 @@ DNS configuration alone. Sender and Reply-To are
 true. No open or click tracking is enabled and every link in every
 variant resolves to `playingnextapp.com`.
 
+**Measurement, first-party. Decided and built 2026-09-02.**
+
+Resend's open and click tracking are **off and staying off**. Opens are
+a 1x1 pixel, six of the nine recipients sit behind Gmail or Apple image
+proxies, and clicks would rewrite every link through a tracking
+subdomain while recording an IP address and a user agent per click. The
+number would have been uninterpretable and the cost was real.
+
+What was built instead measures the half that matters, from the only
+place it can be known honestly: a DJ, signed in as themselves, arriving
+on the page the email pointed at.
+
+- `?from=recovery_1` and `?from=recovery_2` distinguish an email click
+  from the four in-product buttons that also produce `?from=onboarding`.
+  That collision is precisely why the first nine can never be
+  attributed.
+- `returned_at` records the first such arrival, write-once in the
+  database as well as in the application, so a repeat visit cannot
+  inflate it and a later edit cannot move it.
+- `return_tracked` separates "did not come back" from "cannot be known".
+  The nine are false, and Reports says "9 sent, returns not measurable"
+  rather than inventing a zero.
+- **No pixel, no link rewriting, no IP, no user agent, no third party.**
+
+**Delivery, from a signed webhook. Live 2026-09-03.**
+`/api/webhooks/resend` accepts five delivery events and refuses
+everything else, including opens and clicks, which are absent from its
+map rather than merely disabled upstream. It verifies with `svix`, fails
+closed with no secret or a bad signature, never reads or logs the
+recipient, and returns a silent success for message ids it does not
+recognise, because the QR box emails share the Resend account.
+`delivery_state_at` is the provider's own event time from inside the
+signed body. Duplicate and out-of-order events are absorbed by the
+database's forward-only rank rather than by handler logic.
+
+Verified against the deployed endpoint by watching a forged request move
+from 500 (no secret) to 400 (signature rejected), with the target row
+unchanged. **Nothing was emailed to test it.**
+
+**Contact Activity, in human language.** One grouped item per email
+carrying the subject the DJ actually received, the state they were in
+when it went, and every known delivery fact on one line. `recovery_1`,
+`recovery_2`, A, B and C never reach a screen. Unknown facts are omitted
+rather than rendered as zero: the nine show `Sent 21:57 · Delivered`
+with no clock, because Resend reports their state but not the moment.
+
 **Not done, deliberately**
 
 - **R2 has never been sent.** The templates exist and the rule is
   written; the first R2 is not due until a recipient reaches day 10 and
-  six days past their R1.
+  six days past their R1. It will also be the webhook's first real
+  exercise.
 - **No cron is armed.** There is no scheduler at all, so nothing sends
   without somebody running it.
 - The Ready-to-activate sequence is a separate future workstream and was
   kept out of this one on purpose.
-- Engagement tracking is a live question, not a gap: see §13.
+- The nine cannot gain a delivery time retroactively. Webhooks fire only
+  for mail sent after the endpoint existed, and their subjects and
+  delivered state were backfilled from Resend's own records rather than
+  rebuilt from template code, which had already changed.
 
 ## 13. Open decisions for Elliot
 
-1. **Email engagement tracking for lifecycle emails.** Audited
-   2026-09-02, nothing enabled. Resend's open tracking injects a 1x1
-   pixel; its click tracking rewrites every link through a tracking
-   subdomain and records IP address and user agent per click. Both are
-   off, and Resend's own guidance is to use tracking selectively so that
-   inbox providers do not mistake transactional mail for marketing.
-   Recommendation on file: **neither**, and measure the funnel from our
-   own authenticated return instead. Elliot to decide.
-
-2. **Financial-record retention period.** The retention policy itself is
+1. **Financial-record retention period.** The retention policy itself is
    settled and built (90 days for guest message text, erasure by
    anonymisation, R1-R4 as rules). The one piece still undecided is how
    long records that carry money must be kept before anything may touch
@@ -842,15 +883,15 @@ variant resolves to `playingnextapp.com`.
    money-bearing row classifies as `preserve` and is never eligible for
    anything destructive, which is the correct behaviour while the answer
    is unknown.
-3. **Company structure.** Sole trader or Ltd. Gates several other items.
-4. **Ad landing destination.** Signup or marketing page.
-5. **Paid optimisation event.** Which single event spend is judged on.
-6. **Sentry.** `enableLogs` is on with no logger calls. Recommendation:
+2. **Company structure.** Sole trader or Ltd. Gates several other items.
+3. **Ad landing destination.** Signup or marketing page.
+4. **Paid optimisation event.** Which single event spend is judged on.
+5. **Sentry.** `enableLogs` is on with no logger calls. Recommendation:
    drop it, keep tracing and error capture.
-7. **Annual Pro billing.** Defer until Pro has real subscribers.
-8. **Physical QR block.** Keep as a launch promotion, or promote to an
+6. **Annual Pro billing.** Defer until Pro has real subscribers.
+7. **Physical QR block.** Keep as a launch promotion, or promote to an
    entitlement.
-9. **Guest queue voting.** Post-launch or never.
+8. **Guest queue voting.** Post-launch or never.
 
 ---
 
@@ -969,6 +1010,31 @@ and zinc-600 2.35-2.59:1. Do not reintroduce either for dashboard text.
 - **Never store a guest email in Supabase to make erasure easier.** The
   bridge is Stripe, and it stays there.
 
+**Lifecycle email invariants** (§12a, 2026-09-03):
+
+- **No provider tracking.** Resend open and click tracking stay off. No
+  pixel, no rewritten links, and no IP address or user agent stored
+  anywhere in Playing Next. Engagement is measured first-party or not
+  at all.
+- **A DJ cannot receive the same lifecycle email twice.** Enforced by
+  the unique index on `(dj_profile_id, template_key)`, not by an
+  application check that two concurrent runs would both pass.
+- **Uncertainty is never resolved by sending again.** A `claimed` row
+  whose provider outcome is unknown is never retried automatically.
+- **`sent` and `returned_at` are final**, both by database trigger. A
+  sent email cannot be reopened and a first return cannot be moved or
+  cleared.
+- **Never invent a date.** A known event with no provable time is shown
+  without one, or omitted where an undated entry would be misleading in
+  a chronological list. Nothing is back-dated to `now()`.
+- **Never count an unknowable return as zero.** `return_tracked` exists
+  solely to keep the nine untracked sends out of any rate.
+- **Internal identifiers stay internal.** `recovery_1`, `recovery_2`, A,
+  B and C never appear in the CRM or in an email.
+- **Eligibility comes from product state**, never from `crm_contacts`,
+  `outreach_status`, a task or a note, and is re-read immediately before
+  every send.
+
 **Financial invariants:** stored snapshots are never recomputed; Dashboard
 Tonight equals Earnings Today on the same local-day basis; Accept captures
 exactly once; Decline never captures; a full queue never captures.
@@ -1017,6 +1083,13 @@ timestamp columns (`20260830`), Overview / Contacts / Tasks / Reports, the
 PN Admin PWA, the mobile UX pass, tasks made authoritative (`15a116d`),
 one scheduling model everywhere (`34c6a2c`), and refresh-on-return with a
 freshness indicator (`03d24c5`). The 23-person pipeline migrated.
+
+**Lifecycle email measurement** — first-party return attribution and the
+cohort-honesty flag (`18129cf`), the extended migration and
+`profile_completed_at` (`4a1de6f`, `b72593f`, `251a494`), the grouped
+Activity item and the backfill of the nine from Resend's own records
+(`c5f35cf`), and the signed delivery webhook (`44dffc7`). No provider
+tracking was enabled at any point.
 
 **Onboarding recovery emails** — the shared layout and six state-aware
 templates, eligibility and the claim/settle model (`b8ac585`), the
