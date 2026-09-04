@@ -40,7 +40,9 @@ a small DJ beta as a sole trader.
   are built and R1 has been sent once to nine DJs; the delivery webhook
   is live; no scheduler exists and R2 has never been sent. See §12a.
   Guest access and export is live and **feature-complete**, pending
-  solicitor review of its wording; see §5.
+  solicitor review of its wording; see §5. One Production migration has
+  been applied since that deploy and needs no code:
+  `20260904_erase_search_path.sql`, see §5.
 
   **Post-deploy verification, 2026-09-04, read-only.** Guest pages serve
   and resolve a real DJ (`/request/djbadja` renders the DJ; an unknown
@@ -426,6 +428,19 @@ current beta.
       request body** and Production manual erasure cannot execute. No
       erasure has ever been run against Production and `data_erasures`
       holds 0 rows.
+
+      **`search_path` pinned, 2026-09-04** (`20260904_erase_search_path.sql`,
+      applied to Production). It was the only function in the schema
+      without one: counted, not assumed, 11 of 12 carried
+      `search_path=""` and this one predated the rule. `ALTER FUNCTION`
+      rather than `CREATE OR REPLACE`, so the body was never retyped,
+      and the body hash is byte-identical before and after
+      (`66786c4a…`, 4337 characters). All **12 of 12** functions are now
+      pinned and the linter's `function_search_path_mutable` notice is
+      gone. Verified on Playing Next Test first, where the write-path
+      suite still passes 15 of 15 with the setting applied. **Arming
+      nothing:** still SECURITY INVOKER, `ERASURE_EXECUTION_ENABLED`
+      still unset, `data_erasures` still 0 rows.
 
       **Verification status:** the pure-logic suite passes **46 of 46**
       (`scripts/erasure-rules.test.mts`) covering classification,
@@ -1087,6 +1102,11 @@ and zinc-600 2.35-2.59:1. Do not reintroduce either for dashboard text.
 - **The export document is finished** (2026-09-04). No further cosmetic
   change without a real access request or legal review saying something
   is wrong. Re-reading a document is not a reason to redesign it.
+- **Every function in `public` pins `search_path` to the empty string**
+  (12 of 12 as of 2026-09-04). A new function joins that rule or states
+  in its own comment why it cannot. A body added later must be
+  schema-qualified, because an empty `search_path` resolves nothing
+  else.
 
 **Lifecycle email invariants** (§12a, 2026-09-03):
 
