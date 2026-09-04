@@ -35,14 +35,15 @@ a small DJ beta as a sole trader.
   retention and erasure) are complete as far as they can go and verified
   against Production. 6D's destructive half is deliberately blocked; see
   §5.
-- **Deployed commit**: `808984f`, 2026-09-04, Production build reported
+- **Deployed commit**: `e8388f0`, 2026-09-04, Production build reported
   complete by Vercel and verified afterwards. Onboarding-recovery emails
   are built and R1 has been sent once to nine DJs; the delivery webhook
   is live; no scheduler exists and R2 has never been sent. See §12a.
   Guest access and export is live and **feature-complete**, pending
   solicitor review of its wording; see §5. One Production migration has
   been applied since that deploy and needs no code:
-  `20260904_erase_search_path.sql`, see §5.
+  `20260904_erase_search_path.sql`, see §5. The PN Admin UX sprint
+  (`528e5d6`, `e8388f0`) shipped on top of it; see §3a.
 
   **Post-deploy verification, 2026-09-04, read-only.** Guest pages serve
   and resolve a real DJ (`/request/djbadja` renders the DJ; an unknown
@@ -354,6 +355,71 @@ phase, not part of 6A. The growth pipeline currently lives in a markdown
 file maintained by hand; `/admin` exists but was built for DJ oversight and
 not-played reports rather than acquisition. Scope to be defined when the
 phase starts.
+
+---
+
+## 3a. PN Admin UX sprint. SHIPPED, 2026-09-04.
+
+Presentation only. No feature, backend, workflow or data-model change,
+and no migration.
+
+**What was wrong, measured rather than described.** Overview rendered
+five accordion headers all exactly 66px tall, 1158px wide and 92px
+apart, so nothing on the page carried more weight than anything else
+and it opened with "To do 0" leading it. The root cause under most of
+the audit was a phone layout rendered at desktop width, and the proof
+was that the "Worth knowing" card was byte-identical at 500px and
+1512px: 225px tall, 1158px wide, rendering about 130px of glyphs.
+
+**Overview.** The bottleneck is the lead: the only element with colour,
+a display-size figure and a sentence, plus a five-segment gauge that
+draws the ratio as well as writing it. Worth knowing became an
+operational queue - identity, stage badge, one merged status, `Log`
+right-aligned - banded by the `awaiting` and `stalled` tiers
+`buildStateQueue` already computed and discarded. The `PREVIEW = 5` cap
+and "View all 16" went with it: at roughly 56px a row the whole set
+fits in less height than three of the old cards, so the section is the
+complete operational view. `To do` keeps its second position and goes
+quiet while it holds nothing.
+
+**It stays a queue and did not become a second Contacts**, deliberately.
+`crmFilters.ts:45` defines the Contacts "Awaiting reply" chip as
+`stateItems.filter(tier === "awaiting")` - the identical array behind
+Worth knowing - so giving it filters and search would have duplicated
+Contacts inside Overview with no rule about which to trust.
+
+**Reports** kept its name and gained two bands, "Needs a decision" and
+"Standing records". Nothing moved destination. The band label absorbed
+the sentence repeated verbatim on R1 and R2: no compliance wording was
+removed, only stated once where it governs all four rules.
+
+**Setup reminders** was the weakest section for two reasons and only one
+was the writing. It supplied no padding of its own, so it was the single
+panel whose text sat flush against the card border. It now leads with
+three figures and explains them underneath, and still refuses to report
+an untracked send as zero returns.
+
+**The drawer's** permanent full-width accent button reading "No changes"
+is a quiet status line; the button appears only when there is something
+to commit.
+
+**Two audit findings were wrong on inspection and were not implemented
+as written.** Contacts' `Next action` and `Follow-up` columns are not
+retired legacy columns - they read the live task queue and are empty
+only because there are 0 open tasks, so they are hidden while no row has
+a task rather than deleted. And the privacy flow is already numbered
+1-2-3; the unlabelled "Access request" is a different outcome from the
+same lookup, not a forgotten step four.
+
+**Verified** at 1512px and 500px across Overview, Contacts, the drawer,
+Tasks and Reports, on localhost before release and on Production after.
+Zero new Sentry issues.
+
+**Deliberately deferred, not blocking release:** an internal account
+appears in the Worth knowing queue while Growth excludes internal
+accounts; six rows show a disabled `Log` with no explanation; the drawer
+empty state still teaches a concept in two lines; loading and error
+states were not exercised in the QA pass.
 
 ---
 
@@ -788,6 +854,7 @@ Do not silently turn a roadmap idea into a Pro entitlement.
 | Rate limiting | In-memory per-process |
 | Sentry | ~98 KB on every route, ~1.1s of the critical path. `enableLogs: true` with zero `Sentry.logger` calls anywhere |
 | Three definitions of "a night" | `session_started_at` drives the recap, the browser-local calendar day drives Tonight and Earnings, the active event drives pricing |
+| PN Admin UX backlog | Deferred from the 2026-09-04 sprint, none blocking: an internal account appears in the Worth knowing queue while Growth excludes internal accounts; six rows render a disabled `Log` with no explanation; the drawer empty state teaches a concept in two lines; loading and error states were never exercised in visual QA |
 | Migrations vs Production | Applied by hand: originally in the Supabase SQL editor, now through the Supabase MCP's `execute_sql`. **`apply_migration` is deliberately not used**, decided 2026-09-04. It would begin recording a migration history on top of a chain that is empty for everything before it, and a history that looks authoritative while silently omitting most of the schema is worse than one that is honestly absent. Same reasoning as the row below. This is a deferral: when migration history is adopted, the chain is backfilled whole rather than started midway, and this rule lapses. Until then, write the dated file under `supabase/migrations` anyway, say in its header whether it is applied, verify on Playing Next Test, then apply to Production only on Elliot's explicit approval |
 | **Schema is not reproducible from the repo** | Only 5 of 13 tables have a `create table` in `supabase/migrations`. **Not solved by `test-environment/erasure/schema.test-only.sql`** — those definitions are inferred, incomplete by construction, and must never be promoted into `supabase/migrations`. Inferred definitions presented as history would be worse than the honest absence. `song_requests`, `tips`, `dj_profiles`, `qr_box_orders`, `chargeback_disputes`, `push_subscriptions` and `dj_events` predate the checked-in migrations and exist only in Production. This is what stops a second database being stood up from source, and it is the same reason there is no way to recreate Production if it were lost |
 | **Dashboard CLS 0.5494** | Found during Tier 3a verification, **pre-existing and not introduced by it**. One layout shift at 766ms on the authenticated dashboard: the `DashboardSkeleton` to real-content swap, with `DIV.flex.min-w-0` jumping from top 393 to top 0. Measured at 390x1340 with 5 pending. Good is under 0.1. The guest page measures 0, so this is specific to the skeleton architecture here. Fixing it means either reserving the real layout's dimensions in the skeleton or holding the swap until content is ready. Not attempted |
@@ -1181,6 +1248,13 @@ timestamp columns (`20260830`), Overview / Contacts / Tasks / Reports, the
 PN Admin PWA, the mobile UX pass, tasks made authoritative (`15a116d`),
 one scheduling model everywhere (`34c6a2c`), and refresh-on-return with a
 freshness indicator (`03d24c5`). The 23-person pipeline migrated.
+
+**PN Admin UX sprint** — Overview given a hierarchy, Worth knowing
+retabulated as a queue, Reports banded, the drawer's action hierarchy
+corrected (`528e5d6`, `e8388f0`, 2026-09-04). Presentation only, audited
+against the running app rather than screenshots, and the two findings
+that turned out to be wrong on inspection were reported rather than
+implemented. See §3a.
 
 **Guest access and export** — the data-subject export, its audit table
 and the PN Admin surface (`87276d2`, 2026-09-03), closed by a
