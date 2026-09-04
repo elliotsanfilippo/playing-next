@@ -35,9 +35,13 @@ a small DJ beta as a sole trader.
   retention and erasure) are complete as far as they can go and verified
   against Production. 6D's destructive half is deliberately blocked; see
   §5.
-- **Deployed commit**: `44dffc7`, 2026-09-03. Onboarding-recovery emails
+- **Deployed commit**: `87276d2`, 2026-09-03. Onboarding-recovery emails
   are built and R1 has been sent once to nine DJs; the delivery webhook
   is live; no scheduler exists and R2 has never been sent. See §12a.
+  Guest access and export is live and **feature-complete**, pending
+  solicitor review of its wording; see §5. Two later commits are on
+  `main` locally and **not yet pushed or deployed**: `3e4c77d` (export
+  PDF presentation) and this documentation update.
 
 The product is feature-complete for the beta. The open work is legal and
 compliance, QA that needs a real DJ login, growth instrumentation, and
@@ -431,8 +435,11 @@ current beta.
       Production security was verified separately against Production.
       Synthetic fixtures only; Production data must never be loaded there.
 
-      **Guest access and export: BUILT 2026-09-03, awaiting Production
-      migration.** A guest emails `info@`, ownership is verified by one
+      **Guest access and export: COMPLETE 2026-09-04.** Built, applied
+      to Production (`20260903_data_access_requests.sql`), deployed and
+      verified. Elliot closed it as **feature-complete pending solicitor
+      review** of the legal wording and any future policy change. A
+      guest emails `info@`, ownership is verified by one
       of the three existing methods, and they receive a PDF and a JSON
       file generated from one snapshot so the two cannot disagree.
       Admin-mediated only: no public endpoint, no guest login, no guest
@@ -455,6 +462,15 @@ current beta.
       **No execution flag**, decided 2026-09-03: admin authentication
       plus recorded verification is the gate, and generating a document
       destroys nothing.
+
+      **The document is closed to cosmetic change**, decided 2026-09-04
+      after a full synthetic export was read end to end. The last pass
+      removed a `refunded (refunded)` duplication, opened the spacing
+      inside a record, and put the generator version in the footer so a
+      printed copy can be traced to the code that made it (`3e4c77d`).
+      Nothing further is to be adjusted for looks. The next changes to
+      this document should come from a **real access request** or from
+      **legal review**, not from another read-through.
 - [ ] **Database backups and recovery.** Needs the Supabase Pro upgrade,
       **which Elliot declined on 2026-08-31 as unjustifiable right now.**
       This is the single gate on arming any destructive retention or
@@ -761,8 +777,8 @@ Policy, advertising cookie wording before any ad tag, HMRC registration if
 sole trader.
 
 **Requires professional confirmation:** FCA / payments regulation review,
-solicitor review of all four documents, VAT and accounting advice,
-trademark.
+solicitor review of all four documents **and of the access-export
+wording**, VAT and accounting advice, trademark.
 
 **Product or code implication:**
 - **Data retention and erasure: mechanism built, execution disabled.**
@@ -776,8 +792,17 @@ trademark.
   is no automatic executor, and Production erasure returns 503. The
   compliance position is therefore that a request could be answered by a
   deliberate act, not that data is being minimised automatically.
-  Arming either half waits on database backups (§5). Guest self-service
-  access and export remain unbuilt.
+  Arming either half waits on database backups (§5).
+- **Guest access and export: built, live and feature-complete
+  (2026-09-04).** The other half of the same obligation. A verified
+  guest can be given everything Playing Next holds about them, as a
+  branded PDF and a JSON file generated from one snapshot, with the
+  process recorded in `data_access_requests`. Admin-mediated: there is
+  no public endpoint and no guest login, which is a deliberate limit
+  rather than a gap, because no identifier links a guest's records.
+  **Outstanding: solicitor review of the document's wording** — the
+  scope statement, the retention line and the Stripe sentence are
+  factual as written but have not been reviewed professionally.
 - Notification permission wording
 - Advertising consent must exist in the UI before ad measurement is legal
 
@@ -1049,6 +1074,9 @@ and zinc-600 2.35-2.59:1. Do not reintroduce either for dashboard text.
 - **A disclosure is never made without a record of it.** The audit row
   is written before the files are returned; if the insert fails, no file
   is released.
+- **The export document is finished** (2026-09-04). No further cosmetic
+  change without a real access request or legal review saying something
+  is wrong. Re-reading a document is not a reason to redesign it.
 
 **Lifecycle email invariants** (§12a, 2026-09-03):
 
@@ -1125,9 +1153,11 @@ one scheduling model everywhere (`34c6a2c`), and refresh-on-return with a
 freshness indicator (`03d24c5`). The 23-person pipeline migrated.
 
 **Guest access and export** — the data-subject export, its audit table
-and the PN Admin surface (2026-09-03). Built on the erasure workflow's
-lookup and verification rather than a second one, with `pdfkit` and
-standard fonts carrying the brand through the mark, layout and colour.
+and the PN Admin surface (`87276d2`, 2026-09-03), closed by a
+presentation pass on the PDF (`3e4c77d`, 2026-09-04). Built on the
+erasure workflow's lookup and verification rather than a second one,
+with `pdfkit` and standard fonts carrying the brand through the mark,
+layout and colour. Feature-complete; the wording awaits a solicitor.
 
 **Lifecycle email measurement** — first-party return attribution and the
 cohort-honesty flag (`18129cf`), the extended migration and
