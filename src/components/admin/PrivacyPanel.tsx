@@ -5,6 +5,7 @@ import { Search, ShieldCheck, AlertTriangle, Lock } from "lucide-react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { adminFetch, adminJson } from "@/src/lib/adminFetch";
+import AccessRequestPanel from "@/src/components/admin/AccessRequestPanel";
 import { CLASS_LABELS, type PaymentClass } from "@/src/lib/retention";
 import {
   VERIFICATION_METHODS,
@@ -382,6 +383,10 @@ export default function PrivacyPanel({ rows }: { rows: PipelineRow[] }) {
           )}
         </div>
       )}
+
+      {/* Access requests share the lookup above: the same candidates,
+          the same verification vocabulary, a different outcome. */}
+      <AccessRequestPanel candidates={candidates} />
     </>
   );
 }

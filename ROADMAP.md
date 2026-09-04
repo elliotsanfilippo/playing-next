@@ -431,8 +431,30 @@ current beta.
       Production security was verified separately against Production.
       Synthetic fixtures only; Production data must never be loaded there.
 
-      Guest access and export remain unbuilt. See
-      [DATA_AUDIT.md](DATA_AUDIT.md) §5.
+      **Guest access and export: BUILT 2026-09-03, awaiting Production
+      migration.** A guest emails `info@`, ownership is verified by one
+      of the three existing methods, and they receive a PDF and a JSON
+      file generated from one snapshot so the two cannot disagree.
+      Admin-mediated only: no public endpoint, no guest login, no guest
+      email stored, and no Stripe call during generation. Refund status
+      comes from our own `request_status`.
+
+      The export is scoped to **the records whose ownership was actually
+      verified**, and says so under its own title, because no identifier
+      links a guest's records and a wider export would be a guess about
+      whose data it is.
+
+      `data_access_requests` audits the process: that a request arrived,
+      how it was verified, which kinds of record were covered, and
+      whether an export was produced. It stores no payload, no guest
+      identifier, and no row ids at all on a refusal, which the database
+      enforces rather than trusting a caller to remember. Append-only,
+      with UPDATE and DELETE revoked explicitly. Verified 21 of 21
+      against Playing Next Test.
+
+      **No execution flag**, decided 2026-09-03: admin authentication
+      plus recorded verification is the gate, and generating a document
+      destroys nothing.
 - [ ] **Database backups and recovery.** Needs the Supabase Pro upgrade,
       **which Elliot declined on 2026-08-31 as unjustifiable right now.**
       This is the single gate on arming any destructive retention or
@@ -1017,7 +1039,16 @@ and zinc-600 2.35-2.59:1. Do not reintroduce either for dashboard text.
   testing happens in the Playing Next Test project, on synthetic data
   only. Production personal data must never be loaded there.
 - **Never store a guest email in Supabase to make erasure easier.** The
-  bridge is Stripe, and it stays there.
+  bridge is Stripe, and it stays there. The same holds for access: an
+  export is sent on the mail thread it was asked for on, and no
+  recipient address reaches the database.
+- **An export covers what was verified, never what was inferred.** No
+  identifier links a guest's records, so "everything about this person"
+  cannot be assembled, and a document implying otherwise would claim a
+  completeness the data model cannot support.
+- **A disclosure is never made without a record of it.** The audit row
+  is written before the files are returned; if the insert fails, no file
+  is released.
 
 **Lifecycle email invariants** (§12a, 2026-09-03):
 
@@ -1092,6 +1123,11 @@ timestamp columns (`20260830`), Overview / Contacts / Tasks / Reports, the
 PN Admin PWA, the mobile UX pass, tasks made authoritative (`15a116d`),
 one scheduling model everywhere (`34c6a2c`), and refresh-on-return with a
 freshness indicator (`03d24c5`). The 23-person pipeline migrated.
+
+**Guest access and export** — the data-subject export, its audit table
+and the PN Admin surface (2026-09-03). Built on the erasure workflow's
+lookup and verification rather than a second one, with `pdfkit` and
+standard fonts carrying the brand through the mark, layout and colour.
 
 **Lifecycle email measurement** — first-party return attribution and the
 cohort-honesty flag (`18129cf`), the extended migration and

@@ -198,6 +198,30 @@ export default function PrivacyPolicyPage() {
         </a>{" "}
         if you think we&rsquo;ve mishandled your data.
       </P>
+      <P>
+        <strong>Asking for a copy of your data.</strong> Email{" "}
+        <a href="mailto:info@playingnextapp.com" className="text-accent hover:underline">
+          info@playingnextapp.com
+        </a>
+        . Because guests don&rsquo;t have accounts, we need to confirm the
+        records are yours before we send anything: a payment shown in
+        Stripe under the address you write from, a My Requests link, or the
+        wording of a message you sent. We&rsquo;ll then send you a PDF and
+        a machine-readable JSON file covering the records we were able to
+        verify as yours. UK GDPR gives us one month to respond.
+      </P>
+      <P>
+        Playing Next does not maintain a guest account or store a guest
+        email address or dedicated guest name field. Information entered
+        into a request, such as a message, may still contain personal
+        information.
+      </P>
+      <P>
+        Playing Next does not receive or store your email address,
+        cardholder name or payment details. Stripe collects those directly,
+        and Stripe also holds the payment and refund transaction records,
+        so those must be requested from Stripe.
+      </P>
 
       <H2>7. Age requirements</H2>
       <P>

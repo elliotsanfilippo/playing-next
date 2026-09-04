@@ -121,10 +121,43 @@ This is worth flagging to whoever handles your GDPR review specifically —
 data minimization and the right to erasure are both UK GDPR requirements,
 and right now there's no mechanism for either.
 
-## 6. What guests can't currently do
+## 6. What guests can and cannot do
 
-For a full "data subject rights" picture: a guest today cannot (through
-the product itself) see all data held about them in one place, export it,
-or delete it. Their only real cross-device tool is knowing which DJ they
-requested from — everything else relies on the specific browser/device
-they used at the time.
+**Updated 2026-09-03.** Access and export are now built, admin-mediated.
+A guest emails `info@`, ownership is verified by one of three methods,
+and they receive a PDF and a JSON file covering the records we could
+verify as theirs. Erasure has been available on the same workflow since
+31 August, though execution remains disabled pending backups.
+
+What a guest still cannot do **through the product itself** is see or
+export anything without contacting us: there is no self-service surface,
+no guest login, and no public endpoint. That is deliberate. Their only
+cross-device tool remains knowing which DJ they requested from;
+everything else relies on the browser they used at the time.
+
+**One limit that cannot be engineered away.** No identifier links a
+guest's records: no account, no stored email, and each
+`myRequestIds_<djSlug>` list is per-device *and* per-DJ. So an export
+covers the records whose ownership was actually verified, and says so.
+An export claiming to be everything we hold would be claiming a
+completeness the data model cannot support.
+
+## 6a. Privacy-request audit tables
+
+Two tables record that requests were handled. Both are pseudonymous
+personal data by way of the row ids they point at, and both belong in
+this inventory for that reason.
+
+| Table | Records | Never contains |
+|---|---|---|
+| `data_erasures` | which fields were cleared on which row | field values, guest identifiers |
+| `data_access_requests` | that a request arrived, how ownership was verified, which kinds of record were covered, whether an export was produced | guest email, guest name, message text, the exported payload, and any row id at all on a refusal |
+
+`data_access_requests` carries three timestamps that mean different
+things: `received_at` (when the request entered our process, and the
+statutory clock), `performed_at` (when we acted) and `performed_by`.
+Both tables are append-only, with UPDATE and DELETE revoked explicitly
+rather than merely omitted from the GRANT.
+
+**Neither has a retention period yet.** That is an open decision, not an
+oversight, and no duration has been invented for either.
