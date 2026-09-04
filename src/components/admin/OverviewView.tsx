@@ -10,6 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import Card from "@/src/components/ui/Card";
+import Badge from "@/src/components/ui/Badge";
 import AccordionSection from "@/src/components/admin/AccordionSection";
 import { useIsDesktop } from "@/src/lib/useIsDesktop";
 import Button from "@/src/components/ui/Button";
@@ -20,6 +21,8 @@ import {
   buildStateQueue,
   overviewTasks,
   countTaskTiers,
+  STATE_TIERS,
+  STATE_TIER_LABELS,
   TASK_TIERS,
   TASK_TIER_LABELS,
   type TaskTier,
@@ -31,14 +34,14 @@ import {
 } from "@/src/lib/djIdentity";
 import { isInternalDj } from "@/src/lib/internalAccounts";
 import { BLOCKER_LABELS, type ActivationBlocker } from "@/src/lib/crmTaxonomy";
+import { LIFECYCLE_LABELS } from "@/src/lib/djLifecycle";
+import { stageTone } from "@/src/components/admin/stageTone";
 import type {
   CrmTask,
   DjStat,
   PipelineRow,
   Report,
 } from "@/src/components/admin/crmTypes";
-
-const PREVIEW = 5;
 
 /*
  * The same left-edge-only rule as the Tasks destination, and it has to
@@ -89,7 +92,6 @@ export default function OverviewView({
   onGoToReports: () => void;
 }) {
   const [tier, setTier] = useState<TaskTier | "all">("all");
-  const [showAllStates, setShowAllStates] = useState(false);
   const [mountedAt] = useState(() => Date.now());
 
   const allTasks = useMemo(() => buildTaskQueue(tasks, rows), [tasks, rows]);
@@ -99,7 +101,6 @@ export default function OverviewView({
 
   const visibleTasks =
     tier === "all" ? todo : todo.filter((t) => t.tier === tier);
-  const shownStates = showAllStates ? states : states.slice(0, PREVIEW);
 
   const funnel = useMemo(
     () =>
@@ -185,7 +186,42 @@ export default function OverviewView({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── 1 · What I need to DO ──────────────────────────────── */}
+      {/*
+        ── 1 · The lead ───────────────────────────────────────────
+        The number the whole beta turns on, and the only element on this
+        page carrying colour, a display-size figure and a sentence.
+
+        No longer an accordion. It was one of five identical 66px
+        headers, which meant the page opened with nothing weighted at
+        all - measured 2026-09-04: five headers, all exactly 66px tall
+        and 1158px wide, 92px apart. A hierarchy cannot be implied by
+        order alone when every element has the same form.
+
+        The body text was already short enough to show, so collapsing it
+        was hiding one sentence behind a click.
+      */}
+      <Card
+        variant="elevated"
+        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05] p-5 sm:p-6"
+      >
+        <p className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-status-pending">
+          The bottleneck
+        </p>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span className="font-mono text-5xl font-medium leading-none text-status-pending">
+            {activatedStep?.count ?? 0}
+          </span>
+          <h2 className="text-h3">
+            of {readyStep?.count ?? 0} ready DJs have taken a paid request
+          </h2>
+        </div>
+        <p className="mt-2.5 max-w-prose text-sm leading-relaxed text-text-muted">
+          Onboarded, payments-ready DJs who have taken a paid request.
+          Every technical blocker is cleared. What is missing is a gig.
+        </p>
+      </Card>
+
+      {/* ── 2 · What I need to DO ─────────────────────────────── */}
       <AccordionSection
         id="todo"
         title="To do"
@@ -195,6 +231,13 @@ export default function OverviewView({
             : `${todo.length}`
         }
         metaTone={taskCounts.overdue > 0 ? "attention" : "muted"}
+        /*
+          Quiet while there is nothing in it. Your stated order keeps To
+          do second, and it stays second - but a section reporting 0 does
+          not get the same weight as the thing the beta turns on. It
+          promotes itself the moment it holds a task.
+        */
+        tone={todo.length === 0 ? "quiet" : "default"}
         open={isOpen("todo")}
         onToggle={toggleSection}
       >
@@ -321,113 +364,129 @@ export default function OverviewView({
         </div>
       </AccordionSection>
 
-      {/*
-        ── 2 · Business context ───────────────────────────────────
-        The number the whole beta turns on, so it keeps its amber tint
-        and sits second. Collapsed like everything else, because the
-        figure IS the section - the header carries "0 of 4" and the body
-        only explains what the two numbers mean.
-      */}
-      <AccordionSection
-        id="bottleneck"
-        title="The bottleneck"
-        meta={`${activatedStep?.count ?? 0} of ${readyStep?.count ?? 0}`}
-        metaTone="attention"
-        className="border-status-pending-surface/25 bg-status-pending-surface/[0.05]"
-        open={isOpen("bottleneck")}
-        onToggle={toggleSection}
-      >
-        <p className="p-5 text-sm leading-relaxed text-text-muted">
-          Onboarded, payments-ready DJs who have taken a paid request.
-          Every technical blocker is cleared. What is missing is a gig.
-        </p>
-      </AccordionSection>
-
-      {/*
-        ── 3 · What is TRUE and worth knowing ─────────────────────
-        Collapsed. These are states, not actions: true right now, and
-        changing when the person or the product changes rather than when
-        you do something. The count is the part you need on arrival; the
-        thirteen names behind it are a screen and a half you asked for
-        only sometimes.
-      */}
       {states.length > 0 && (
-        <AccordionSection
-          id="worth-knowing"
-          title="Worth knowing"
-          meta={`${states.length}`}
-          open={isOpen("worth-knowing")}
-          onToggle={toggleSection}
-        >
-          <p className="border-b border-white/5 p-5 pt-4 text-sm text-text-muted">
-            Not tasks. These are true right now, and change when the
-            person or the product does.
-          </p>
-
-          <div className="divide-y divide-white/5">
-            {shownStates.map((item) => {
-              const blocker = item.row.contact?.activation_blocker
-                ? BLOCKER_LABELS[
-                    item.row.contact.activation_blocker as ActivationBlocker
-                  ]
-                : null;
-              return (
-                <div key={item.row.key} className="p-4">
-                  <button
-                    type="button"
-                    onClick={() => onOpen(item.row.key)}
-                    className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                  >
-                    <ContactIdentity row={item.row} />
-                    {blocker && (
-                      <span className="mt-2 block text-sm text-status-pending">
-                        {blocker}
-                      </span>
-                    )}
-                    <span className="mt-1.5 block text-sm text-text-muted">
-                      {item.reason}
-                    </span>
-                    <span className="mt-1.5 block font-mono text-xs text-text-muted">
-                      {item.stamp}
-                    </span>
-                  </button>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="min-h-[44px]"
-                      onClick={() => onOpen(item.row.key, "log")}
-                      disabled={!item.row.contact}
-                    >
-                      <MessageSquarePlus size={14} className="mr-1.5" />
-                      Log
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="min-h-[44px]"
-                      onClick={() => onOpen(item.row.key)}
-                    >
-                      Open
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {states.length > shownStates.length && (
-              <button
-                type="button"
-                onClick={() => setShowAllStates(true)}
-                className="flex min-h-[44px] w-full items-center justify-center gap-2 p-4 text-sm font-semibold text-accent transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
-              >
-                View all {states.length}
-                <ArrowRight size={15} />
-              </button>
-            )}
+        <Card variant="elevated" className="overflow-hidden">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-5">
+            <h2 className="text-h3">Worth knowing</h2>
+            <span className="font-mono text-xs text-text-muted">
+              {states.length}
+            </span>
+            <p className="w-full text-sm text-text-muted">
+              Not tasks. These are true right now, and change when the
+              person or the product does.
+            </p>
           </div>
-        </AccordionSection>
+
+          {/*
+            No preview cap and no "view all". At roughly 56px a row the
+            whole set fits in less height than five of the old cards did,
+            so the section IS the complete operational view rather than a
+            sample of one. Decided 2026-09-04.
+
+            Banded by the tier buildStateQueue already computes. Those
+            tiers were being calculated and then thrown away: every item
+            rendered into one flat list, so the reason a name was on the
+            screen had to be re-read from its own status line.
+          */}
+          {STATE_TIERS.map((t) => {
+            const group = states.filter((item) => item.tier === t);
+            if (group.length === 0) return null;
+
+            return (
+              <div key={t}>
+                <div className="flex items-baseline gap-2 border-t border-white/5 bg-white/[0.015] px-5 py-2">
+                  <h3 className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-text-muted">
+                    {STATE_TIER_LABELS[t]}
+                  </h3>
+                  <span className="font-mono text-[0.62rem] text-zinc-400">
+                    {group.length}
+                  </span>
+                </div>
+
+                <ul>
+                  {group.map((item) => {
+                    const blocker = item.row.contact?.activation_blocker
+                      ? BLOCKER_LABELS[
+                          item.row.contact
+                            .activation_blocker as ActivationBlocker
+                        ]
+                      : null;
+
+                    /*
+                      One merged status where there were two lines. The
+                      blocker and the waiting time are one fact about one
+                      person - "Waiting on a reply from them" above
+                      "7d waiting" was the same sentence broken in half.
+                    */
+                    const status = blocker
+                      ? `${blocker} · ${item.stamp}`
+                      : item.stamp;
+
+                    return (
+                      <li
+                        key={item.row.key}
+                        className="border-t border-white/5"
+                      >
+                        {/*
+                          The row opens the contact, which is what the
+                          old "Open" button did. A row that is already a
+                          click target does not need a control that
+                          repeats it, and Contacts has worked this way
+                          since it was built.
+                        */}
+                        <div className="group relative flex items-center gap-3 px-5 py-2.5 transition hover:bg-white/[0.03] md:grid md:grid-cols-[minmax(0,1.35fr)_170px_minmax(0,1fr)_auto] md:gap-4">
+                          <button
+                            type="button"
+                            onClick={() => onOpen(item.row.key)}
+                            className="min-w-0 flex-1 text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 md:contents"
+                          >
+                            <span className="block min-w-0">
+                              <ContactIdentity row={item.row} showStage={false} />
+                              <span className="mt-0.5 block truncate font-mono text-xs text-text-muted">
+                                {item.row.dj
+                                  ? `${rowIdentity(item.row).isSlug ? "" : `/${item.row.dj.slug} · `}joined ${joinedLabel(item.row.dj.created_at)}`
+                                  : "No account yet"}
+                              </span>
+                            </span>
+                            <span className="mt-1.5 block md:mt-0 md:self-center">
+                              <Badge tone={stageTone(item.row.stage)}>
+                                {LIFECYCLE_LABELS[item.row.stage]}
+                              </Badge>
+                            </span>
+                            <span
+                              className={`mt-1.5 block truncate text-sm md:mt-0 md:self-center ${
+                                blocker ? "text-status-pending" : "text-text-muted"
+                              }`}
+                            >
+                              {status}
+                            </span>
+                          </button>
+
+                          {/*
+                            Relative + z-10 so Log stays clickable above
+                            the row's own full-bleed click target.
+                          */}
+                          <div className="relative z-10 shrink-0 md:justify-self-end">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="min-h-[44px]"
+                              onClick={() => onOpen(item.row.key, "log")}
+                              disabled={!item.row.contact}
+                            >
+                              <MessageSquarePlus size={14} className="mr-1.5" />
+                              Log
+                            </Button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </Card>
       )}
 
       {/*
@@ -441,6 +500,7 @@ export default function OverviewView({
         title="Growth"
         meta={`${funnel.total} external · ${activatedStep?.count ?? 0} activated`}
         metaTone={(activatedStep?.count ?? 0) === 0 ? "attention" : "muted"}
+        tone="quiet"
         open={isOpen("growth")}
         onToggle={toggleSection}
       >
@@ -543,6 +603,8 @@ export default function OverviewView({
               : `${newThisWeek.length} · all in your CRM`
           }
           metaTone={unreconciledThisWeek > 0 ? "attention" : "muted"}
+          /* Promotes itself when a signup is not yet in the CRM. */
+          tone={unreconciledThisWeek > 0 ? "default" : "quiet"}
           open={isOpen("new-signups")}
           onToggle={toggleSection}
         >

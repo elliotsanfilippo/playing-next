@@ -112,56 +112,94 @@ export default function ReportsDestination({
       : "Report only · execution disabled"
     : undefined;
 
-  return (
-    <div className="flex flex-col gap-6">
-      <AccordionSection
-        id="not-played"
-        title="Not Played Reports"
-        meta={pending > 0 ? `${pending} awaiting a decision` : "Nothing outstanding"}
-        metaTone={pending > 0 ? "attention" : "muted"}
-        open={isOpen("not-played")}
-        onToggle={toggle}
-      >
-        <ReportsView
-          reports={reports}
-          resolvingId={resolvingId}
-          onResolve={onResolve}
-        />
-      </AccordionSection>
+  /*
+    ── Two bands, not four peers ─────────────────────────────────
+    Audited 2026-09-04: this destination held four unrelated things at
+    identical visual weight, and only one of them is a report. Not
+    Played Reports is a money decision that can be outstanding; the
+    other three are standing records that never wait on anybody.
 
-      {remindersMeta && (
+    Nothing moves destination and nothing is deleted - the grouping was
+    always true, it just was not drawn. The stronger fix is to send Not
+    Played to the task queue and Setup reminders to Growth, leaving a
+    genuine Compliance section, but that moves where work is done and is
+    a workflow change rather than presentation.
+  */
+  return (
+    <div className="flex flex-col gap-7">
+      <section className="flex flex-col gap-3">
+        <h2 className="px-1 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-text-muted">
+          Needs a decision
+        </h2>
+
         <AccordionSection
-          id="reminders"
-          title="Setup reminders"
-          meta={remindersMeta}
-          open={isOpen("reminders")}
+          id="not-played"
+          title="Not Played Reports"
+          headingLevel={3}
+          meta={
+            pending > 0
+              ? `${pending} awaiting a decision`
+              : "Nothing outstanding"
+          }
+          metaTone={pending > 0 ? "attention" : "muted"}
+          open={isOpen("not-played")}
           onToggle={toggle}
         >
-          <RemindersPanel summary={reminders} />
+          <ReportsView
+            reports={reports}
+            resolvingId={resolvingId}
+            onResolve={onResolve}
+          />
         </AccordionSection>
-      )}
+      </section>
 
-      <AccordionSection
-        id="privacy"
-        title="Privacy requests"
-        meta="Erasure disabled"
-        open={isOpen("privacy")}
-        onToggle={toggle}
-      >
-        <PrivacyPanel rows={rows} />
-      </AccordionSection>
+      <section className="flex flex-col gap-3">
+        <h2 className="flex flex-wrap items-baseline gap-x-2 px-1">
+          <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-text-muted">
+            Standing records
+          </span>
+          <span className="text-xs text-text-muted">
+            nothing here is waiting on you
+          </span>
+        </h2>
 
-      <AccordionSection
-        id="retention"
-        title="Data retention"
-        meta={retentionMeta}
-        subMeta={retentionSubMeta}
-        metaTone={report.failed ? "attention" : "muted"}
-        open={isOpen("retention")}
-        onToggle={toggle}
-      >
-        <RetentionPanel report={report} />
-      </AccordionSection>
+        {remindersMeta && (
+          <AccordionSection
+            id="reminders"
+            title="Setup reminders"
+            headingLevel={3}
+            meta={remindersMeta}
+            open={isOpen("reminders")}
+            onToggle={toggle}
+          >
+            <RemindersPanel summary={reminders} />
+          </AccordionSection>
+        )}
+
+        <AccordionSection
+          id="privacy"
+          title="Privacy requests"
+          headingLevel={3}
+          meta="Erasure disabled · lookup and export available"
+          open={isOpen("privacy")}
+          onToggle={toggle}
+        >
+          <PrivacyPanel rows={rows} />
+        </AccordionSection>
+
+        <AccordionSection
+          id="retention"
+          title="Data retention"
+          headingLevel={3}
+          meta={retentionMeta}
+          subMeta={retentionSubMeta}
+          metaTone={report.failed ? "attention" : "muted"}
+          open={isOpen("retention")}
+          onToggle={toggle}
+        >
+          <RetentionPanel report={report} />
+        </AccordionSection>
+      </section>
     </div>
   );
 }

@@ -142,9 +142,18 @@ export const RULE_LABELS: Record<RuleId, string> = {
   R4: "Delete never-charged rows",
 };
 
+/*
+ * "Runs on every class; money is never touched" was repeated verbatim on
+ * R1 and R2. It is true of all four rules, so it is stated once, on the
+ * section that governs them - see RULE_SCOPE_NOTE. De-duplicated
+ * 2026-09-04; no compliance wording was removed, only relocated.
+ */
+export const RULE_SCOPE_NOTE =
+  "every rule runs on every payment class and leaves money untouched";
+
 export const RULE_DESCRIPTIONS: Record<RuleId, string> = {
-  R1: `Guest message cleared ${MESSAGE_RETENTION_DAYS} days after the request was created. Runs on every class; money is never touched.`,
-  R2: `Tip message cleared ${MESSAGE_RETENTION_DAYS} days after the tip was created. Runs on every class; money is never touched.`,
+  R1: `Guest message cleared ${MESSAGE_RETENTION_DAYS} days after the request was created.`,
+  R2: `Tip message cleared ${MESSAGE_RETENTION_DAYS} days after the tip was created.`,
   R3: `Report reason cleared ${MESSAGE_RETENTION_DAYS} days after the report, and only once its resolution is final. The report row itself is kept.`,
   R4: `Row deleted ${NEVER_CHARGED_DELETION_DAYS} days after creation, and only where every never-charged condition is positively established.`,
 };

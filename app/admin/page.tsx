@@ -33,6 +33,13 @@ const DESTINATIONS: { key: Destination; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "contacts", label: "Contacts" },
   { key: "tasks", label: "Tasks" },
+  /*
+    Stays "Reports" for now, decided 2026-09-04. The destination really
+    holds one report, one money decision and two workflows, so the name
+    over-promises - but the internal grouping fixes most of that, and
+    renaming a destination is worth doing once, when the Admin has grown
+    enough to say what the right name is.
+  */
   { key: "reports", label: "Reports" },
 ];
 

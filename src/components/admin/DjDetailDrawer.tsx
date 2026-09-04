@@ -1523,15 +1523,33 @@ export default function DjDetailDrawer({
             className="border-t border-white/5 bg-surface-base/95 p-4 backdrop-blur"
             style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
           >
-            <Button
-              variant="accent"
-              className="min-h-[48px] w-full"
-              onClick={save}
-              disabled={saving || !dirty}
-            >
-              <Check size={16} className="mr-2" />
-              {saving ? "Saving..." : dirty ? "Save changes" : "No changes"}
-            </Button>
+            {/*
+              Emphasis follows consequence. This was a full-width accent
+              button reading "No changes" - the loudest element in the
+              drawer, permanently, saying there was nothing to do, and
+              competing with the real accent action (Log interaction) a
+              few hundred pixels above it.
+
+              With nothing to save it is now a quiet status line. The
+              button appears when there is something to commit, which is
+              the only time it means anything. Audited 2026-09-04.
+            */}
+            {dirty || saving ? (
+              <Button
+                variant="accent"
+                className="min-h-[48px] w-full"
+                onClick={save}
+                disabled={saving}
+              >
+                <Check size={16} className="mr-2" />
+                {saving ? "Saving..." : "Save changes"}
+              </Button>
+            ) : (
+              <p className="flex min-h-[48px] items-center justify-center gap-2 text-sm text-text-muted">
+                <Check size={15} aria-hidden className="text-text-muted" />
+                No unsaved changes
+              </p>
+            )}
           </footer>
         )}
       </div>

@@ -150,7 +150,18 @@ export default function AccessRequestPanel({
 
   return (
     <div className="mt-6 rounded-card border border-white/10 bg-white/[0.02] p-4">
-      <h3 className="text-sm font-semibold">Access request</h3>
+      {/*
+        Labelled in the same mono step voice as "1 · Locate the record"
+        and "3 · What would happen", but with a word rather than a
+        number: this is not step four of the erasure sequence, it is a
+        different outcome from the same lookup. An unlabelled heading in
+        the middle of a numbered flow read as a step someone forgot to
+        number. Audited 2026-09-04.
+      */}
+      <p className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
+        Or · answer an access request
+      </p>
+      <h3 className="mt-2 text-sm font-semibold">Access request</h3>
       <p className="mt-1 text-xs text-text-muted">
         Tick only the records whose ownership you verified. The export covers those and
         nothing else.

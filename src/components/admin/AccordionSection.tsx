@@ -30,6 +30,8 @@ export default function AccordionSection({
   meta,
   subMeta,
   metaTone = "muted",
+  tone = "default",
+  headingLevel = 2,
   open,
   onToggle,
   className = "",
@@ -47,28 +49,56 @@ export default function AccordionSection({
   subMeta?: string;
   /** Amber when the header is reporting something that wants acting on. */
   metaTone?: "muted" | "attention";
+  /*
+   * "quiet" is for a section that is currently reporting nothing: a
+   * standing fact rather than a piece of work. It keeps the same
+   * control, the same count and the same disclosure, at about half the
+   * height and without the elevated card behind it.
+   *
+   * The caller decides tone per render rather than per section, so a
+   * section promotes itself the moment it has something to say. That is
+   * the point: "To do · 0" leading the page in the same weight as the
+   * thing the whole beta turns on teaches you to stop reading the page.
+   */
+  tone?: "default" | "quiet";
+  /*
+   * h2 by default. Inside a labelled band the band itself is the h2, so
+   * the sections under it are h3 - otherwise a screen reader hears two
+   * sibling h2s where the page actually has a group and its members.
+   */
+  headingLevel?: 2 | 3;
   open: boolean;
   onToggle: (id: string) => void;
   className?: string;
   children: React.ReactNode;
 }) {
+  const quiet = tone === "quiet";
+  const Heading = headingLevel === 3 ? "h3" : "h2";
+
   return (
-    <Card variant="elevated" className={`overflow-hidden ${className}`}>
+    <Card
+      variant={quiet ? "flat" : "elevated"}
+      className={`overflow-hidden ${quiet ? "border-white/5 bg-white/[0.015]" : ""} ${className}`}
+    >
       {/*
         A button rather than <details>/<summary>. The open state is owned
         above, and a <details> element toggles itself on click before
         React hears about it, so the two disagree for a frame every time
         the accordion closes a different section.
       */}
-      <h2>
+      <Heading>
         <button
           type="button"
           onClick={() => onToggle(id)}
           aria-expanded={open}
           aria-controls={`section-${id}`}
-          className="flex min-h-[56px] w-full flex-wrap items-baseline gap-x-3 gap-y-1 p-5 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+          className={`flex w-full flex-wrap items-baseline gap-x-3 gap-y-1 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${
+            quiet ? "min-h-[44px] px-4 py-2.5" : "min-h-[56px] p-5"
+          }`}
         >
-          <span className="text-h3">{title}</span>
+          <span className={quiet ? "text-sm font-semibold text-zinc-300" : "text-h3"}>
+            {title}
+          </span>
           <span
             className={`font-mono text-xs ${
               metaTone === "attention" ? "text-status-pending" : "text-text-muted"
@@ -87,7 +117,7 @@ export default function AccordionSection({
             </span>
           )}
         </button>
-      </h2>
+      </Heading>
       <div id={`section-${id}`} hidden={!open} className="border-t border-white/5">
         {children}
       </div>

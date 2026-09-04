@@ -12,6 +12,7 @@ import {
   type PaymentClass,
   type RuleId,
   type RetentionPlan,
+  RULE_SCOPE_NOTE,
 } from "@/src/lib/retention";
 
 /*
@@ -54,12 +55,13 @@ export default function RetentionPanel({
   return (
     <>
       <div className="border-b border-white/5 p-5">
-        <p className="text-sm text-text-muted">
-          What the retention rules would do. Nothing here runs anything.
-        </p>
-
-        {/* The armed state, stated rather than implied. */}
-        <div className="mt-3.5 flex items-start gap-2.5 rounded-control border border-status-playing-surface/25 bg-status-playing-surface/[0.07] p-3">
+        {/*
+          The intro line said "what the retention rules would do, nothing
+          here runs anything" directly above a callout saying execution is
+          disabled. Two sentences for one fact, and the callout says it
+          with more authority. Removed 2026-09-04.
+        */}
+        <div className="flex items-start gap-2.5 rounded-control border border-status-playing-surface/25 bg-status-playing-surface/[0.07] p-3">
           <ShieldCheck size={16} className="mt-0.5 shrink-0 text-status-playing" />
           <p className="text-sm text-zinc-200">
             <strong className="text-white">Execution disabled.</strong>{" "}
@@ -94,8 +96,12 @@ export default function RetentionPanel({
       ) : (
         <>
           <div className="border-b border-white/5 p-5">
-            <p className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
-              Would act on, today
+            <p className="flex flex-wrap items-baseline gap-x-2">
+              <span className="font-mono text-[0.62rem] uppercase tracking-[0.13em] text-text-muted">
+                Would act on, today
+              </span>
+              {/* The clause that used to be repeated on R1 and R2. */}
+              <span className="text-xs text-text-muted">{RULE_SCOPE_NOTE}</span>
             </p>
             <ul className="mt-3 space-y-2.5">
               {RULES.map((r) => (

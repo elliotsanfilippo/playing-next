@@ -236,6 +236,7 @@ export default function ContactsView({
   }, [taskItems]);
   const nextTaskFor = (row: PipelineRow) =>
     row.contact ? (nextTaskByContact.get(row.contact.id) ?? null) : null;
+
   const stateItems = useMemo(() => buildStateQueue(rows), [rows]);
   const ordered = useMemo(
     () => sortForContacts(rows, taskItems, stateItems),
@@ -262,6 +263,22 @@ export default function ContactsView({
       );
     });
   }, [ordered, search, secondary, index]);
+  /*
+   * Next action and Follow-up are dropped from the table when not one
+   * visible row has an open task, which today is every visit: with 0
+   * open tasks they rendered as two columns of em-dashes about 270px
+   * wide, taking width from the three columns that do carry data.
+   *
+   * Hidden, not removed. They read the soonest open task - the live
+   * task queue, NOT the retired next_action / next_follow_up_at columns
+   * - so they come straight back the moment a task exists. An earlier
+   * pass of this audit called them dead legacy columns and was wrong.
+   */
+  const anyOpenTask = useMemo(
+    () => visible.some((row) => nextTaskFor(row) !== null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visible, nextTaskByContact]
+  );
 
   /*
    * Changing what you are looking at puts you at the top of it. Keyed on
@@ -445,8 +462,12 @@ export default function ContactsView({
                   <th className="px-5 py-3 font-medium">Person</th>
                   <th className="px-4 py-3 font-medium">Lifecycle</th>
                   <th className="px-4 py-3 font-medium">Last contact</th>
-                  <th className="px-4 py-3 font-medium">Next action</th>
-                  <th className="px-5 py-3 font-medium">Follow-up</th>
+                  {anyOpenTask && (
+                    <>
+                      <th className="px-4 py-3 font-medium">Next action</th>
+                      <th className="px-5 py-3 font-medium">Follow-up</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -476,14 +497,18 @@ export default function ContactsView({
                         <span className="text-text-muted">&mdash;</span>
                       )}
                     </td>
-                    <td className="max-w-[15rem] px-4 py-3.5 text-zinc-300">
-                      {nextTaskFor(row)?.title || (
-                        <span className="text-text-muted">&mdash;</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {followUpCell(nextTaskFor(row))}
-                    </td>
+                    {anyOpenTask && (
+                      <>
+                        <td className="max-w-[15rem] px-4 py-3.5 text-zinc-300">
+                          {nextTaskFor(row)?.title || (
+                            <span className="text-text-muted">&mdash;</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {followUpCell(nextTaskFor(row))}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
