@@ -35,13 +35,23 @@ a small DJ beta as a sole trader.
   retention and erasure) are complete as far as they can go and verified
   against Production. 6D's destructive half is deliberately blocked; see
   §5.
-- **Deployed commit**: `87276d2`, 2026-09-03. Onboarding-recovery emails
+- **Deployed commit**: `808984f`, 2026-09-04, Production build reported
+  complete by Vercel and verified afterwards. Onboarding-recovery emails
   are built and R1 has been sent once to nine DJs; the delivery webhook
   is live; no scheduler exists and R2 has never been sent. See §12a.
   Guest access and export is live and **feature-complete**, pending
-  solicitor review of its wording; see §5. Two later commits are on
-  `main` locally and **not yet pushed or deployed**: `3e4c77d` (export
-  PDF presentation) and this documentation update.
+  solicitor review of its wording; see §5.
+
+  **Post-deploy verification, 2026-09-04, read-only.** Guest pages serve
+  and resolve a real DJ (`/request/djbadja` renders the DJ; an unknown
+  slug renders DJ Not found); `/`, `/plans`, `/legal/privacy`, `/admin`,
+  `/admin/login` and `/dj/dashboard` all return 200; the three privacy
+  routes return **403 rather than 500**, which is the check that
+  matters, because a module-level failure in the new PDF renderer would
+  surface as a 500 before authentication was ever reached. **Zero
+  production errors in Sentry over 24 hours**, and no issue first seen
+  in that window. No export was generated, no email was sent, no
+  scheduler was armed and nothing was written.
 
 The product is feature-complete for the beta. The open work is legal and
 compliance, QA that needs a real DJ login, growth instrumentation, and
