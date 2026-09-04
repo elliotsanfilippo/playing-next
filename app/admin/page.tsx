@@ -498,10 +498,25 @@ export default function AdminPage() {
 
   return (
     <main
-      className="min-h-screen bg-canvas text-white"
-      /* The bottom bar is fixed, so the page has to reserve its height
-         plus whatever the home indicator takes. */
-      style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+      /*
+        The bottom bar is fixed and mobile-only (md:hidden), so only the
+        mobile shell reserves its height. The reserve used to be an
+        inline style, which applies at every width - so desktop carried
+        88px plus the safe-area inset of dead space at the foot of every
+        page for a bar that is not rendered there. Found in the shell
+        audit, 2026-09-04.
+
+        A CSS variable rather than a media query in JS: the class does
+        the breakpoint, the variable carries the env() the class cannot
+        express.
+      */
+      className="min-h-screen bg-canvas pb-[var(--admin-nav-reserve)] text-white md:pb-0"
+      style={
+        {
+          "--admin-nav-reserve":
+            "calc(5.5rem + env(safe-area-inset-bottom))",
+        } as React.CSSProperties
+      }
     >
       <header
         className="sticky top-0 z-40 border-b border-white/5 bg-canvas/90 backdrop-blur"

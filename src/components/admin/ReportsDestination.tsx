@@ -126,10 +126,19 @@ export default function ReportsDestination({
     a workflow change rather than presentation.
   */
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
-        <h2 className="px-1 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-text-muted">
-          Needs a decision
+        {/*
+          The band label carries a hairline to its right, so the group
+          reads as a band rather than a caption that happens to sit above
+          a card. Visual QA found the two groups were not distinct enough
+          from each other; the separation is the label, not the gap.
+        */}
+        <h2 className="flex items-center gap-3 px-1">
+          <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-zinc-400">
+            Needs a decision
+          </span>
+          <span className="h-px flex-1 bg-white/[0.07]" aria-hidden />
         </h2>
 
         <AccordionSection
@@ -154,13 +163,14 @@ export default function ReportsDestination({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="flex flex-wrap items-baseline gap-x-2 px-1">
-          <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-text-muted">
+        <h2 className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1">
+          <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-zinc-400">
             Standing records
           </span>
           <span className="text-xs text-text-muted">
             nothing here is waiting on you
           </span>
+          <span className="h-px flex-1 bg-white/[0.07]" aria-hidden />
         </h2>
 
         {remindersMeta && (

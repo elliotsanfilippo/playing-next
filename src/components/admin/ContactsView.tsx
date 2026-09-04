@@ -103,12 +103,23 @@ function Identity({ row }: { row: PipelineRow }) {
 }
 
 function StageCell({ row }: { row: PipelineRow }) {
+  /*
+    "Ready, not yet attempted" printed under a badge reading "Ready to
+    activate" says Ready twice and adds nothing the second time. The
+    same suppression as the Overview queue, applied here so one person
+    does not read differently on two screens. Every other blocker says
+    something the stage does not, and is kept.
+  */
+  const blocker = row.contact?.activation_blocker;
+  const restatesStage =
+    blocker === "ready_not_attempted" && row.stage === "ready_to_activate";
+
   return (
     <>
       <Badge tone={stageTone(row.stage)}>{LIFECYCLE_LABELS[row.stage]}</Badge>
-      {row.contact?.activation_blocker && (
+      {blocker && !restatesStage && (
         <p className="mt-1 text-xs text-status-pending">
-          {BLOCKER_LABELS[row.contact.activation_blocker as ActivationBlocker]}
+          {BLOCKER_LABELS[blocker as ActivationBlocker]}
         </p>
       )}
     </>
@@ -459,9 +470,19 @@ export default function ContactsView({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-white/5 font-mono text-[0.62rem] uppercase tracking-[0.11em] text-text-muted">
+                  {/*
+                    Explicit widths on the two narrow columns so Person
+                    absorbs the remainder. Without them the browser split
+                    1158px evenly-ish across three columns and left a
+                    ~200px void between a 160px badge and Last contact -
+                    a gap that only appeared once the two task columns
+                    were hidden. Found in visual QA, 2026-09-04.
+                  */}
                   <th className="px-5 py-3 font-medium">Person</th>
-                  <th className="px-4 py-3 font-medium">Lifecycle</th>
-                  <th className="px-4 py-3 font-medium">Last contact</th>
+                  <th className="w-[15rem] px-4 py-3 font-medium">Lifecycle</th>
+                  <th className="w-[11rem] px-4 py-3 font-medium">
+                    Last contact
+                  </th>
                   {anyOpenTask && (
                     <>
                       <th className="px-4 py-3 font-medium">Next action</th>

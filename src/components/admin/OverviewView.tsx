@@ -208,14 +208,48 @@ export default function OverviewView({
           The bottleneck
         </p>
         <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <span className="font-mono text-5xl font-medium leading-none text-status-pending">
+          <span className="font-mono text-6xl font-medium leading-[0.85] tracking-tight text-status-pending">
             {activatedStep?.count ?? 0}
           </span>
           <h2 className="text-h3">
             of {readyStep?.count ?? 0} ready DJs have taken a paid request
           </h2>
         </div>
-        <p className="mt-2.5 max-w-prose text-sm leading-relaxed text-text-muted">
+
+        {/*
+          The ratio drawn as well as written. Weight without height: one
+          segment per ready DJ, filled when that DJ has activated, so
+          "0 of 5" is legible before the sentence is read. This is the
+          only number on the page where the empty state IS the finding,
+          and a row of five unfilled segments says that faster than a
+          digit does.
+        */}
+        {(readyStep?.count ?? 0) > 0 && (
+          <div
+            /*
+              Capped, and not full-bleed. Stretched across a 1136px card
+              five segments read as a decorative divider rather than a
+              gauge - the same markup was legible on a phone and lost on
+              a desktop. Found in visual QA, 2026-09-04.
+            */
+            className="mt-3.5 flex max-w-[22rem] gap-1.5"
+            role="img"
+            aria-label={`${activatedStep?.count ?? 0} of ${readyStep?.count ?? 0} ready DJs have taken a paid request`}
+          >
+            {Array.from({ length: readyStep?.count ?? 0 }).map((_, i) => (
+              <span
+                key={i}
+                className={`h-2 flex-1 rounded-full ${
+                  i < (activatedStep?.count ?? 0)
+                    ? "bg-status-pending"
+                    : "bg-status-pending/25"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        <p className="mt-3.5 max-w-prose text-sm leading-relaxed text-text-muted">
           Onboarded, payments-ready DJs who have taken a paid request.
           Every technical blocker is cleared. What is missing is a gig.
         </p>
@@ -417,9 +451,22 @@ export default function OverviewView({
                       blocker and the waiting time are one fact about one
                       person - "Waiting on a reply from them" above
                       "7d waiting" was the same sentence broken in half.
+
+                      "Ready, not yet attempted" is dropped when the
+                      badge beside it already reads "Ready to activate".
+                      That row said Ready twice and added nothing the
+                      second time; the elapsed figure is the only part
+                      carrying information. Every other blocker says
+                      something the stage does not, and is kept.
                     */
-                    const status = blocker
-                      ? `${blocker} · ${item.stamp}`
+                    const restatesStage =
+                      item.row.contact?.activation_blocker ===
+                        "ready_not_attempted" &&
+                      item.row.stage === "ready_to_activate";
+
+                    const shown = restatesStage ? null : blocker;
+                    const status = shown
+                      ? `${shown} · ${item.stamp}`
                       : item.stamp;
 
                     return (
@@ -455,7 +502,7 @@ export default function OverviewView({
                             </span>
                             <span
                               className={`mt-1.5 block truncate text-sm md:mt-0 md:self-center ${
-                                blocker ? "text-status-pending" : "text-text-muted"
+                                shown ? "text-status-pending" : "text-text-muted"
                               }`}
                             >
                               {status}
@@ -467,10 +514,19 @@ export default function OverviewView({
                             the row's own full-bleed click target.
                           */}
                           <div className="relative z-10 shrink-0 md:justify-self-end">
+                            {/*
+                              Ghost, not secondary. The person is the
+                              content of this row and Log is the one
+                              thing you can do to them - a filled button
+                              repeated down sixteen rows reads as sixteen
+                              calls to action and out-weighs the names
+                              beside it. The 44px target is unchanged;
+                              only the fill is.
+                            */}
                             <Button
-                              variant="secondary"
+                              variant="ghost"
                               size="sm"
-                              className="min-h-[44px]"
+                              className="min-h-[44px] text-text-muted hover:text-white"
                               onClick={() => onOpen(item.row.key, "log")}
                               disabled={!item.row.contact}
                             >
@@ -550,8 +606,14 @@ export default function OverviewView({
           </p>
           <ol className="space-y-3">
             {funnel.steps.map((step, index) => {
-              const width = Math.max((step.count / maxCount) * 100, 2);
               const zero = step.count === 0;
+              /*
+                A zero draws nothing. The floor used to be 2%, so every
+                zero rendered a short coloured stub that read as "a small
+                amount" - the one reading this figure must never suggest.
+                The empty track and the red numeral already say it.
+              */
+              const width = zero ? 0 : Math.max((step.count / maxCount) * 100, 2);
               return (
                 <li key={step.key}>
                   <div className="flex items-baseline justify-between gap-3">
@@ -570,11 +632,13 @@ export default function OverviewView({
                         </p>
                       )}
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.04]">
-                    <div
-                      className={`h-full rounded-full ${zero ? "bg-status-declined/40" : "bg-white/25"}`}
-                      style={{ width: `${width}%` }}
-                    />
+                  <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
+                    {!zero && (
+                      <div
+                        className="h-full rounded-full bg-white/45"
+                        style={{ width: `${width}%` }}
+                      />
+                    )}
                   </div>
                   <p className="mt-1 text-xs text-text-muted">
                     {step.definition}
