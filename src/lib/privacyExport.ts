@@ -299,10 +299,32 @@ function body(doc: PDFKit.PDFDocument, text: string, colour = INK) {
   doc.fillColor(colour).font("Helvetica").fontSize(10).text(text, { lineGap: 2.5 });
 }
 
+/*
+ * "refunded (refunded)".
+ *
+ * `refunded` is DERIVED from the status - it is `status === "refunded"`
+ * - so printing both was printing one fact twice. The status alone is
+ * the stronger line because it is the thing we actually hold.
+ *
+ * The clause is kept for the case where the two stop being the same
+ * fact. If a partial refund, or a refund recorded separately from the
+ * status, ever exists, this will say so instead of silently dropping
+ * it. Today that branch never fires.
+ */
+function statusText(status: string, refunded: boolean): string {
+  const label = status.replace(/_/g, " ");
+  const shown = label.charAt(0).toUpperCase() + label.slice(1);
+
+  return refunded && status.toLowerCase() !== "refunded" ? `${shown} (refunded)` : shown;
+}
+
 function field(doc: PDFKit.PDFDocument, label: string, value: string) {
   doc.fillColor(MUTED).font("Helvetica").fontSize(8.5).text(label.toUpperCase(), { characterSpacing: 0.6 });
   doc.fillColor(INK).font("Helvetica").fontSize(10.5).text(value, { lineGap: 2 });
-  doc.moveDown(0.45);
+  /* Raised from 0.45 on review: the blocks inside one request were
+     tighter than the gap between records, so the eye grouped them
+     wrongly. Costs roughly a line per record and no page. */
+  doc.moveDown(0.7);
 }
 
 export function renderExportPdf(
@@ -393,7 +415,7 @@ export function renderExportPdf(
         field(doc, "Requested", fmtDate(r.requested_at));
         field(doc, "DJ", r.dj.name ?? r.dj.slug ?? "Unknown");
         field(doc, "Song", [r.song.title, r.song.artist].filter(Boolean).join(" — ") || "Not recorded");
-        field(doc, "Status", r.refunded ? `${r.status} (refunded)` : r.status);
+        field(doc, "Status", statusText(r.status, r.refunded));
         field(
           doc,
           "You paid",
@@ -421,7 +443,7 @@ export function renderExportPdf(
         if (doc.y > 640) doc.addPage();
         field(doc, "Sent", fmtDate(t.sent_at));
         field(doc, "DJ", t.dj.name ?? t.dj.slug ?? "Unknown");
-        field(doc, "Status", t.refunded ? `${t.status} (refunded)` : t.status);
+        field(doc, "Status", statusText(t.status, t.refunded));
         field(doc, "You paid", money(t.payment.total_paid, t.payment.currency) ?? "Not recorded");
         field(doc, "Your message", t.your_message ?? "No message was sent with this tip");
         doc.moveDown(0.4);
@@ -462,8 +484,13 @@ export function renderExportPdf(
         .fillColor(MUTED)
         .font("Helvetica")
         .fontSize(7.5)
+        /* Merged into the line that already exists rather than added
+           below it. A PDF often travels alone - forwarded, printed, or
+           filed without its JSON - and this is the only thing tying it
+           back to the version that made it. One line, so it reads as a
+           document footer and not as diagnostics. */
         .text(
-          `${snapshot.requestReference ?? "Playing Next"}   ·   page ${i - range.start + 1} of ${range.count}`,
+          `${snapshot.requestReference ?? "Playing Next"}   ·   page ${i - range.start + 1} of ${range.count}   ·   Playing Next Privacy Export v${GENERATOR_VERSION}`,
           56,
           doc.page.height - 44,
           { align: "center", width: doc.page.width - 112 }
