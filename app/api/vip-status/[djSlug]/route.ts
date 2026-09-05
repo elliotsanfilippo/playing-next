@@ -63,8 +63,10 @@ export async function GET(
       ]);
 
     if (countError) {
+      console.error("VIP status count failed:", countError.message);
+
       return NextResponse.json(
-        { error: countError.message },
+        { error: "Something went wrong." },
         { status: 500 }
       );
     }
@@ -96,8 +98,10 @@ export async function GET(
     const pendingCountError = livePendingError ?? reservedError;
 
     if (pendingCountError) {
+      console.error("VIP status pending count failed:", pendingCountError.message);
+
       return NextResponse.json(
-        { error: pendingCountError.message },
+        { error: "Something went wrong." },
         { status: 500 }
       );
     }
@@ -107,9 +111,12 @@ export async function GET(
       pendingFull: (pendingCount ?? 0) >= djProfile.max_pending_requests,
     });
   } catch (error) {
+    /* Detail stays server-side. The caller gets a fixed sentence. */
+    console.error("VIP status route error:", error);
+
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Something went wrong.",
       },
       { status: 500 }
     );

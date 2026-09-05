@@ -38,16 +38,21 @@ export async function GET(request: NextRequest) {
       .eq("qr_box_eligible", true);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("QR box availability load failed:", error.message);
+
+      return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
     }
 
     return NextResponse.json({
       available: (count ?? 0) < QR_BOX_LIMIT,
     });
   } catch (error) {
+    /* Detail stays server-side. The caller gets a fixed sentence. */
+    console.error("QR box availability route error:", error);
+
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Something went wrong.",
       },
       { status: 500 }
     );

@@ -60,8 +60,10 @@ export async function GET(
       .order("queue_position", { ascending: true, nullsFirst: false });
 
     if (requestsError) {
+      console.error("Queue requests load failed:", requestsError.message);
+
       return NextResponse.json(
-        { error: requestsError.message },
+        { error: "Something went wrong." },
         { status: 500 }
       );
     }
@@ -94,9 +96,12 @@ export async function GET(
       })),
     });
   } catch (error) {
+    /* Detail stays server-side. The caller gets a fixed sentence. */
+    console.error("Queue route error:", error);
+
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Something went wrong.",
       },
       { status: 500 }
     );

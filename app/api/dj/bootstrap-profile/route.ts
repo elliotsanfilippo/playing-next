@@ -133,8 +133,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, created: true });
   } catch (error) {
+    /* Detail stays server-side. The caller gets a fixed sentence. */
+    console.error("Bootstrap profile route error:", error);
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Something went wrong." },
       { status: 500 }
     );
   }

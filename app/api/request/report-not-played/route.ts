@@ -117,7 +117,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Unable to submit your report right now.",
-        message: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

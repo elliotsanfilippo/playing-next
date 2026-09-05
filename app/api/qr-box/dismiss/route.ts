@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     console.error("QR box dismiss route error:", error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error." },
+      { error: "Something went wrong." },
       { status: 500 }
     );
   }

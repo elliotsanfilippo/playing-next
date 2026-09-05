@@ -514,10 +514,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Stripe checkout failed.",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unknown error.",
       },
       { status: 500 }
     );

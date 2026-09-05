@@ -113,7 +113,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Unable to cancel this request.",
-        message: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

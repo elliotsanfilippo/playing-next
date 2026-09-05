@@ -76,8 +76,10 @@ export async function POST(request: Request) {
       .order("created_at", { ascending: false });
 
     if (error) {
+      console.error("My requests load failed:", error.message);
+
       return NextResponse.json(
-        { error: error.message },
+        { error: "Something went wrong." },
         { status: 500 }
       );
     }
@@ -108,10 +110,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ requests });
   } catch (error) {
+    /* Detail stays server-side. The caller gets a fixed sentence. */
+    console.error("My requests route error:", error);
+
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Unknown error",
+        error: "Something went wrong.",
       },
       { status: 500 }
     );

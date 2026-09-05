@@ -344,8 +344,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Unknown error.",
+        error: "Something went wrong.",
       },
       { status: 500 }
     );
