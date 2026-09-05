@@ -488,6 +488,57 @@ policies unchanged; no migration written; no application code changed.
 
 ---
 
+## 3c. Security hardening, 2026-09-05. F2 and F6 RESOLVED.
+
+Phase 1 of the security workstream. Presentation and configuration
+only; no schema, no workflow, no product change.
+
+**F2 · HTTP security policy. RESOLVED.** Production previously returned
+two headers: HSTS and `x-powered-by`. It now returns a full set defined
+in `next.config.ts`: CSP, `X-Frame-Options: DENY`, `nosniff`,
+`Referrer-Policy`, a restrictive `Permissions-Policy`, COOP and CORP,
+HSTS with `includeSubDomains`, and no `x-powered-by`.
+
+Every CSP origin was taken from a real page load. Two would have been
+missed by reasoning: **`i.scdn.co`**, because Spotify album art is a
+plain `<img>` that only appears once a guest searches, and **`wss://`**
+for Supabase Realtime, which runs on both the DJ dashboard and the
+guest request page. Missing either breaks the core flow silently.
+`*.clarity.ms` is a wildcard because it had to be: three different
+shards were observed (`b.`, `e.`, `f.`).
+
+**GTM no longer executes on the Admin.** `/admin` gets its own policy
+with no analytics origins, so the browser refuses to load the
+container. Verified in Production: `/admin` reports `gtmExecuted:
+false` while the guest page still runs GTM, GA4, Clarity and Sentry
+with zero console errors. This reaches the goal without touching the
+consent-mode ordering contract in `app/layout.tsx`, which is
+documented, measured at 468ms of FCP, and was not worth improvising
+around during a security pass. `/dj/*` deliberately keeps analytics,
+because that funnel is what growth instrumentation is meant to measure.
+
+Two deliberate omissions: **no HSTS `preload`**, which is close to
+irreversible and is Elliot's decision rather than a side effect; and
+**no COEP**, because `require-corp` would break GTM, Clarity and
+Supabase images for no benefit this product can use.
+
+**F6 · Internal error disclosure. RESOLVED.** Eighteen routes returned
+raw driver or exception text to callers, including the unauthenticated
+queue, vip-status, my-requests and request-create paths. They now
+return a fixed sentence. Removing the message initially removed the
+evidence with it, since five catch blocks had no logging of their own,
+so every one now logs before returning. The two Stripe payout routes
+are deliberately excluded: they are authenticated and single-tenant,
+and their messages are usually Stripe's own user-facing copy.
+
+**Still open after this phase:** F1 remains partially mitigated (§3b),
+F3 backups, F4 latent grants, F5 per-instance rate limiting, F7 leaked
+passwords (blocked by plan), F8 DMARC `p=none`, F9 public repository.
+Phase 2 dashboard work is blocked on account access rather than
+engineering.
+
+---
+
 ## 4. Beta readiness
 
 Only things that materially affect safely continuing or expanding the
