@@ -423,6 +423,71 @@ states were not exercised in the QA pass.
 
 ---
 
+## 3b. Security review, 2026-09-05. F1 PARTIALLY MITIGATED.
+
+A release-candidate security review was run against commit `4ff16b4`
+and the live Production system. Its verdict was that Playing Next
+should **not** enter public beta yet, on three items: an unscoped
+storage upload policy (F1), no Content-Security-Policy while Google Tag
+Manager runs on `/admin` (F2), and no database backups (F3).
+
+**F1 is NOT resolved.** A dashboard-only mitigation was applied on
+2026-09-05 to reduce the blast radius while the real fix is built.
+
+**What was wrong.** The `dj-profile-images` bucket was public with
+`file_size_limit = null` and `allowed_mime_types = null`, and its only
+INSERT policy checked the bucket name and nothing about the caller.
+Signup is open, so any free account could write unlimited objects of
+any type and any size into a public bucket. On a Free-tier project that
+is a cost and availability risk against the database a live gig depends
+on.
+
+**Mitigation applied (bucket configuration only).**
+
+    file_size_limit      null  ->  2097152   (2 MiB)
+    allowed_mime_types   null  ->  {image/jpeg}
+    public               true  ->  true       (unchanged)
+
+The numbers came from the data rather than a rule of thumb.
+`src/lib/cropImage.ts` shipped on 2026-08-11 and forces
+`canvas.toBlob(..., "image/jpeg", 0.92)`; the last non-JPEG upload was
+2026-08-10, the day before. Across the ten objects uploaded since, the
+average is 358 KB and the **maximum is 927 KB**, so a 2 MiB ceiling
+carries about 2.2x headroom and a JPEG-only list rejects nothing the
+application can produce.
+
+**What this does and does not do.** It bounds file size and declared
+type. It does **not** bound file count: Supabase has no per-user
+storage quota, so the ceiling is still reachable by volume. And
+`allowed_mime_types` is checked against the *declared* content type,
+which the client supplies, so it is a compatibility and cost control
+rather than a security boundary.
+
+**Remaining work, still outstanding:**
+
+1. An authenticated, rate-limited server-side upload route. This is the
+   actual fix, and it is the only thing that bounds file count and
+   makes the type check trustworthy.
+2. Drop the `{authenticated}` INSERT policy and its duplicate legacy
+   twin (`Give users authenticated access to folder aeme6b_0`) once
+   uploads go through the server, leaving `service_role` as the only
+   writer.
+3. A storage-usage tripwire. There is no monitoring on storage growth,
+   so today abuse would be discovered by the project breaking.
+
+**Accepted for private beta only.** At 15 to 20 known DJs on an
+unpromoted app the residual is acceptable. That acceptance expires the
+moment the product is publicly promoted, which is exactly why F1 blocks
+public beta but not the current one.
+
+**Verified after applying, read-only:** bucket still public; 20 objects
+and 16,485,641 bytes unchanged; the 2 objects over the new limit and
+the 5 of a now-disallowed type all still return HTTP 200 with their
+original bytes, confirming the limits govern writes only; 3 storage
+policies unchanged; no migration written; no application code changed.
+
+---
+
 ## 4. Beta readiness
 
 Only things that materially affect safely continuing or expanding the
@@ -854,6 +919,7 @@ Do not silently turn a roadmap idea into a Pro entitlement.
 | Rate limiting | In-memory per-process |
 | Sentry | ~98 KB on every route, ~1.1s of the critical path. `enableLogs: true` with zero `Sentry.logger` calls anywhere |
 | Three definitions of "a night" | `session_started_at` drives the recap, the browser-local calendar day drives Tonight and Earnings, the active event drives pricing |
+| **Storage uploads are client-side and unscoped** | Security review F1, 2026-09-05, **partially mitigated not resolved**. Bucket now caps at 2 MiB and `image/jpeg` only, which bounds size and type but NOT file count, and the type check reads a client-declared header. Outstanding: an authenticated rate-limited server-side upload route, dropping the two `{authenticated}` INSERT policies afterwards, and a storage-usage tripwire. Blocks public beta; accepted for private beta. See §3b |
 | PN Admin UX backlog | Deferred from the 2026-09-04 sprint, none blocking: an internal account appears in the Worth knowing queue while Growth excludes internal accounts; six rows render a disabled `Log` with no explanation; the drawer empty state teaches a concept in two lines; loading and error states were never exercised in visual QA |
 | Migrations vs Production | Applied by hand: originally in the Supabase SQL editor, now through the Supabase MCP's `execute_sql`. **`apply_migration` is deliberately not used**, decided 2026-09-04. It would begin recording a migration history on top of a chain that is empty for everything before it, and a history that looks authoritative while silently omitting most of the schema is worse than one that is honestly absent. Same reasoning as the row below. This is a deferral: when migration history is adopted, the chain is backfilled whole rather than started midway, and this rule lapses. Until then, write the dated file under `supabase/migrations` anyway, say in its header whether it is applied, verify on Playing Next Test, then apply to Production only on Elliot's explicit approval |
 | **Schema is not reproducible from the repo** | Only 5 of 13 tables have a `create table` in `supabase/migrations`. **Not solved by `test-environment/erasure/schema.test-only.sql`** — those definitions are inferred, incomplete by construction, and must never be promoted into `supabase/migrations`. Inferred definitions presented as history would be worse than the honest absence. `song_requests`, `tips`, `dj_profiles`, `qr_box_orders`, `chargeback_disputes`, `push_subscriptions` and `dj_events` predate the checked-in migrations and exist only in Production. This is what stops a second database being stood up from source, and it is the same reason there is no way to recreate Production if it were lost |
